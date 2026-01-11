@@ -1,102 +1,221 @@
-# NixOS module for Task Manager API
-# Usage: Import this in your configuration.nix
+# NixOS module для Task Manager API
+# Полностью автоматизированный деплой с Git, билдом фронтенда и fail2ban интеграцией
 
-{ config, lib, pkgs, ... }:
-
-with lib;
+{
+  pkgs,
+  lib,
+  helpers,
+  ...
+}:
 
 let
-  cfg = config.services.task-manager;
+  enable = helpers.hasIn "services" "task-manager";
 
+  # ==== НАСТРОЙКИ - ИЗМЕНИТЕ ПОД СЕБЯ ====
+
+  # API ключ - ОБЯЗАТЕЛЬНО ИЗМЕНИТЕ!
+  apiKey = "your-super-secret-api-key-change-me";
+
+  # Git репозиторий
+  gitRepo = "https://github.com/umokee/umtask.git";
+  gitBranch = "claude/task-manager-fastapi-hYjWx";
+
+  # Порты
+  publicPort = 8080;    # Публичный порт приложения
+  backendPort = 8000;   # Backend (внутренний)
+  backendHost = "127.0.0.1";
+
+  # Пути
+  projectPath = "/var/lib/task-manager";
+  secretsDir = "/var/lib/task-manager-secrets";
+  logDir = "/var/log/task-manager";
+  apiKeyFile = "${secretsDir}/api-key";
+  frontendBuildDir = "${projectPath}/frontend/dist";
+
+  # Reverse proxy: "caddy", "nginx" или "none"
+  reverseProxy = "caddy";
+
+  # Fail2ban
+  enableFail2ban = true;
+  fail2banMaxRetry = 2;
+  fail2banFindTime = "1d";
+  fail2banBanTime = "52w";
+
+  # Пользователь
+  user = "task-manager";
+  group = "task-manager";
+
+  # ==== КОНЕЦ НАСТРОЕК ====
+
+  # Python окружение с зависимостями
   pythonEnv = pkgs.python3.withPackages (ps: with ps; [
     fastapi
     uvicorn
     sqlalchemy
     pydantic
+    python-multipart
   ]);
 
+  # Node.js для сборки фронтенда
+  nodeDeps = with pkgs; [ nodejs nodePackages.npm ];
+
 in {
-  options.services.task-manager = {
-    enable = mkEnableOption "Task Manager API service";
-
-    apiKey = mkOption {
-      type = types.str;
-      description = "API key for authentication (use secrets management in production!)";
-      default = "your-secret-key-change-me";
-    };
-
-    host = mkOption {
-      type = types.str;
-      description = "Host to bind to";
-      default = "127.0.0.1";
-    };
-
-    port = mkOption {
-      type = types.int;
-      description = "Port to listen on";
-      default = 8000;
-    };
-
-    dataDir = mkOption {
-      type = types.str;
-      description = "Directory for SQLite database";
-      default = "/var/lib/task-manager";
-    };
-
-    logDir = mkOption {
-      type = types.str;
-      description = "Directory for log files (for fail2ban integration)";
-      default = "/var/log/task-manager";
-    };
-
-    user = mkOption {
-      type = types.str;
-      description = "User account under which task-manager runs";
-      default = "task-manager";
-    };
-
-    group = mkOption {
-      type = types.str;
-      description = "Group under which task-manager runs";
-      default = "task-manager";
-    };
-  };
-
-  config = mkIf cfg.enable {
-    # Create user and group
-    users.users.${cfg.user} = {
+  config = lib.mkIf enable {
+    # Создать пользователя и группу
+    users.users.${user} = {
       isSystemUser = true;
-      group = cfg.group;
+      group = group;
       description = "Task Manager service user";
-      home = cfg.dataDir;
+      home = projectPath;
     };
 
-    users.groups.${cfg.group} = {};
+    users.groups.${group} = {};
 
-    # Create directories
+    # Открыть порты
+    networking.firewall.allowedTCPPorts = [ publicPort ];
+
+    # Создать директории
     systemd.tmpfiles.rules = [
-      "d ${cfg.dataDir} 0750 ${cfg.user} ${cfg.group} -"
-      "d ${cfg.logDir} 0750 ${cfg.user} ${cfg.group} -"
+      "d ${projectPath} 0755 ${user} ${group} -"
+      "d ${secretsDir} 0700 ${user} ${group} -"
+      "d ${logDir} 0750 ${user} ${group} -"
+      "f ${apiKeyFile} 0600 ${user} ${group} -"
     ];
 
-    # Systemd service
-    systemd.services.task-manager = {
-      description = "Task Manager API Service";
-      after = [ "network.target" ];
+    # 1. Синхронизация из Git
+    systemd.services.task-manager-git-sync = {
+      description = "Sync Task Manager from Git";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "systemd-tmpfiles-setup.service" "network-online.target" ];
+      wants = [ "network-online.target" ];
+      requires = [ "systemd-tmpfiles-setup.service" ];
+      path = [ pkgs.git pkgs.coreutils pkgs.bash ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        User = user;
+        Group = group;
+      };
+
+      script = ''
+        set -e
+
+        mkdir -p ${projectPath}
+        chmod 755 ${projectPath}
+
+        if [ -d ${projectPath}/.git ]; then
+          cd ${projectPath}
+          ${pkgs.git}/bin/git fetch origin
+          ${pkgs.git}/bin/git checkout ${gitBranch}
+          ${pkgs.git}/bin/git reset --hard origin/${gitBranch}
+          ${pkgs.git}/bin/git pull origin ${gitBranch}
+        else
+          rm -rf ${projectPath}/*
+          rm -rf ${projectPath}/.* 2>/dev/null || true
+          cd ${projectPath}
+          ${pkgs.git}/bin/git clone -b ${gitBranch} ${gitRepo} .
+        fi
+
+        chmod -R u+w ${projectPath}
+        echo "Git sync completed successfully"
+      '';
+    };
+
+    # 2. Создание API ключа (пользователь задает сам)
+    systemd.services.task-manager-api-key-init = {
+      description = "Initialize API key for Task Manager";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "systemd-tmpfiles-setup.service" ];
+      requires = [ "systemd-tmpfiles-setup.service" ];
+      path = [ pkgs.coreutils ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        User = user;
+        Group = group;
+      };
+
+      script = ''
+        mkdir -p ${secretsDir}
+        chmod 700 ${secretsDir}
+
+        # Записать API ключ из конфигурации
+        echo "TASK_MANAGER_API_KEY=${apiKey}" > ${apiKeyFile}
+        chmod 600 ${apiKeyFile}
+        chown ${user}:${group} ${apiKeyFile}
+        echo "API key initialized"
+      '';
+    };
+
+    # 3. Сборка фронтенда
+    systemd.services.task-manager-frontend-build = {
+      description = "Build Task Manager Frontend";
+      after = [ "task-manager-git-sync.service" ];
+      requires = [ "task-manager-git-sync.service" ];
+      wantedBy = [ "multi-user.target" ];
+      path = nodeDeps ++ [ pkgs.coreutils pkgs.bash ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        User = user;
+        Group = group;
+        WorkingDirectory = "${projectPath}/frontend";
+      };
+
+      script = ''
+        set -e
+
+        if [ ! -d ${projectPath}/frontend ]; then
+          echo "Error: Frontend directory does not exist"
+          exit 1
+        fi
+
+        cd ${projectPath}/frontend
+
+        # Установить зависимости
+        echo "Installing frontend dependencies..."
+        ${pkgs.nodejs}/bin/npm install
+
+        # Собрать фронтенд
+        echo "Building frontend..."
+        ${pkgs.nodejs}/bin/npm run build
+
+        echo "Frontend build completed successfully"
+        ls -la dist/
+      '';
+    };
+
+    # 4. Backend API сервис
+    systemd.services.task-manager-backend = {
+      description = "Task Manager API Backend";
+      after = [
+        "task-manager-git-sync.service"
+        "task-manager-api-key-init.service"
+        "network-online.target"
+      ];
+      wants = [ "network-online.target" ];
+      requires = [
+        "task-manager-git-sync.service"
+        "task-manager-api-key-init.service"
+      ];
       wantedBy = [ "multi-user.target" ];
 
       environment = {
-        TASK_MANAGER_API_KEY = cfg.apiKey;
-        TASK_MANAGER_LOG_DIR = cfg.logDir;
-        PYTHONPATH = "/path/to/your/task-manager/repo";  # UPDATE THIS!
+        TASK_MANAGER_LOG_DIR = logDir;
+        TASK_MANAGER_LOG_FILE = "app.log";
+        PYTHONPATH = projectPath;
       };
 
       serviceConfig = {
         Type = "simple";
-        User = cfg.user;
-        Group = cfg.group;
-        WorkingDirectory = cfg.dataDir;
-        ExecStart = "${pythonEnv}/bin/uvicorn backend.main:app --host ${cfg.host} --port ${toString cfg.port}";
+        User = user;
+        Group = group;
+        WorkingDirectory = projectPath;
+        EnvironmentFile = apiKeyFile;
+        ExecStart = "${pythonEnv}/bin/uvicorn backend.main:app --host ${backendHost} --port ${toString backendPort}";
         Restart = "always";
         RestartSec = "10";
 
@@ -105,12 +224,103 @@ in {
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        ReadWritePaths = [ cfg.logDir cfg.dataDir ];
+        ReadWritePaths = [ logDir projectPath ];
 
-        # Logging to journald (для fail2ban с backend=systemd)
+        # Logging
         StandardOutput = "journal";
         StandardError = "journal";
-        SyslogIdentifier = "task-manager";
+        SyslogIdentifier = "task-manager-backend";
+      };
+
+      preStart = ''
+        if [ ! -d ${projectPath} ]; then
+          echo "Error: ${projectPath} does not exist"
+          exit 1
+        fi
+
+        if [ ! -f ${apiKeyFile} ]; then
+          echo "Error: API key file does not exist"
+          exit 1
+        fi
+      '';
+    };
+
+    # 5. Reverse Proxy (Caddy)
+    services.caddy = lib.mkIf (reverseProxy == "caddy") {
+      enable = true;
+
+      virtualHosts.":${toString publicPort}" = {
+        extraConfig = ''
+          # API endpoints
+          handle /api/* {
+            reverse_proxy ${backendHost}:${toString backendPort}
+          }
+
+          # Health check
+          handle / {
+            reverse_proxy ${backendHost}:${toString backendPort}
+          }
+
+          # Frontend static files
+          handle {
+            root * ${frontendBuildDir}
+            try_files {path} /index.html
+            file_server
+          }
+        '';
+      };
+    };
+
+    # 5. Reverse Proxy (Nginx альтернатива)
+    services.nginx = lib.mkIf (reverseProxy == "nginx") {
+      enable = true;
+
+      virtualHosts."localhost" = {
+        listen = [{ addr = "0.0.0.0"; port = publicPort; }];
+
+        locations."/api/" = {
+          proxyPass = "http://${backendHost}:${toString backendPort}";
+          extraConfig = ''
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+          '';
+        };
+
+        locations."/" = {
+          root = frontendBuildDir;
+          tryFiles = "$uri $uri/ /index.html";
+          extraConfig = ''
+            add_header Cache-Control "public, max-age=3600";
+          '';
+        };
+      };
+    };
+
+    # 6. Fail2ban интеграция
+    environment.etc."fail2ban/filter.d/task-manager-api.conf" = lib.mkIf enableFail2ban {
+      text = ''
+        [Definition]
+        failregex = ^.*Invalid API key attempt from <HOST>.*$
+        ignoreregex =
+      '';
+    };
+
+    services.fail2ban = lib.mkIf enableFail2ban {
+      enable = true;
+
+      jails.task-manager-api = {
+        settings = {
+          enabled = true;
+          filter = "task-manager-api";
+          logpath = "${logDir}/app.log";
+          backend = "auto";
+          action = "iptables-allports";
+          maxretry = fail2banMaxRetry;
+          findtime = fail2banFindTime;
+          bantime = fail2banBanTime;
+        };
       };
     };
   };
