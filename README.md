@@ -135,6 +135,87 @@ export TASK_MANAGER_API_KEY="ваш-секретный-ключ"
 
 По умолчанию используется SQLite база `tasks.db` в корне проекта.
 
+### Логирование
+
+Логи сохраняются в `/var/log/task-manager/app.log` (если есть права) или в `./logs/app.log`.
+
+Для изменения расположения логов:
+
+```bash
+export TASK_MANAGER_LOG_DIR="/путь/к/логам"
+export TASK_MANAGER_LOG_FILE="app.log"
+```
+
+## 🔒 Защита с Fail2ban
+
+Task Manager автоматически логирует все неудачные попытки аутентификации с API ключом, включая IP адрес.
+
+После 2 неудачных попыток IP может быть автоматически заблокирован на 52 недели (или больше).
+
+### Формат лога
+
+```
+2026-01-11 12:34:56 - task_manager.auth - WARNING - Invalid API key attempt from 192.168.1.100
+```
+
+### NixOS конфигурация
+
+См. подробную документацию в [`deployment/FAIL2BAN.md`](deployment/FAIL2BAN.md)
+
+Краткая версия:
+
+```nix
+environment.etc."fail2ban/filter.d/task-manager-api.conf".text = ''
+  [Definition]
+  failregex = ^.*Invalid API key attempt from <HOST>.*$
+  ignoreregex =
+'';
+
+services.fail2ban.jails.task-manager-api = {
+  settings = {
+    enabled = true;
+    filter = "task-manager-api";
+    logpath = "/var/log/task-manager/app.log";
+    action = "iptables-allports";
+    maxretry = 2;
+    findtime = "1d";
+    bantime = "52w";
+  };
+};
+```
+
+### Проверка защиты
+
+```bash
+# Проверить фильтр
+fail2ban-regex /var/log/task-manager/app.log /etc/fail2ban/filter.d/task-manager-api.conf
+
+# Статус
+fail2ban-client status task-manager-api
+
+# Разбанить IP (если случайно забанили себя)
+fail2ban-client set task-manager-api unbanip YOUR_IP
+```
+
+## Production Deployment
+
+### NixOS
+
+См. пример модуля в [`deployment/nixos-module.nix`](deployment/nixos-module.nix)
+
+```nix
+services.task-manager = {
+  enable = true;
+  apiKey = "your-super-secret-key";
+  host = "127.0.0.1";
+  port = 8000;
+};
+```
+
+### Systemd (другие дистрибутивы)
+
+См. пример сервиса в [`deployment/systemd-service.example`](deployment/systemd-service.example)
+
 ## Алгоритм "Roll" (генерация плана)
 
 1. Удаляет просроченные привычки

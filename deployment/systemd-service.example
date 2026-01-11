@@ -1,0 +1,33 @@
+# Example systemd service for Task Manager API
+# For manual deployment (non-NixOS)
+
+[Unit]
+Description=Task Manager API Service
+After=network.target
+
+[Service]
+Type=simple
+User=taskmanager
+Group=taskmanager
+WorkingDirectory=/opt/task-manager
+Environment="TASK_MANAGER_API_KEY=your-secret-key-here"
+Environment="TASK_MANAGER_LOG_DIR=/var/log/task-manager"
+Environment="PYTHONPATH=/opt/task-manager"
+ExecStart=/usr/bin/python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/task-manager /opt/task-manager/data
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=task-manager
+
+[Install]
+WantedBy=multi-user.target

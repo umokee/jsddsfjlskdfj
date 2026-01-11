@@ -2,12 +2,41 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import logging
+import os
+from pathlib import Path
 
 from backend.database import engine, get_db, Base
 from backend.models import Task
 from backend.schemas import TaskCreate, TaskUpdate, TaskResponse, StatsResponse
 from backend.auth import verify_api_key
 from backend import crud
+
+# Configure logging for fail2ban integration
+LOG_DIR = os.getenv("TASK_MANAGER_LOG_DIR", "/var/log/task-manager")
+LOG_FILE = os.getenv("TASK_MANAGER_LOG_FILE", "app.log")
+
+# Create log directory if it doesn't exist (for development)
+try:
+    Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
+    log_path = Path(LOG_DIR) / LOG_FILE
+except PermissionError:
+    # Fallback to local directory if no permissions for /var/log
+    LOG_DIR = "./logs"
+    Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
+    log_path = Path(LOG_DIR) / LOG_FILE
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_path),
+        logging.StreamHandler()  # Also log to console
+    ]
+)
+
+logger = logging.getLogger("task_manager")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -26,6 +55,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    logger.info(f"Task Manager API started. Logging to: {log_path}")
 
 # Health check (no auth required)
 @app.get("/")
