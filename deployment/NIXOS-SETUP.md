@@ -2,10 +2,12 @@
 
 Полностью автоматизированный модуль для деплоя Task Manager на NixOS.
 
+**Стиль модуля:** Все настройки через `let in`, без `options`, включается автоматически при импорте.
+
 ## Что делает модуль автоматически
 
 1. ✅ Клонирует репозиторий из Git
-2. ✅ Генерирует случайный API ключ (если его нет)
+2. ✅ Записывает ваш API ключ в секретный файл
 3. ✅ Собирает React фронтенд (npm install + npm run build)
 4. ✅ Запускает FastAPI backend через systemd
 5. ✅ Настраивает reverse proxy (Caddy или Nginx)
@@ -14,168 +16,252 @@
 8. ✅ Создает пользователя и группу
 9. ✅ Настраивает логирование
 
-## Минимальная конфигурация
+## Установка
 
-Добавьте в ваш `configuration.nix`:
+### Шаг 1: Скопировать модуль
+
+```bash
+# Вариант 1: Скопировать из клонированного репо
+cp /path/to/umtask/deployment/nixos-module.nix /etc/nixos/modules/task-manager.nix
+
+# Вариант 2: Скачать напрямую
+curl -o /etc/nixos/modules/task-manager.nix \
+  https://raw.githubusercontent.com/umokee/umtask/claude/task-manager-fastapi-hYjWx/deployment/nixos-module.nix
+```
+
+### Шаг 2: Настроить модуль
+
+Откройте `/etc/nixos/modules/task-manager.nix` и измените настройки в блоке `let`:
 
 ```nix
-{ config, pkgs, ... }:
+let
+  enable = helpers.hasIn "services" "task-manager";
+
+  # ==== НАСТРОЙКИ - ИЗМЕНИТЕ ПОД СЕБЯ ====
+
+  # API ключ - ОБЯЗАТЕЛЬНО ИЗМЕНИТЕ!
+  apiKey = "ваш-супер-секретный-api-ключ-здесь";
+
+  # Git репозиторий (если форкнули, измените на свой)
+  gitRepo = "https://github.com/umokee/umtask.git";
+  gitBranch = "claude/task-manager-fastapi-hYjWx";
+
+  # Порты
+  publicPort = 8080;      # Публичный порт (где будет доступно приложение)
+  backendPort = 8000;     # Backend (внутренний, не нужно менять)
+  backendHost = "127.0.0.1";
+
+  # Пути (обычно не нужно менять)
+  projectPath = "/var/lib/task-manager";
+  secretsDir = "/var/lib/task-manager-secrets";
+  logDir = "/var/log/task-manager";
+  apiKeyFile = "${secretsDir}/api-key";
+  frontendBuildDir = "${projectPath}/frontend/dist";
+
+  # Reverse proxy: "caddy", "nginx" или "none"
+  reverseProxy = "caddy";
+
+  # Fail2ban
+  enableFail2ban = true;
+  fail2banMaxRetry = 2;
+  fail2banFindTime = "1d";
+  fail2banBanTime = "52w";
+
+  # Пользователь (обычно не нужно менять)
+  user = "task-manager";
+  group = "task-manager";
+
+  # ==== КОНЕЦ НАСТРОЕК ====
+```
+
+**ВАЖНО:** Обязательно измените `apiKey` на свой секретный ключ!
+
+### Шаг 3: Импортировать в configuration.nix
+
+```nix
+{
+  pkgs,
+  lib,
+  helpers,  # Убедитесь что helpers доступны
+  ...
+}:
 
 {
-  # Импортировать модуль
   imports = [
-    /путь/к/umtask/deployment/nixos-module.nix
+    # Ваши существующие импорты...
+    ./hardware-configuration.nix
+    # ...
+
+    # Импорт Task Manager
+    ./modules/task-manager.nix
   ];
 
-  # Включить Task Manager
-  services.task-manager = {
-    enable = true;
+  # Активировать модуль
+  services = {
+    # ... ваши существующие сервисы ...
+    task-manager = {};  # Просто добавить пустой атрибут
   };
 }
 ```
 
-**ВСЁ!** После `nixos-rebuild switch` приложение будет доступно на `http://your-server:8080`
+**Модуль автоматически активируется** когда находит `task-manager` в списке сервисов через `helpers.hasIn`.
 
-## Полная конфигурация с настройками
+### Шаг 4: Применить конфигурацию
 
-```nix
-{ config, pkgs, ... }:
-
-{
-  imports = [
-    /путь/к/umtask/deployment/nixos-module.nix
-  ];
-
-  services.task-manager = {
-    enable = true;
-
-    # Git настройки
-    gitRepo = "https://github.com/umokee/umtask.git";
-    gitBranch = "claude/task-manager-fastapi-hYjWx";
-
-    # Порты
-    publicPort = 8080;      # Публичный порт (фронтенд + API)
-    port = 8000;            # Backend (внутренний)
-    host = "127.0.0.1";     # Backend слушает только локально
-
-    # Пути
-    dataDir = "/var/lib/task-manager";          # Код и БД
-    secretsDir = "/var/lib/task-manager-secrets";  # API ключ
-    logDir = "/var/log/task-manager";           # Логи
-
-    # Reverse proxy (caddy, nginx, или none)
-    reverseProxy = "caddy";
-
-    # Fail2ban защита
-    enableFail2ban = true;
-    fail2banMaxRetry = 2;     # Попыток до бана
-    fail2banFindTime = "1d";   # За какой период
-    fail2banBanTime = "52w";   # Длительность бана
-
-    # Пользователь
-    user = "task-manager";
-    group = "task-manager";
-  };
-}
+```bash
+sudo nixos-rebuild switch
 ```
 
-## Что нужно изменить для вашей установки
+Модуль автоматически:
+1. Создаст пользователя `task-manager`
+2. Склонирует репозиторий в `/var/lib/task-manager`
+3. Запишет API ключ в `/var/lib/task-manager-secrets/api-key`
+4. Соберет фронтенд
+5. Запустит backend
+6. Настроит Caddy/Nginx
+7. Включит fail2ban защиту
 
-### 1. Путь к модулю
+### Шаг 5: Готово!
 
-**Найти:** Путь где у вас лежит репозиторий umtask
+Откройте браузер: `http://your-server:8080`
 
-**Способ 1 - Локальный путь:**
+Введите API ключ который указали в модуле.
+
+## Структура модуля
+
+Модуль создает 4 systemd сервиса:
+
+1. **task-manager-git-sync** - клонирование/обновление кода из Git
+2. **task-manager-api-key-init** - запись API ключа в файл
+3. **task-manager-frontend-build** - сборка React фронтенда
+4. **task-manager-backend** - FastAPI backend
+
+## Настройки модуля
+
+Все настройки в блоке `let` в начале модуля:
+
+### API ключ (ОБЯЗАТЕЛЬНО)
+
 ```nix
-imports = [
-  /home/username/umtask/deployment/nixos-module.nix
-];
+apiKey = "your-super-secret-api-key-change-me";
 ```
 
-**Способ 2 - Через fetchGit (рекомендуется):**
-```nix
-imports = [
-  (builtins.fetchGit {
-    url = "https://github.com/umokee/umtask.git";
-    ref = "claude/task-manager-fastapi-hYjWx";
-  } + "/deployment/nixos-module.nix")
-];
+**ВАЖНО:** Это ваш единственный способ аутентификации. Выберите надежный ключ!
+
+Примеры генерации случайного ключа:
+```bash
+# 32-байтный base64
+openssl rand -base64 32
+
+# UUID
+uuidgen
+
+# 64 hex символа
+openssl rand -hex 32
 ```
 
-### 2. Git репозиторий и ветка (если форкнули)
+### Git настройки
 
-По умолчанию:
 ```nix
 gitRepo = "https://github.com/umokee/umtask.git";
 gitBranch = "claude/task-manager-fastapi-hYjWx";
 ```
 
-Если ваш форк:
+Если форкнули репозиторий, измените на свой.
+
+### Порты
+
 ```nix
-gitRepo = "https://github.com/YOUR_USERNAME/umtask.git";
-gitBranch = "main";  # или ваша ветка
+publicPort = 8080;      # Публичный порт приложения
+backendPort = 8000;     # Backend (обычно не нужно менять)
+backendHost = "127.0.0.1";
 ```
 
-### 3. Публичный порт
+`publicPort` - где будет доступно приложение извне.
 
-По умолчанию `8080`. Если нужен другой:
+### Пути
+
 ```nix
-publicPort = 3000;  # или любой другой
+projectPath = "/var/lib/task-manager";          # Код и БД
+secretsDir = "/var/lib/task-manager-secrets";   # API ключ
+logDir = "/var/log/task-manager";               # Логи
 ```
 
-### 4. Reverse Proxy
+Обычно не нужно менять.
 
-Выберите `caddy`, `nginx` или `none`:
+### Reverse Proxy
+
 ```nix
-reverseProxy = "caddy";  # Рекомендуется Caddy (проще)
-# reverseProxy = "nginx";  # Или Nginx
-# reverseProxy = "none";   # Без прокси (только backend на :8000)
+reverseProxy = "caddy";  # "caddy", "nginx" или "none"
 ```
 
-## Как узнать сгенерированный API ключ
+- **"caddy"** - Рекомендуется. Автоматически настраивает Caddy.
+- **"nginx"** - Если предпочитаете Nginx.
+- **"none"** - Без прокси. Backend будет слушать на `backendHost:backendPort` напрямую.
 
-После деплоя API ключ хранится в:
-```
-/var/lib/task-manager-secrets/api-key
-```
+### Fail2ban
 
-Прочитать его:
-```bash
-sudo cat /var/lib/task-manager-secrets/api-key
-```
-
-Вывод будет:
-```
-TASK_MANAGER_API_KEY=ваш_случайный_ключ_здесь
+```nix
+enableFail2ban = true;
+fail2banMaxRetry = 2;       # Попыток до бана
+fail2banFindTime = "1d";    # За какой период
+fail2banBanTime = "52w";    # Длительность бана (52 недели = год)
 ```
 
-**Скопируйте ключ** и используйте его в веб-интерфейсе или API запросах.
+Если у вас уже настроен fail2ban, установите `enableFail2ban = false` и добавьте вручную (см. ниже).
 
-## Структура сервисов
+## Проверка работы
 
-После деплоя у вас будут 4 systemd сервиса:
+### Статус сервисов
 
-1. **task-manager-git-sync.service** - синхронизация кода из Git
-2. **task-manager-api-key-init.service** - генерация API ключа
-3. **task-manager-frontend-build.service** - сборка фронтенда
-4. **task-manager-backend.service** - основной backend сервис
-
-Проверка статуса:
 ```bash
 systemctl status task-manager-backend
 systemctl status task-manager-frontend-build
 systemctl status task-manager-git-sync
+systemctl status task-manager-api-key-init
 ```
 
-Логи:
+### Логи
+
 ```bash
+# Backend (real-time)
 journalctl -u task-manager-backend -f
+
+# Frontend build
 journalctl -u task-manager-frontend-build
+
+# Git sync
+journalctl -u task-manager-git-sync
+
+# Все сервисы task-manager
+journalctl -u 'task-manager-*' -f
 ```
 
-## Обновление приложения
+### Тест API
 
-Просто перезапустите git-sync сервис:
+```bash
+# Health check (без аутентификации)
+curl http://localhost:8080/
+
+# С аутентификацией
+curl -H "X-API-Key: ваш-api-ключ" http://localhost:8080/api/stats
+```
+
+### Проверить API ключ
+
+```bash
+sudo cat /var/lib/task-manager-secrets/api-key
+```
+
+Вывод:
+```
+TASK_MANAGER_API_KEY=ваш-ключ-здесь
+```
+
+## Обновление
+
+### Обновить код из Git
+
 ```bash
 sudo systemctl restart task-manager-git-sync
 sudo systemctl restart task-manager-frontend-build
@@ -183,56 +269,68 @@ sudo systemctl restart task-manager-backend
 ```
 
 Или все сразу:
+
 ```bash
 sudo systemctl restart task-manager-*
 ```
 
-## Интеграция с вашим существующим fail2ban
+### Изменить API ключ
 
-Если у вас уже настроен fail2ban (как в вашем примере), добавьте:
+1. Изменить `apiKey` в модуле
+2. Пересобрать:
+   ```bash
+   sudo nixos-rebuild switch
+   ```
+3. Перезапустить:
+   ```bash
+   sudo systemctl restart task-manager-api-key-init
+   sudo systemctl restart task-manager-backend
+   ```
+
+### Изменить порт
+
+1. Изменить `publicPort` в модуле
+2. Пересобрать:
+   ```bash
+   sudo nixos-rebuild switch
+   ```
+
+Порт в firewall обновится автоматически.
+
+## Интеграция с существующим fail2ban
+
+Если у вас уже настроен fail2ban, в модуле установите:
 
 ```nix
-services.task-manager = {
-  enable = true;
-  enableFail2ban = false;  # Отключить автоматическую интеграцию
-  # ... остальные настройки
-};
+enableFail2ban = false;
+```
 
-# Ваш существующий fail2ban
-services.fail2ban = {
-  enable = true;
+И добавьте в ваш fail2ban конфиг:
 
-  # ... ваши настройки ...
-
-  jails = {
-    # ... ваши существующие jails ...
-
-    # Добавить Task Manager
-    task-manager-api = {
-      settings = {
-        enabled = true;
-        filter = "task-manager-api";
-        logpath = "/var/log/task-manager/app.log";
-        action = "iptables-allports";
-        maxretry = 2;
-        findtime = "1d";
-        bantime = "52w";
-      };
-    };
-  };
-};
-
-# Фильтр для fail2ban
+```nix
+# В вашем модуле или configuration.nix
 environment.etc."fail2ban/filter.d/task-manager-api.conf".text = ''
   [Definition]
   failregex = ^.*Invalid API key attempt from <HOST>.*$
   ignoreregex =
 '';
+
+services.fail2ban.jails.task-manager-api = {
+  settings = {
+    enabled = true;
+    filter = "task-manager-api";
+    logpath = "/var/log/task-manager/app.log";
+    action = "iptables-allports";
+    maxretry = 2;
+    findtime = "1d";
+    bantime = "52w";
+  };
+};
 ```
 
-## Пример использования в вашем стиле
+## Пример в стиле вашего cassettes
 
-Основываясь на вашем примере с `cassettes-site`, вот аналогичная конфигурация:
+По аналогии с вашим модулем `cassettes-site`:
 
 ```nix
 {
@@ -245,130 +343,133 @@ environment.etc."fail2ban/filter.d/task-manager-api.conf".text = ''
 
 let
   enable = helpers.hasIn "services" "task-manager";
+
+  # Настройки
+  apiKey = "my-secret-api-key";
+  publicPort = 8080;
+  reverseProxy = "caddy";
+  enableFail2ban = false;  # Используем ваш существующий fail2ban
+
+  # ... остальные переменные из модуля ...
 in
 {
-  imports = [
-    (builtins.fetchGit {
-      url = "https://github.com/umokee/umtask.git";
-      ref = "claude/task-manager-fastapi-hYjWx";
-    } + "/deployment/nixos-module.nix")
-  ];
-
   config = lib.mkIf enable {
-    services.task-manager = {
-      enable = true;
-      publicPort = 8080;
-      reverseProxy = "caddy";
-      enableFail2ban = false;  # Используем ваш существующий fail2ban
-    };
-
-    # Добавить в ваш существующий fail2ban
-    environment.etc."fail2ban/filter.d/task-manager-api.conf".text = ''
-      [Definition]
-      failregex = ^.*Invalid API key attempt from <HOST>.*$
-      ignoreregex =
-    '';
-
-    services.fail2ban.jails.task-manager-api = {
-      settings = {
-        enabled = true;
-        filter = "task-manager-api";
-        logpath = "/var/log/task-manager/app.log";
-        action = "iptables-allports";
-        maxretry = 2;
-        findtime = "1d";
-        bantime = "52w";
-      };
-    };
+    # ... вся конфигурация из модуля ...
   };
 }
 ```
 
-## Проверка работы
+И в вашем основном конфиге:
 
-### 1. Приложение доступно
-```bash
-curl http://localhost:8080/
-# Должно вернуть: {"message":"Task Manager API","status":"active"}
-```
-
-### 2. API работает (с ключом)
-```bash
-API_KEY=$(sudo cat /var/lib/task-manager-secrets/api-key | cut -d= -f2)
-curl -H "X-API-Key: $API_KEY" http://localhost:8080/api/stats
-```
-
-### 3. Фронтенд собран
-```bash
-ls -la /var/lib/task-manager/frontend/dist/
-```
-
-### 4. Fail2ban активен
-```bash
-fail2ban-client status task-manager-api
-```
-
-## Troubleshooting
-
-### Frontend не собирается
-Проверьте логи:
-```bash
-journalctl -u task-manager-frontend-build -n 50
-```
-
-### Backend не запускается
-Проверьте:
-```bash
-journalctl -u task-manager-backend -n 50
-```
-
-### API ключ не найден
-Регенерировать:
-```bash
-sudo rm /var/lib/task-manager-secrets/api-key
-sudo systemctl restart task-manager-api-key-init
-sudo cat /var/lib/task-manager-secrets/api-key
-```
-
-### Git sync не работает
-```bash
-journalctl -u task-manager-git-sync -n 50
+```nix
+services = {
+  cassettes-site = {};
+  task-manager = {};  # Просто добавить
+};
 ```
 
 ## Безопасность
 
-1. **API ключ:** Автоматически генерируется случайный 32-байтный ключ
-2. **Fail2ban:** Бан после 2 неудачных попыток
-3. **Firewall:** Открыт только publicPort
-4. **Пользователь:** Приложение работает от непривилегированного пользователя
-5. **Права:** Секреты с правами 0600, логи 0750
-6. **Security hardening:** NoNewPrivileges, PrivateTmp, ProtectSystem
+### API ключ в коде
+
+⚠️ **Внимание:** API ключ хранится в Nix конфигурации в открытом виде.
+
+Для production рекомендуется использовать:
+- `sops-nix` для шифрования секретов
+- `agenix` для управления секретами
+- Переменные окружения из защищенных файлов
+
+Пример с переменной окружения:
+
+```nix
+# Вместо:
+apiKey = "my-key";
+
+# Использовать:
+apiKey = builtins.getEnv "TASK_MANAGER_API_KEY";
+```
+
+И установить переменную перед сборкой:
+```bash
+export TASK_MANAGER_API_KEY="your-key"
+sudo -E nixos-rebuild switch
+```
+
+### Права доступа
+
+Модуль автоматически устанавливает безопасные права:
+- API ключ: `0600` (только владелец)
+- Секретная директория: `0700`
+- Логи: `0750`
+- Пользователь: непривилегированный `task-manager`
+
+### Fail2ban защита
+
+После 2 неудачных попыток аутентификации IP банится на 52 недели.
+
+Формат лога:
+```
+2026-01-11 12:34:56 - task_manager.auth - WARNING - Invalid API key attempt from 192.168.1.100
+```
+
+## Troubleshooting
+
+### Модуль не активируется
+
+Убедитесь что:
+1. `helpers` доступны в конфигурации
+2. `task-manager = {}` добавлен в `services`
+3. Модуль импортирован в `imports`
+
+### Backend не запускается
+
+```bash
+# Проверить логи
+journalctl -u task-manager-backend -n 50
+
+# Проверить API ключ
+sudo cat /var/lib/task-manager-secrets/api-key
+
+# Проверить код склонирован
+ls -la /var/lib/task-manager/
+```
+
+### Frontend не собирается
+
+```bash
+# Логи сборки
+journalctl -u task-manager-frontend-build -n 100
+
+# Проверить Node.js доступен
+which node npm
+```
+
+### Порт занят
+
+Изменить `publicPort` в модуле на свободный порт.
+
+### Git sync не работает
+
+```bash
+# Логи
+journalctl -u task-manager-git-sync -n 50
+
+# Проверить доступ к репо
+git ls-remote https://github.com/umokee/umtask.git
+```
 
 ## Дополнительно
 
-### Сменить API ключ на кастомный
+### HTTPS с Caddy
 
-Если хотите свой ключ вместо случайного:
+Измените в модуле:
 
-```bash
-# Остановить backend
-sudo systemctl stop task-manager-backend
-
-# Установить свой ключ
-echo "TASK_MANAGER_API_KEY=my-super-secret-key" | \
-  sudo tee /var/lib/task-manager-secrets/api-key
-
-# Выставить права
-sudo chmod 600 /var/lib/task-manager-secrets/api-key
-sudo chown task-manager:task-manager /var/lib/task-manager-secrets/api-key
-
-# Запустить backend
-sudo systemctl start task-manager-backend
+```nix
+# Вместо порта, используйте домен
+publicPort = 443;  # или оставьте как есть
 ```
 
-### Использовать HTTPS
-
-Рекомендуется добавить Caddy с автоматическими сертификатами:
+И добавьте в конфиг:
 
 ```nix
 services.caddy.virtualHosts."tasks.yourdomain.com" = {
@@ -378,4 +479,39 @@ services.caddy.virtualHosts."tasks.yourdomain.com" = {
 };
 ```
 
-Или настроить Nginx с Let's Encrypt.
+Caddy автоматически получит Let's Encrypt сертификат.
+
+### Кастомный домен с Nginx
+
+В модуле:
+```nix
+reverseProxy = "nginx";
+```
+
+И настройте виртуальный хост как нужно.
+
+### Отключить reverse proxy
+
+В модуле:
+```nix
+reverseProxy = "none";
+```
+
+Backend будет доступен напрямую на `http://127.0.0.1:8000`.
+
+## Полная схема
+
+```
+Internet → Firewall:8080 → Caddy:8080 → Backend:8000
+                                       ↓
+                                Frontend:dist/
+```
+
+С fail2ban:
+```
+Invalid API Key → Log → Fail2ban → iptables BAN
+```
+
+## Лицензия
+
+MIT
