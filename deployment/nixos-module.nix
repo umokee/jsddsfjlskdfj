@@ -256,12 +256,7 @@ in {
             reverse_proxy ${backendHost}:${toString backendPort}
           }
 
-          # Health check
-          handle / {
-            reverse_proxy ${backendHost}:${toString backendPort}
-          }
-
-          # Frontend static files
+          # Frontend static files (всё остальное)
           handle {
             root * ${frontendBuildDir}
             try_files {path} /index.html
