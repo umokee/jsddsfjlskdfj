@@ -2,6 +2,10 @@
 
 Минималистичный task manager с FastAPI backend и React frontend.
 
+## 🚀 Быстрый старт для NixOS
+
+Полностью автоматизированный деплой на NixOS - см. **[QUICKSTART-NIXOS.md](QUICKSTART-NIXOS.md)**
+
 ## Особенности
 
 - **Приоритеты**: 0-10 (числовая шкала)
@@ -199,17 +203,41 @@ fail2ban-client set task-manager-api unbanip YOUR_IP
 
 ## Production Deployment
 
-### NixOS
+### NixOS (Полностью автоматизированный деплой) 🚀
 
-См. пример модуля в [`deployment/nixos-module.nix`](deployment/nixos-module.nix)
+**Рекомендуется!** Полностью автоматический деплой с Git, сборкой фронтенда, fail2ban и reverse proxy.
 
+См. подробную документацию: [`deployment/NIXOS-SETUP.md`](deployment/NIXOS-SETUP.md)
+
+**Минимальная конфигурация:**
 ```nix
-services.task-manager = {
-  enable = true;
-  apiKey = "your-super-secret-key";
-  host = "127.0.0.1";
-  port = 8000;
-};
+{ config, pkgs, ... }:
+{
+  imports = [
+    /путь/к/umtask/deployment/nixos-module.nix
+  ];
+
+  services.task-manager = {
+    enable = true;
+  };
+}
+```
+
+**Что делает автоматически:**
+- ✅ Клонирует репозиторий из Git
+- ✅ Генерирует случайный API ключ
+- ✅ Собирает React фронтенд (npm install + build)
+- ✅ Запускает FastAPI backend
+- ✅ Настраивает Caddy/Nginx reverse proxy
+- ✅ Интегрирует fail2ban защиту
+- ✅ Создает systemd сервисы
+- ✅ Открывает порты в firewall
+
+После `nixos-rebuild switch` → приложение доступно на `http://server:8080`
+
+**Получить API ключ:**
+```bash
+sudo cat /var/lib/task-manager-secrets/api-key
 ```
 
 ### Systemd (другие дистрибутивы)
