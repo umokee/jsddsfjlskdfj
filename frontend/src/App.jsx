@@ -226,7 +226,11 @@ function App() {
             <span>Energy: {currentTask.energy}/5</span>
           </div>
           <div className="current-task-actions">
-            <button className="btn" onClick={handleStop}>Stop</button>
+            {currentTask.status === 'active' ? (
+              <button className="btn" onClick={handleStop}>Stop</button>
+            ) : (
+              <button className="btn btn-primary" onClick={() => handleStart(currentTask.id)}>Start</button>
+            )}
             <button className="btn btn-primary" onClick={() => handleComplete()}>Complete</button>
           </div>
         </div>
@@ -300,6 +304,7 @@ function App() {
             onComplete={handleComplete}
             onDelete={handleDeleteTask}
             onEdit={handleEditTask}
+            showAll={true}
           />
         </div>
 
@@ -313,6 +318,7 @@ function App() {
             onComplete={handleComplete}
             onDelete={handleDeleteTask}
             onEdit={handleEditTask}
+            showAll={true}
           />
         </div>
       </div>
