@@ -109,14 +109,22 @@ function TaskForm({ onSubmit, onCancel }) {
       </div>
 
       <div className="form-group">
-        <label className="form-label">Due Date</label>
+        <label className="form-label">Due Date & Time</label>
         <input
           className="form-input"
           type="datetime-local"
           name="due_date"
           value={formData.due_date}
           onChange={handleChange}
+          style={{
+            fontSize: '0.9rem',
+            padding: '0.75rem',
+            cursor: 'pointer'
+          }}
         />
+        <small style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+          Click the calendar icon to select date and time
+        </small>
       </div>
 
       <div className="checkbox-group">

@@ -170,10 +170,16 @@ def start_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     return db_task
 
 def stop_task(db: Session) -> bool:
-    """Stop active task"""
+    """Stop active task and save elapsed time"""
     active_task = get_active_task(db)
     if active_task:
+        # Calculate elapsed time and add to time_spent
+        if active_task.started_at:
+            elapsed = (datetime.utcnow() - active_task.started_at).total_seconds()
+            active_task.time_spent = (active_task.time_spent or 0) + int(elapsed)
+
         active_task.status = "pending"
+        active_task.started_at = None  # Clear started_at when stopping
         db.commit()
         return True
     return False
@@ -224,6 +230,11 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     completion_date = datetime.utcnow()
     db_task.status = "completed"
     db_task.completed_at = completion_date
+
+    # Calculate elapsed time and add to time_spent
+    if db_task.started_at:
+        elapsed = (completion_date - db_task.started_at).total_seconds()
+        db_task.time_spent = (db_task.time_spent or 0) + int(elapsed)
 
     # Handle habits: update streak and create next occurrence
     if db_task.is_habit and db_task.recurrence_type != "none":

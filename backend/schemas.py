@@ -42,6 +42,9 @@ class TaskResponse(TaskBase):
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
 
+    # Time tracking
+    time_spent: int = 0  # Total seconds spent on this task
+
     # Habit-specific fields
     streak: int = 0
     last_completed_date: Optional[date] = None

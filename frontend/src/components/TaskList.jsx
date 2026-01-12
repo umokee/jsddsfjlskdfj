@@ -1,3 +1,5 @@
+import { formatTimeSpent } from '../utils/timeFormat';
+
 function TaskList({ tasks, onStart, onComplete, onDelete }) {
   const getPriorityClass = (priority) => {
     if (priority >= 7) return 'priority-high';
@@ -68,6 +70,11 @@ function TaskList({ tasks, onStart, onComplete, onDelete }) {
               E: {task.energy}
             </span>
             {renderEnergyDots(task.energy)}
+            {task.time_spent > 0 && (
+              <span className="task-badge" style={{ backgroundColor: '#3b82f6', color: '#fff' }}>
+                ⏱️ {formatTimeSpent(task.time_spent)}
+              </span>
+            )}
             {task.is_habit && task.streak > 0 && (
               <span className="task-badge" style={{ backgroundColor: '#f59e0b', color: '#000' }}>
                 🔥 {task.streak} day{task.streak > 1 ? 's' : ''}
