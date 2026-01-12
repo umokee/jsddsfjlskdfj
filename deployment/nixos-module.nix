@@ -20,9 +20,10 @@ let
   gitRepo = "https://github.com/umokee/umtask.git";
   gitBranch = "claude/task-manager-fastapi-hYjWx";
 
-  # Порты
-  publicPort = 8080;    # Публичный порт приложения
-  backendPort = 8000;   # Backend (внутренний)
+  # Домен и порты
+  domain = "tasks.umkcloud.xyz";  # Ваш домен (Caddy автоматически получит HTTPS)
+  publicPort = 8888;              # Публичный порт (будет в URL)
+  backendPort = 8000;             # Backend (внутренний)
   backendHost = "127.0.0.1";
 
   # Пути
@@ -72,7 +73,10 @@ in {
     users.groups.${group} = {};
 
     # Открыть порты
-    networking.firewall.allowedTCPPorts = [ publicPort ];
+    networking.firewall.allowedTCPPorts = [
+      80              # Для ACME HTTP-01 challenge (Let's Encrypt)
+      publicPort      # Публичный порт приложения
+    ];
 
     # Создать директории
     systemd.tmpfiles.rules = [
@@ -249,7 +253,8 @@ in {
     services.caddy = lib.mkIf (reverseProxy == "caddy") {
       enable = true;
 
-      virtualHosts.":${toString publicPort}" = {
+      # Caddy автоматически получит Let's Encrypt сертификат для домена
+      virtualHosts."${domain}:${toString publicPort}" = {
         extraConfig = ''
           # API endpoints
           handle /api/* {
