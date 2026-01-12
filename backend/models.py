@@ -38,7 +38,11 @@ class Task(Base):
 
         # Due date coefficient
         if self.due_date:
-            days_until = (self.due_date - datetime.utcnow()).days
+            # Handle both timezone-aware and timezone-naive datetimes
+            due_date_naive = self.due_date.replace(tzinfo=None) if self.due_date.tzinfo else self.due_date
+            now_naive = datetime.utcnow()
+
+            days_until = (due_date_naive - now_naive).days
             if days_until <= 0:
                 urgency += 50.0  # Overdue
             elif days_until <= 2:
