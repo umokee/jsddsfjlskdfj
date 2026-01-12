@@ -9,12 +9,15 @@ function Settings({ onClose }) {
   const [formData, setFormData] = useState({
     max_tasks_per_day: 10,
     points_per_task_base: 10,
-    points_per_habit_base: 15,
-    streak_multiplier: 2.0,
+    points_per_habit_base: 10,
+    streak_multiplier: 1.0,
     energy_weight: 3.0,
     time_efficiency_weight: 0.5,
+    minutes_per_energy_unit: 30,
     incomplete_day_penalty: 20,
-    missed_day_penalty: 50,
+    incomplete_day_threshold: 0.8,
+    missed_habit_penalty_base: 50,
+    progressive_penalty_factor: 0.5,
     idle_day_penalty: 30,
   });
   const [loading, setLoading] = useState(true);
@@ -105,6 +108,7 @@ function Settings({ onClose }) {
               min="1"
               max="1000"
             />
+            <small>Base points for completing a task</small>
           </div>
           <div className="form-group">
             <label>Points Per Habit:</label>
@@ -116,6 +120,7 @@ function Settings({ onClose }) {
               min="1"
               max="1000"
             />
+            <small>Base points for completing a habit (max with 30-day streak: {formData.points_per_habit_base + 30 * formData.streak_multiplier})</small>
           </div>
         </div>
 
@@ -132,7 +137,7 @@ function Settings({ onClose }) {
               min="0"
               max="10"
             />
-            <small>Points per streak day for habits</small>
+            <small>Points per streak day for habits (capped at 30 days)</small>
           </div>
           <div className="form-group">
             <label>Energy Weight:</label>
@@ -145,7 +150,7 @@ function Settings({ onClose }) {
               min="0"
               max="20"
             />
-            <small>Points multiplier per energy level</small>
+            <small>Points multiplier per energy level (0-5)</small>
           </div>
           <div className="form-group">
             <label>Time Efficiency Weight:</label>
@@ -163,6 +168,22 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
+          <h3>Time Estimation (Automatic)</h3>
+          <div className="form-group">
+            <label>Minutes Per Energy Unit:</label>
+            <input
+              type="number"
+              name="minutes_per_energy_unit"
+              value={formData.minutes_per_energy_unit}
+              onChange={handleChange}
+              min="5"
+              max="180"
+            />
+            <small>Expected time per energy level (e.g., energy=3 → {3 * formData.minutes_per_energy_unit} min)</small>
+          </div>
+        </div>
+
+        <div className="settings-section">
           <h3>Penalties</h3>
           <div className="form-group">
             <label>Incomplete Day Penalty:</label>
@@ -174,19 +195,45 @@ function Settings({ onClose }) {
               min="0"
               max="500"
             />
-            <small>Penalty for completing less than 50% of tasks</small>
+            <small>Penalty for completing less than threshold</small>
           </div>
           <div className="form-group">
-            <label>Missed Day Penalty:</label>
+            <label>Incomplete Day Threshold:</label>
             <input
               type="number"
-              name="missed_day_penalty"
-              value={formData.missed_day_penalty}
+              step="0.05"
+              name="incomplete_day_threshold"
+              value={formData.incomplete_day_threshold}
+              onChange={handleChange}
+              min="0"
+              max="1"
+            />
+            <small>Completion rate required to avoid penalty ({(formData.incomplete_day_threshold * 100).toFixed(0)}%)</small>
+          </div>
+          <div className="form-group">
+            <label>Missed Habit Penalty (Base):</label>
+            <input
+              type="number"
+              name="missed_habit_penalty_base"
+              value={formData.missed_habit_penalty_base}
               onChange={handleChange}
               min="0"
               max="500"
             />
-            <small>Penalty per missed habit</small>
+            <small>Base penalty for missing a habit</small>
+          </div>
+          <div className="form-group">
+            <label>Progressive Penalty Factor:</label>
+            <input
+              type="number"
+              step="0.1"
+              name="progressive_penalty_factor"
+              value={formData.progressive_penalty_factor}
+              onChange={handleChange}
+              min="0"
+              max="5"
+            />
+            <small>Penalty multiplier based on streak (e.g., 20-day streak, factor 0.5 → penalty × 11)</small>
           </div>
           <div className="form-group">
             <label>Idle Day Penalty:</label>
@@ -198,7 +245,7 @@ function Settings({ onClose }) {
               min="0"
               max="500"
             />
-            <small>Penalty for no tasks/habits completed</small>
+            <small>Penalty for no tasks/habits completed at all</small>
           </div>
         </div>
 

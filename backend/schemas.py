@@ -66,12 +66,15 @@ class StatsResponse(BaseModel):
 class SettingsBase(BaseModel):
     max_tasks_per_day: int = Field(default=10, ge=1, le=100)
     points_per_task_base: int = Field(default=10, ge=1, le=1000)
-    points_per_habit_base: int = Field(default=15, ge=1, le=1000)
-    streak_multiplier: float = Field(default=2.0, ge=0.0, le=10.0)
+    points_per_habit_base: int = Field(default=10, ge=1, le=1000)
+    streak_multiplier: float = Field(default=1.0, ge=0.0, le=10.0)
     energy_weight: float = Field(default=3.0, ge=0.0, le=20.0)
     time_efficiency_weight: float = Field(default=0.5, ge=0.0, le=5.0)
+    minutes_per_energy_unit: int = Field(default=30, ge=5, le=180)
     incomplete_day_penalty: int = Field(default=20, ge=0, le=500)
-    missed_day_penalty: int = Field(default=50, ge=0, le=500)
+    incomplete_day_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
+    missed_habit_penalty_base: int = Field(default=50, ge=0, le=500)
+    progressive_penalty_factor: float = Field(default=0.5, ge=0.0, le=5.0)
     idle_day_penalty: int = Field(default=30, ge=0, le=500)
 
 
@@ -132,6 +135,24 @@ class PointGoalResponse(PointGoalBase):
     id: int
     achieved: bool
     achieved_date: Optional[date]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Rest Day schemas
+class RestDayBase(BaseModel):
+    date: date
+    description: Optional[str] = None
+
+
+class RestDayCreate(RestDayBase):
+    pass
+
+
+class RestDayResponse(RestDayBase):
+    id: int
     created_at: datetime
 
     class Config:

@@ -68,19 +68,27 @@ class Settings(Base):
     # Task limits
     max_tasks_per_day = Column(Integer, default=10)
 
-    # Base points
+    # Base points (rebalanced - lower rewards)
     points_per_task_base = Column(Integer, default=10)
-    points_per_habit_base = Column(Integer, default=15)
+    points_per_habit_base = Column(Integer, default=10)  # Reduced from 15
 
     # Multipliers and weights
-    streak_multiplier = Column(Float, default=2.0)
+    streak_multiplier = Column(Float, default=1.0)  # Reduced from 2.0
     energy_weight = Column(Float, default=3.0)
     time_efficiency_weight = Column(Float, default=0.5)
 
+    # Time estimation (automatic calculation)
+    minutes_per_energy_unit = Column(Integer, default=30)  # 30 min per energy level
+
     # Penalties
     incomplete_day_penalty = Column(Integer, default=20)
-    missed_day_penalty = Column(Integer, default=50)
+    incomplete_day_threshold = Column(Float, default=0.8)  # 80% completion required (was 50%)
+    missed_habit_penalty_base = Column(Integer, default=50)
+    progressive_penalty_factor = Column(Float, default=0.5)  # Multiplier for streak-based penalties
     idle_day_penalty = Column(Integer, default=30)
+
+    # Roll limits
+    last_roll_date = Column(Date, nullable=True)  # Track last roll to enforce 1/day
 
     # Updated timestamp
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -120,4 +128,13 @@ class PointGoal(Base):
     deadline = Column(Date, nullable=True)
     achieved = Column(Boolean, default=False)
     achieved_date = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RestDay(Base):
+    __tablename__ = "rest_days"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False, unique=True, index=True)
+    description = Column(String, nullable=True)  # Optional reason (e.g., "New Year", "Rest day")
     created_at = Column(DateTime, default=datetime.utcnow)
