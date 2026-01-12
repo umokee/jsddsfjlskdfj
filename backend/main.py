@@ -98,6 +98,16 @@ async def get_current_task(db: Session = Depends(get_db)):
 
 @app.get("/api/tasks/habits", response_model=List[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def get_habits(db: Session = Depends(get_db)):
+    """Get all pending habits"""
+    return crud.get_all_habits(db)
+
+@app.get("/api/tasks/today", response_model=List[TaskResponse], dependencies=[Depends(verify_api_key)])
+async def get_today_tasks_endpoint(db: Session = Depends(get_db)):
+    """Get today's tasks (is_today=True)"""
+    return crud.get_today_tasks(db)
+
+@app.get("/api/tasks/today-habits", response_model=List[TaskResponse], dependencies=[Depends(verify_api_key)])
+async def get_today_habits_endpoint(db: Session = Depends(get_db)):
     """Get today's habits"""
     return crud.get_today_habits(db)
 

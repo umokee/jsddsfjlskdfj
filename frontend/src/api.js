@@ -32,6 +32,8 @@ export const getTasks = () => api.get('/tasks');
 export const getPendingTasks = () => api.get('/tasks/pending');
 export const getCurrentTask = () => api.get('/tasks/current');
 export const getHabits = () => api.get('/tasks/habits');
+export const getTodayTasks = () => api.get('/tasks/today');
+export const getTodayHabits = () => api.get('/tasks/today-habits');
 export const getStats = () => api.get('/stats');
 export const getTask = (id) => api.get(`/tasks/${id}`);
 export const createTask = (task) => api.post('/tasks', task);

@@ -19,6 +19,9 @@ class Task(Base):
     completed_at = Column(DateTime, nullable=True)
     urgency = Column(Float, default=0.0)
 
+    # Time tracking (accumulated seconds)
+    time_spent = Column(Integer, default=0)  # Total seconds spent on this task
+
     # Habit-specific fields
     recurrence_type = Column(String, default="none")  # none, daily, every_n_days, weekly
     recurrence_interval = Column(Integer, default=1)   # For every_n_days: interval in days
