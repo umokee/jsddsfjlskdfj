@@ -1,6 +1,6 @@
 import { formatTimeSpent } from '../utils/timeFormat';
 
-function TaskList({ tasks, onStart, onComplete, onDelete, onEdit }) {
+function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll }) {
   const getPriorityClass = (priority) => {
     if (priority >= 7) return 'priority-high';
     if (priority >= 4) return 'priority-medium';
@@ -30,45 +30,50 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit }) {
 
   return (
     <div className="task-list">
-      {tasks.map((task) => (
-        <div
-          key={task.id}
-          className={`task-item ${task.status === 'active' ? 'active' : ''}`}
-        >
-          <div className="task-header">
-            <div className="task-title">{task.description}</div>
-            <div className="task-actions">
-              {task.status !== 'active' && (
+      {tasks.map((task) => {
+        const showDone = showAll ? task.is_today : true; // If showAll, only show Done for today's tasks
+
+        return (
+          <div
+            key={task.id}
+            className={`task-item ${task.status === 'active' ? 'active' : ''}`}
+          >
+            <div className="task-header">
+              <div className="task-title">{task.description}</div>
+              <div className="task-actions">
+                {task.status !== 'active' && (
+                  <button
+                    className="btn btn-small btn-primary"
+                    onClick={() => onStart(task.id)}
+                  >
+                    Start
+                  </button>
+                )}
+                {showDone && (
+                  <button
+                    className="btn btn-small"
+                    onClick={() => onComplete(task.id)}
+                  >
+                    Done
+                  </button>
+                )}
+                {onEdit && (
+                  <button
+                    className="btn btn-small"
+                    onClick={() => onEdit(task)}
+                    title="Edit task"
+                  >
+                    ✎
+                  </button>
+                )}
                 <button
-                  className="btn btn-small btn-primary"
-                  onClick={() => onStart(task.id)}
+                  className="btn btn-small btn-danger"
+                  onClick={() => onDelete(task.id)}
                 >
-                  Start
+                  ×
                 </button>
-              )}
-              <button
-                className="btn btn-small"
-                onClick={() => onComplete(task.id)}
-              >
-                Done
-              </button>
-              {onEdit && (
-                <button
-                  className="btn btn-small"
-                  onClick={() => onEdit(task)}
-                  title="Edit task"
-                >
-                  ✎
-                </button>
-              )}
-              <button
-                className="btn btn-small btn-danger"
-                onClick={() => onDelete(task.id)}
-              >
-                ×
-              </button>
+              </div>
             </div>
-          </div>
 
           <div className="task-meta">
             {task.project && <span>Project: {task.project}</span>}
@@ -97,7 +102,8 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit }) {
             )}
           </div>
         </div>
-      ))}
+      );
+      })}
     </div>
   );
 }
