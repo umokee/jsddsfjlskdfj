@@ -15,7 +15,13 @@ def get_tasks(db: Session, skip: int = 0, limit: int = 100) -> List[Task]:
     return db.query(Task).offset(skip).limit(limit).all()
 
 def get_pending_tasks(db: Session) -> List[Task]:
-    return db.query(Task).filter(Task.status == "pending").order_by(Task.urgency.desc()).all()
+    """Get pending tasks (excluding habits)"""
+    return db.query(Task).filter(
+        and_(
+            Task.status == "pending",
+            Task.is_habit == False
+        )
+    ).order_by(Task.urgency.desc()).all()
 
 def get_active_task(db: Session) -> Optional[Task]:
     return db.query(Task).filter(Task.status == "active").first()
@@ -42,6 +48,15 @@ def get_next_habit(db: Session) -> Optional[Task]:
         )
     ).first()
 
+def get_all_habits(db: Session) -> List[Task]:
+    """Get all pending habits"""
+    return db.query(Task).filter(
+        and_(
+            Task.status == "pending",
+            Task.is_habit == True
+        )
+    ).order_by(Task.due_date).all()
+
 def get_today_habits(db: Session) -> List[Task]:
     """Get all habits for today"""
     today = datetime.utcnow().date()
@@ -53,6 +68,16 @@ def get_today_habits(db: Session) -> List[Task]:
             Task.due_date < datetime.combine(today + timedelta(days=1), datetime.min.time())
         )
     ).all()
+
+def get_today_tasks(db: Session) -> List[Task]:
+    """Get today's tasks (non-habits with is_today=True)"""
+    return db.query(Task).filter(
+        and_(
+            Task.status == "pending",
+            Task.is_habit == False,
+            Task.is_today == True
+        )
+    ).order_by(Task.urgency.desc()).all()
 
 def get_stats(db: Session) -> dict:
     """Get daily statistics"""

@@ -21,7 +21,9 @@ function TaskForm({ onSubmit, onCancel }) {
 
     const submitData = {
       ...formData,
-      due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null
+      due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
+      // If not a habit, force recurrence to 'none'
+      recurrence_type: formData.is_habit ? formData.recurrence_type : 'none'
     };
 
     onSubmit(submitData);

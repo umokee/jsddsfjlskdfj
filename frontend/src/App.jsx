@@ -4,6 +4,8 @@ import {
   getCurrentTask,
   getPendingTasks,
   getHabits,
+  getTodayTasks,
+  getTodayHabits,
   startTask,
   stopTask,
   completeTask,
@@ -25,6 +27,8 @@ function App() {
   const [currentTask, setCurrentTask] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [habits, setHabits] = useState([]);
+  const [todayTasks, setTodayTasks] = useState([]);
+  const [todayHabits, setTodayHabits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -39,17 +43,21 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const [statsRes, currentRes, tasksRes, habitsRes] = await Promise.all([
+      const [statsRes, currentRes, tasksRes, habitsRes, todayTasksRes, todayHabitsRes] = await Promise.all([
         getStats(),
         getCurrentTask(),
         getPendingTasks(),
-        getHabits()
+        getHabits(),
+        getTodayTasks(),
+        getTodayHabits()
       ]);
 
       setStats(statsRes.data);
       setCurrentTask(currentRes.data);
       setTasks(tasksRes.data);
       setHabits(habitsRes.data);
+      setTodayTasks(todayTasksRes.data);
+      setTodayHabits(todayHabitsRes.data);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load data');
       if (err.response?.status === 401) {
@@ -213,6 +221,39 @@ function App() {
       {showTaskForm && (
         <div className="section" style={{ marginBottom: '2rem' }}>
           <TaskForm onSubmit={handleCreateTask} onCancel={() => setShowTaskForm(false)} />
+        </div>
+      )}
+
+      {/* Today Section */}
+      {(todayTasks.length > 0 || todayHabits.length > 0) && (
+        <div className="section" style={{ marginBottom: '2rem', border: '2px solid #10b981', padding: '1rem' }}>
+          <div className="section-header">
+            <h2 className="section-title" style={{ color: '#10b981' }}>TODAY</h2>
+          </div>
+
+          {todayTasks.length > 0 && (
+            <div style={{ marginBottom: todayHabits.length > 0 ? '1rem' : '0' }}>
+              <h3 style={{ fontSize: '0.875rem', color: '#888', marginBottom: '0.5rem' }}>Tasks</h3>
+              <TaskList
+                tasks={todayTasks}
+                onStart={handleStart}
+                onComplete={handleComplete}
+                onDelete={handleDeleteTask}
+              />
+            </div>
+          )}
+
+          {todayHabits.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: '0.875rem', color: '#888', marginBottom: '0.5rem' }}>Habits</h3>
+              <HabitList
+                habits={todayHabits}
+                onStart={handleStart}
+                onComplete={handleComplete}
+                onDelete={handleDeleteTask}
+              />
+            </div>
+          )}
         </div>
       )}
 
