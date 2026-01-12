@@ -226,20 +226,32 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     db_task.completed_at = completion_date
 
     # Handle habits: update streak and create next occurrence
-    if db_task.is_habit:
+    if db_task.is_habit and db_task.recurrence_type != "none":
         today = date.today()
+
+        # Use habit's due_date as reference, or today if no due_date
+        habit_due = db_task.due_date.date() if db_task.due_date else today
 
         # Update streak
         if db_task.last_completed_date:
-            days_diff = (today - db_task.last_completed_date).days
-            if days_diff == 1:
-                # Consecutive day - increment streak
-                db_task.streak = (db_task.streak or 0) + 1
-            elif days_diff == 0:
-                # Same day - keep streak
-                pass
+            # Calculate expected occurrence based on recurrence
+            if db_task.recurrence_type == "daily":
+                expected_diff = 1
+            elif db_task.recurrence_type == "every_n_days":
+                expected_diff = max(1, db_task.recurrence_interval or 1)
+            elif db_task.recurrence_type == "weekly":
+                # For weekly, just check if not too old (within 2 weeks)
+                expected_diff = 14
             else:
-                # Broke the streak - reset to 1
+                expected_diff = 1
+
+            days_since_last = (today - db_task.last_completed_date).days
+
+            if days_since_last <= expected_diff:
+                # On time or early - increment streak
+                db_task.streak = (db_task.streak or 0) + 1
+            else:
+                # Missed expected completion - reset streak
                 db_task.streak = 1
         else:
             # First completion
@@ -247,26 +259,25 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
 
         db_task.last_completed_date = today
 
-        # Create next occurrence if has recurrence
-        if db_task.recurrence_type != "none":
-            next_due = _calculate_next_due_date(db_task, today)
-            if next_due:
-                next_habit = Task(
-                    description=db_task.description,
-                    project=db_task.project,
-                    priority=db_task.priority,
-                    energy=db_task.energy,
-                    is_habit=True,
-                    is_today=False,
-                    due_date=datetime.combine(next_due, datetime.min.time()),
-                    recurrence_type=db_task.recurrence_type,
-                    recurrence_interval=db_task.recurrence_interval,
-                    recurrence_days=db_task.recurrence_days,
-                    streak=db_task.streak,  # Carry over streak
-                    last_completed_date=db_task.last_completed_date
-                )
-                next_habit.calculate_urgency()
-                db.add(next_habit)
+        # Create next occurrence starting from habit's due_date (not today)
+        next_due = _calculate_next_due_date(db_task, habit_due)
+        if next_due:
+            next_habit = Task(
+                description=db_task.description,
+                project=db_task.project,
+                priority=db_task.priority,
+                energy=db_task.energy,
+                is_habit=True,
+                is_today=False,
+                due_date=datetime.combine(next_due, datetime.min.time()),
+                recurrence_type=db_task.recurrence_type,
+                recurrence_interval=db_task.recurrence_interval,
+                recurrence_days=db_task.recurrence_days,
+                streak=db_task.streak,  # Carry over streak
+                last_completed_date=db_task.last_completed_date
+            )
+            next_habit.calculate_urgency()
+            db.add(next_habit)
 
     db.commit()
     db.refresh(db_task)

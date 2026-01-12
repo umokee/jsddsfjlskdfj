@@ -19,6 +19,7 @@ import {
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import HabitList from './components/HabitList';
+import Timer from './components/Timer';
 
 function App() {
   const [apiKey, setApiKey] = useState(getApiKey());
@@ -194,6 +195,11 @@ function App() {
         <div className="current-task">
           <div className="current-task-title">CURRENT TASK</div>
           <div className="current-task-desc">{currentTask.description}</div>
+          {currentTask.started_at && (
+            <div style={{ textAlign: 'center', margin: '1rem 0' }}>
+              <Timer startTime={currentTask.started_at} />
+            </div>
+          )}
           <div className="task-meta">
             {currentTask.project && <span>Project: {currentTask.project}</span>}
             <span>Priority: {currentTask.priority}/10</span>
