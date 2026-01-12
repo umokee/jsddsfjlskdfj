@@ -22,6 +22,7 @@ let
 
   # Домен и порты
   domain = "tasks.umkcloud.xyz";  # Ваш домен (Caddy автоматически получит HTTPS)
+  useHttpOnly = true;             # ВРЕМЕННО: HTTP вместо HTTPS (для доступа по IP)
   publicPort = 8888;              # Публичный порт (будет в URL)
   backendPort = 8000;             # Backend (внутренний)
   backendHost = "127.0.0.1";
@@ -74,8 +75,9 @@ in {
 
     # Открыть порты
     networking.firewall.allowedTCPPorts = [
-      80              # Для ACME HTTP-01 challenge (Let's Encrypt)
       publicPort      # Публичный порт приложения
+    ] ++ lib.optionals (!useHttpOnly) [
+      80              # Для ACME HTTP-01 challenge (Let's Encrypt)
     ];
 
     # Создать директории
@@ -253,8 +255,8 @@ in {
     services.caddy = lib.mkIf (reverseProxy == "caddy") {
       enable = true;
 
-      # Caddy автоматически получит Let's Encrypt сертификат для домена
-      virtualHosts."${domain}:${toString publicPort}" = {
+      # ВРЕМЕННО: HTTP по IP, когда DNS настроится - убери useHttpOnly
+      virtualHosts."${if useHttpOnly then "http://:${toString publicPort}" else "${domain}:${toString publicPort}"}" = {
         extraConfig = ''
           # API endpoints
           handle /api/* {
