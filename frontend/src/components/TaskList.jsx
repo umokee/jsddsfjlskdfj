@@ -68,6 +68,14 @@ function TaskList({ tasks, onStart, onComplete, onDelete }) {
               E: {task.energy}
             </span>
             {renderEnergyDots(task.energy)}
+            {task.is_habit && task.streak > 0 && (
+              <span className="task-badge" style={{ backgroundColor: '#f59e0b', color: '#000' }}>
+                🔥 {task.streak} day{task.streak > 1 ? 's' : ''}
+              </span>
+            )}
+            {task.is_habit && (
+              <span className="task-badge">Habit</span>
+            )}
             {task.due_date && (
               <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
             )}

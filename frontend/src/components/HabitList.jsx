@@ -43,6 +43,11 @@ function HabitList({ habits, onStart, onComplete, onDelete }) {
           <div className="task-meta">
             {habit.project && <span>{habit.project}</span>}
             <span className="task-badge">Habit</span>
+            {habit.streak > 0 && (
+              <span className="task-badge" style={{ backgroundColor: '#f59e0b', color: '#000' }}>
+                🔥 {habit.streak} day{habit.streak > 1 ? 's' : ''}
+              </span>
+            )}
             {habit.due_date && (
               <span>Today</span>
             )}
