@@ -6,6 +6,7 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
     project: '',
     priority: 5,
     energy: 3,
+    estimated_time: 0,
     is_habit: false,
     is_today: false,
     due_date: '',
@@ -29,6 +30,7 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
         project: editTask.project || '',
         priority: editTask.priority || 5,
         energy: editTask.energy || 3,
+        estimated_time: editTask.estimated_time || 0,
         is_habit: editTask.is_habit || false,
         is_today: editTask.is_today || false,
         due_date: dueDate,
@@ -139,6 +141,22 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
             onChange={handleChange}
           />
         </div>
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Estimated Time (minutes)</label>
+        <input
+          className="form-input"
+          type="number"
+          name="estimated_time"
+          min="0"
+          value={Math.floor(formData.estimated_time / 60)}
+          onChange={(e) => setFormData(prev => ({ ...prev, estimated_time: parseInt(e.target.value) * 60 }))}
+          placeholder="Optional estimate in minutes"
+        />
+        <small style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+          Used for calculating time efficiency bonus/penalty
+        </small>
       </div>
 
       <div className="form-group">

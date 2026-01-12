@@ -8,9 +8,15 @@ from pathlib import Path
 
 from backend.database import engine, get_db, Base
 from backend.models import Task
-from backend.schemas import TaskCreate, TaskUpdate, TaskResponse, StatsResponse
+from backend.schemas import (
+    TaskCreate, TaskUpdate, TaskResponse, StatsResponse,
+    SettingsUpdate, SettingsResponse,
+    PointHistoryResponse,
+    PointGoalCreate, PointGoalUpdate, PointGoalResponse
+)
 from backend.auth import verify_api_key
 from backend import crud
+from datetime import date
 
 # Configure logging for fail2ban integration
 LOG_DIR = os.getenv("TASK_MANAGER_LOG_DIR", "/var/log/task-manager")
@@ -181,8 +187,78 @@ async def roll_tasks(mood: Optional[str] = None, db: Session = Depends(get_db)):
         "tasks_count": len(result["tasks"]),
         "deleted_habits": result["deleted_habits"],
         "habits": result["habits"],
-        "tasks": result["tasks"]
+        "tasks": result["tasks"],
+        "penalty_info": result.get("penalty_info")
     }
+
+
+# ===== SETTINGS ENDPOINTS =====
+
+@app.get("/api/settings", response_model=SettingsResponse, dependencies=[Depends(verify_api_key)])
+async def get_settings_endpoint(db: Session = Depends(get_db)):
+    """Get settings"""
+    return crud.get_settings(db)
+
+
+@app.put("/api/settings", response_model=SettingsResponse, dependencies=[Depends(verify_api_key)])
+async def update_settings_endpoint(settings_update: SettingsUpdate, db: Session = Depends(get_db)):
+    """Update settings"""
+    return crud.update_settings(db, settings_update)
+
+
+# ===== POINTS ENDPOINTS =====
+
+@app.get("/api/points/current", dependencies=[Depends(verify_api_key)])
+async def get_current_points_endpoint(db: Session = Depends(get_db)):
+    """Get current total points"""
+    return {"points": crud.get_current_points(db)}
+
+
+@app.get("/api/points/history", response_model=List[PointHistoryResponse], dependencies=[Depends(verify_api_key)])
+async def get_points_history_endpoint(days: int = 30, db: Session = Depends(get_db)):
+    """Get point history for last N days"""
+    return crud.get_point_history(db, days)
+
+
+@app.get("/api/points/projection", dependencies=[Depends(verify_api_key)])
+async def get_points_projection_endpoint(target_date: str, db: Session = Depends(get_db)):
+    """Calculate point projection until target date (format: YYYY-MM-DD)"""
+    try:
+        target = date.fromisoformat(target_date)
+        return crud.calculate_projection(db, target)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+
+# ===== GOALS ENDPOINTS =====
+
+@app.get("/api/goals", response_model=List[PointGoalResponse], dependencies=[Depends(verify_api_key)])
+async def get_goals_endpoint(include_achieved: bool = False, db: Session = Depends(get_db)):
+    """Get point goals"""
+    return crud.get_point_goals(db, include_achieved)
+
+
+@app.post("/api/goals", response_model=PointGoalResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
+async def create_goal_endpoint(goal: PointGoalCreate, db: Session = Depends(get_db)):
+    """Create a new point goal"""
+    return crud.create_point_goal(db, goal)
+
+
+@app.put("/api/goals/{goal_id}", response_model=PointGoalResponse, dependencies=[Depends(verify_api_key)])
+async def update_goal_endpoint(goal_id: int, goal_update: PointGoalUpdate, db: Session = Depends(get_db)):
+    """Update a point goal"""
+    goal = crud.update_point_goal(db, goal_id, goal_update)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    return goal
+
+
+@app.delete("/api/goals/{goal_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_api_key)])
+async def delete_goal_endpoint(goal_id: int, db: Session = Depends(get_db)):
+    """Delete a point goal"""
+    if not crud.delete_point_goal(db, goal_id):
+        raise HTTPException(status_code=404, detail="Goal not found")
+
 
 if __name__ == "__main__":
     import uvicorn

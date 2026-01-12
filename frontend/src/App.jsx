@@ -21,6 +21,10 @@ import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import HabitList from './components/HabitList';
 import Timer from './components/Timer';
+import Settings from './components/Settings';
+import PointsDisplay from './components/PointsDisplay';
+import PointsGoals from './components/PointsGoals';
+import PointsCalculator from './components/PointsCalculator';
 
 function App() {
   const [apiKey, setApiKey] = useState(getApiKey());
@@ -35,12 +39,27 @@ function App() {
   const [error, setError] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [currentView, setCurrentView] = useState('tasks'); // tasks, points, goals, calculator, settings
+  const [currentPoints, setCurrentPoints] = useState(0);
 
   useEffect(() => {
     if (apiKey) {
       loadData();
+      loadPoints();
     }
   }, [apiKey]);
+
+  const loadPoints = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/points/current`, {
+        headers: { 'X-API-Key': apiKey }
+      });
+      const data = await response.json();
+      setCurrentPoints(data.points || 0);
+    } catch (err) {
+      console.error('Failed to load points:', err);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -102,6 +121,7 @@ function App() {
     try {
       await completeTask(taskId);
       await loadData();
+      await loadPoints(); // Reload points after completion
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to complete task');
     }
@@ -193,7 +213,43 @@ function App() {
     <div className="app">
       <header className="header">
         <h1>TASK MANAGER</h1>
+        <div className="nav-buttons" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <button
+            className={currentView === 'tasks' ? 'btn btn-primary' : 'btn'}
+            onClick={() => setCurrentView('tasks')}
+          >
+            Tasks
+          </button>
+          <button
+            className={currentView === 'points' ? 'btn btn-primary' : 'btn'}
+            onClick={() => setCurrentView('points')}
+          >
+            Points
+          </button>
+          <button
+            className={currentView === 'goals' ? 'btn btn-primary' : 'btn'}
+            onClick={() => setCurrentView('goals')}
+          >
+            Goals
+          </button>
+          <button
+            className={currentView === 'calculator' ? 'btn btn-primary' : 'btn'}
+            onClick={() => setCurrentView('calculator')}
+          >
+            Calculator
+          </button>
+          <button
+            className={currentView === 'settings' ? 'btn btn-primary' : 'btn'}
+            onClick={() => setCurrentView('settings')}
+          >
+            Settings
+          </button>
+        </div>
         <div className="stats">
+          <div className="stat-item">
+            <span>Points:</span>
+            <span className="stat-value">{currentPoints}</span>
+          </div>
           <div className="stat-item">
             <span>Done Today:</span>
             <span className="stat-value">{stats?.done_today || 0}</span>
@@ -211,7 +267,16 @@ function App() {
 
       {error && <div className="error-message">{error}</div>}
 
-      {currentTask && (
+      {/* Render different views based on currentView */}
+      {currentView === 'points' && <PointsDisplay />}
+      {currentView === 'goals' && <PointsGoals currentPoints={currentPoints} />}
+      {currentView === 'calculator' && <PointsCalculator />}
+      {currentView === 'settings' && <Settings onClose={() => setCurrentView('tasks')} />}
+
+      {/* Tasks view */}
+      {currentView === 'tasks' && (
+        <>
+          {currentTask && (
         <div className="current-task">
           <div className="current-task-title">CURRENT TASK</div>
           <div className="current-task-desc">{currentTask.description}</div>
@@ -322,6 +387,8 @@ function App() {
           />
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -5,8 +5,8 @@ from typing import List, Optional
 import random
 import json
 
-from backend.models import Task
-from backend.schemas import TaskCreate, TaskUpdate
+from backend.models import Task, Settings, PointHistory, PointGoal
+from backend.schemas import TaskCreate, TaskUpdate, SettingsUpdate, PointGoalCreate, PointGoalUpdate
 
 def get_task(db: Session, task_id: int) -> Optional[Task]:
     return db.query(Task).filter(Task.id == task_id).first()
@@ -313,6 +313,13 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
 
     db.commit()
     db.refresh(db_task)
+
+    # Award points for completion
+    add_task_completion_points(db, db_task)
+
+    # Check if any goals were achieved
+    check_goal_achievements(db)
+
     return db_task
 
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:
@@ -377,6 +384,9 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
 
     db.commit()
 
+    # Calculate penalties for yesterday (before rolling to new day)
+    penalty_info = calculate_daily_penalties(db)
+
     # Get plan summary
     habits = get_today_habits(db)
     today_tasks = db.query(Task).filter(
@@ -390,5 +400,306 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
     return {
         "habits": habits,
         "tasks": today_tasks,
-        "deleted_habits": len(overdue_habits)
+        "deleted_habits": len(overdue_habits),
+        "penalty_info": penalty_info
     }
+
+
+# ===== SETTINGS FUNCTIONS =====
+
+def get_settings(db: Session) -> Settings:
+    """Get settings (create with defaults if not exists)"""
+    settings = db.query(Settings).first()
+    if not settings:
+        settings = Settings()
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    return settings
+
+
+def update_settings(db: Session, settings_update: SettingsUpdate) -> Settings:
+    """Update settings"""
+    settings = get_settings(db)
+    update_data = settings_update.model_dump()
+    for key, value in update_data.items():
+        setattr(settings, key, value)
+    db.commit()
+    db.refresh(settings)
+    return settings
+
+
+# ===== POINTS CALCULATION FUNCTIONS =====
+
+def calculate_task_points(task: Task, settings: Settings) -> int:
+    """Calculate points for completing a task (without priority bonus)"""
+    base = settings.points_per_task_base
+
+    # Bonus for energy (0-5)
+    energy_bonus = task.energy * settings.energy_weight
+
+    # Smart time tracking
+    actual_time = task.time_spent if task.time_spent else 0
+    estimated_time = task.estimated_time if task.estimated_time else 0
+
+    time_modifier = 0.0
+
+    if actual_time > 0 and estimated_time > 0:
+        # Calculate efficiency: estimated / actual
+        # > 1.0 means faster than expected (bonus)
+        # < 1.0 means slower than expected (penalty)
+        efficiency = estimated_time / actual_time
+
+        # If easy task (energy <= 2) done very slowly (efficiency < 0.3) - big penalty
+        if task.energy <= 2 and efficiency < 0.3:
+            time_modifier = -base * 0.5
+        elif efficiency > 1.0:
+            # Bonus for efficiency (max 50% of base)
+            time_modifier = min(base * settings.time_efficiency_weight * (efficiency - 1), base * 0.5)
+        else:
+            # Penalty for inefficiency
+            time_modifier = -base * settings.time_efficiency_weight * (1 - efficiency)
+
+    total_points = base + energy_bonus + time_modifier
+
+    # Minimum 20% of base points
+    return max(int(total_points), int(base * 0.2))
+
+
+def calculate_habit_points(task: Task, settings: Settings) -> int:
+    """Calculate points for completing a habit"""
+    base = settings.points_per_habit_base
+    streak_bonus = task.streak * settings.streak_multiplier
+    return int(base + streak_bonus)
+
+
+def get_or_create_today_history(db: Session) -> PointHistory:
+    """Get or create point history for today"""
+    today = date.today()
+    history = db.query(PointHistory).filter(PointHistory.date == today).first()
+
+    if not history:
+        # Get yesterday's cumulative total
+        yesterday = today - timedelta(days=1)
+        yesterday_history = db.query(PointHistory).filter(PointHistory.date == yesterday).first()
+        previous_total = yesterday_history.cumulative_total if yesterday_history else 0
+
+        history = PointHistory(
+            date=today,
+            cumulative_total=previous_total
+        )
+        db.add(history)
+        db.commit()
+        db.refresh(history)
+
+    return history
+
+
+def add_task_completion_points(db: Session, task: Task) -> None:
+    """Add points when a task/habit is completed"""
+    settings = get_settings(db)
+    history = get_or_create_today_history(db)
+
+    # Calculate points
+    if task.is_habit:
+        points = calculate_habit_points(task, settings)
+        history.habits_completed += 1
+    else:
+        points = calculate_task_points(task, settings)
+        history.tasks_completed += 1
+
+    # Add to earned points
+    history.points_earned += points
+
+    # Update daily and cumulative totals
+    history.daily_total = history.points_earned + history.points_bonus - history.points_penalty
+    history.cumulative_total += points
+
+    # Store details
+    details = json.loads(history.details) if history.details else []
+    details.append({
+        "task_id": task.id,
+        "description": task.description,
+        "is_habit": task.is_habit,
+        "points": points,
+        "time": datetime.utcnow().isoformat()
+    })
+    history.details = json.dumps(details)
+
+    db.commit()
+
+
+def calculate_daily_penalties(db: Session) -> dict:
+    """Calculate penalties for the day (called during Roll)"""
+    settings = get_settings(db)
+    history = get_or_create_today_history(db)
+    today = date.today()
+
+    # Count tasks that were planned for today
+    tasks_in_today = db.query(Task).filter(
+        and_(
+            Task.is_today == True,
+            Task.is_habit == False
+        )
+    ).count()
+
+    # Count today's habits (should have been done)
+    today_start = datetime.combine(today, datetime.min.time())
+    today_end = datetime.combine(today + timedelta(days=1), datetime.min.time())
+    habits_due = db.query(Task).filter(
+        and_(
+            Task.is_habit == True,
+            Task.due_date >= today_start,
+            Task.due_date < today_end
+        )
+    ).count()
+
+    history.tasks_planned = max(tasks_in_today, settings.max_tasks_per_day)
+
+    penalty = 0
+
+    # Check if idle day (no tasks/habits completed at all)
+    if history.tasks_completed == 0 and history.habits_completed == 0:
+        penalty += settings.idle_day_penalty
+    else:
+        # Calculate completion rate
+        total_planned = max(history.tasks_planned, 1)
+        completion_rate = history.tasks_completed / total_planned
+        history.completion_rate = completion_rate
+
+        # Penalty for incomplete day (< 50%)
+        if completion_rate < 0.5:
+            penalty += int(settings.incomplete_day_penalty * (1 - completion_rate))
+
+    # Penalty for missed habits
+    missed_habits = max(0, habits_due - history.habits_completed)
+    if missed_habits > 0:
+        penalty += int(missed_habits * settings.points_per_habit_base * 0.5)
+
+    # Apply penalties
+    history.points_penalty = penalty
+    history.daily_total = history.points_earned + history.points_bonus - history.points_penalty
+    history.cumulative_total = history.cumulative_total - penalty
+
+    db.commit()
+
+    return {
+        "penalty": penalty,
+        "completion_rate": history.completion_rate,
+        "tasks_completed": history.tasks_completed,
+        "tasks_planned": history.tasks_planned,
+        "missed_habits": missed_habits
+    }
+
+
+def get_point_history(db: Session, days: int = 30) -> List[PointHistory]:
+    """Get point history for last N days"""
+    start_date = date.today() - timedelta(days=days)
+    return db.query(PointHistory).filter(
+        PointHistory.date >= start_date
+    ).order_by(PointHistory.date.desc()).all()
+
+
+def get_current_points(db: Session) -> int:
+    """Get current total points"""
+    history = get_or_create_today_history(db)
+    return history.cumulative_total
+
+
+def calculate_projection(db: Session, target_date: date) -> dict:
+    """Calculate point projections until target date"""
+    # Get last 30 days average
+    history = get_point_history(db, 30)
+
+    if not history:
+        avg_per_day = 0
+    else:
+        total_daily = sum(h.daily_total for h in history)
+        avg_per_day = total_daily / len(history)
+
+    current_total = get_current_points(db)
+    days_until = (target_date - date.today()).days
+
+    if days_until <= 0:
+        return {
+            "current_total": current_total,
+            "days_until": days_until,
+            "avg_per_day": avg_per_day,
+            "projection": current_total
+        }
+
+    # Projections
+    min_projection = current_total + int(avg_per_day * 0.7 * days_until)
+    avg_projection = current_total + int(avg_per_day * days_until)
+    max_projection = current_total + int(avg_per_day * 1.3 * days_until)
+
+    return {
+        "current_total": current_total,
+        "days_until": days_until,
+        "avg_per_day": round(avg_per_day, 2),
+        "min_projection": max(min_projection, current_total),
+        "avg_projection": max(avg_projection, current_total),
+        "max_projection": max(max_projection, current_total)
+    }
+
+
+# ===== POINT GOALS FUNCTIONS =====
+
+def get_point_goals(db: Session, include_achieved: bool = False) -> List[PointGoal]:
+    """Get point goals"""
+    query = db.query(PointGoal)
+    if not include_achieved:
+        query = query.filter(PointGoal.achieved == False)
+    return query.order_by(PointGoal.target_points).all()
+
+
+def create_point_goal(db: Session, goal: PointGoalCreate) -> PointGoal:
+    """Create a new point goal"""
+    db_goal = PointGoal(**goal.model_dump())
+    db.add(db_goal)
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+
+def update_point_goal(db: Session, goal_id: int, goal_update: PointGoalUpdate) -> Optional[PointGoal]:
+    """Update a point goal"""
+    db_goal = db.query(PointGoal).filter(PointGoal.id == goal_id).first()
+    if not db_goal:
+        return None
+
+    update_data = goal_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_goal, key, value)
+
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
+
+def delete_point_goal(db: Session, goal_id: int) -> bool:
+    """Delete a point goal"""
+    db_goal = db.query(PointGoal).filter(PointGoal.id == goal_id).first()
+    if not db_goal:
+        return False
+    db.delete(db_goal)
+    db.commit()
+    return True
+
+
+def check_goal_achievements(db: Session) -> List[PointGoal]:
+    """Check and mark achieved goals"""
+    current_total = get_current_points(db)
+    goals = get_point_goals(db, include_achieved=False)
+
+    achieved_goals = []
+    for goal in goals:
+        if current_total >= goal.target_points:
+            goal.achieved = True
+            goal.achieved_date = date.today()
+            achieved_goals.append(goal)
+
+    if achieved_goals:
+        db.commit()
+
+    return achieved_goals
