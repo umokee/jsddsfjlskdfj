@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-function TaskForm({ onSubmit, onCancel }) {
+function TaskForm({ onSubmit, onCancel, editTask }) {
   const [formData, setFormData] = useState({
     description: '',
     project: '',
@@ -15,6 +15,39 @@ function TaskForm({ onSubmit, onCancel }) {
   });
 
   const [selectedWeekDays, setSelectedWeekDays] = useState([]);
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editTask) {
+      // Convert due_date from ISO to datetime-local format
+      const dueDate = editTask.due_date
+        ? new Date(editTask.due_date).toISOString().slice(0, 16)
+        : '';
+
+      setFormData({
+        description: editTask.description || '',
+        project: editTask.project || '',
+        priority: editTask.priority || 5,
+        energy: editTask.energy || 3,
+        is_habit: editTask.is_habit || false,
+        is_today: editTask.is_today || false,
+        due_date: dueDate,
+        recurrence_type: editTask.recurrence_type || 'daily',
+        recurrence_interval: editTask.recurrence_interval || 1,
+        recurrence_days: editTask.recurrence_days || '[]'
+      });
+
+      // Parse weekly days
+      if (editTask.recurrence_days) {
+        try {
+          const days = JSON.parse(editTask.recurrence_days);
+          setSelectedWeekDays(days);
+        } catch (e) {
+          setSelectedWeekDays([]);
+        }
+      }
+    }
+  }, [editTask]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -208,7 +241,7 @@ function TaskForm({ onSubmit, onCancel }) {
 
       <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
         <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-          Create Task
+          {editTask ? 'Update Task' : 'Create Task'}
         </button>
         {onCancel && (
           <button type="button" className="btn" onClick={onCancel}>
