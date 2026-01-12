@@ -116,6 +116,15 @@ def get_stats(db: Session) -> dict:
 
 def create_task(db: Session, task: TaskCreate) -> Task:
     db_task = Task(**task.model_dump())
+
+    # For recurring habits without due_date, set it to today
+    if db_task.is_habit and db_task.recurrence_type != "none" and not db_task.due_date:
+        db_task.due_date = datetime.combine(date.today(), datetime.min.time())
+
+    # Normalize due_date to midnight (remove time component) to avoid time-based deletions
+    if db_task.due_date:
+        db_task.due_date = datetime.combine(db_task.due_date.date(), datetime.min.time())
+
     db_task.calculate_urgency()
     db.add(db_task)
     db.commit()
@@ -130,6 +139,10 @@ def update_task(db: Session, task_id: int, task_update: TaskUpdate) -> Optional[
     update_data = task_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_task, key, value)
+
+    # Normalize due_date to midnight (remove time component)
+    if db_task.due_date:
+        db_task.due_date = datetime.combine(db_task.due_date.date(), datetime.min.time())
 
     db_task.calculate_urgency()
     db.commit()
@@ -307,12 +320,12 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
     today = datetime.utcnow().date()
     today_start = datetime.combine(today, datetime.min.time())
 
-    # 1. Delete overdue habits
+    # 1. Delete overdue habits (only delete habits from BEFORE today, not today)
     overdue_habits = db.query(Task).filter(
         and_(
             Task.is_habit == True,
             Task.status == "pending",
-            Task.due_date < today_start
+            Task.due_date < today_start  # This correctly deletes only past days, not today
         )
     ).all()
     for habit in overdue_habits:
