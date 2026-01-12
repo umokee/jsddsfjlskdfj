@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, Date
+from datetime import datetime, date
 from backend.database import Base
 
 class Task(Base):
@@ -18,6 +18,13 @@ class Task(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     urgency = Column(Float, default=0.0)
+
+    # Habit-specific fields
+    recurrence_type = Column(String, default="none")  # none, daily, every_n_days, weekly
+    recurrence_interval = Column(Integer, default=1)   # For every_n_days: interval in days
+    recurrence_days = Column(String, nullable=True)    # For weekly: JSON array like "[1,3,5]" (Mon,Wed,Fri)
+    streak = Column(Integer, default=0)                # Current streak count
+    last_completed_date = Column(Date, nullable=True)  # Last completion date for streak tracking
 
     def calculate_urgency(self):
         """Calculate task urgency based on priority, due date, and energy"""

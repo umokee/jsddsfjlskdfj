@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import List, Optional
 import random
+import json
 
 from backend.models import Task
 from backend.schemas import TaskCreate, TaskUpdate
@@ -152,6 +153,39 @@ def stop_task(db: Session) -> bool:
         return True
     return False
 
+def _calculate_next_due_date(task: Task, from_date: date) -> Optional[date]:
+    """Calculate next due date based on recurrence settings"""
+    if task.recurrence_type == "none":
+        return None
+
+    if task.recurrence_type == "daily":
+        return from_date + timedelta(days=1)
+
+    if task.recurrence_type == "every_n_days":
+        interval = max(1, task.recurrence_interval or 1)
+        return from_date + timedelta(days=interval)
+
+    if task.recurrence_type == "weekly":
+        # Parse recurrence_days JSON array like "[0,2,4]" (Mon, Wed, Fri)
+        try:
+            days = json.loads(task.recurrence_days) if task.recurrence_days else []
+            if not days:
+                return from_date + timedelta(days=7)
+
+            # Find next occurrence
+            current_weekday = from_date.weekday()
+            for offset in range(1, 8):
+                next_date = from_date + timedelta(days=offset)
+                if next_date.weekday() in days:
+                    return next_date
+
+            # Fallback to next week
+            return from_date + timedelta(days=7)
+        except (json.JSONDecodeError, ValueError):
+            return from_date + timedelta(days=7)
+
+    return None
+
 def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     """Complete a task (active or specified)"""
     if task_id:
@@ -159,11 +193,58 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     else:
         db_task = get_active_task(db)
 
-    if db_task:
-        db_task.status = "completed"
-        db_task.completed_at = datetime.utcnow()
-        db.commit()
-        db.refresh(db_task)
+    if not db_task:
+        return None
+
+    completion_date = datetime.utcnow()
+    db_task.status = "completed"
+    db_task.completed_at = completion_date
+
+    # Handle habits: update streak and create next occurrence
+    if db_task.is_habit:
+        today = date.today()
+
+        # Update streak
+        if db_task.last_completed_date:
+            days_diff = (today - db_task.last_completed_date).days
+            if days_diff == 1:
+                # Consecutive day - increment streak
+                db_task.streak = (db_task.streak or 0) + 1
+            elif days_diff == 0:
+                # Same day - keep streak
+                pass
+            else:
+                # Broke the streak - reset to 1
+                db_task.streak = 1
+        else:
+            # First completion
+            db_task.streak = 1
+
+        db_task.last_completed_date = today
+
+        # Create next occurrence if has recurrence
+        if db_task.recurrence_type != "none":
+            next_due = _calculate_next_due_date(db_task, today)
+            if next_due:
+                next_habit = Task(
+                    description=db_task.description,
+                    project=db_task.project,
+                    priority=db_task.priority,
+                    energy=db_task.energy,
+                    is_habit=True,
+                    is_today=False,
+                    due_date=datetime.combine(next_due, datetime.min.time()),
+                    recurrence_type=db_task.recurrence_type,
+                    recurrence_interval=db_task.recurrence_interval,
+                    recurrence_days=db_task.recurrence_days,
+                    streak=db_task.streak,  # Carry over streak
+                    last_completed_date=db_task.last_completed_date
+                )
+                next_habit.calculate_urgency()
+                db.add(next_habit)
+
+    db.commit()
+    db.refresh(db_task)
     return db_task
 
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:

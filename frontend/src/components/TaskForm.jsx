@@ -8,8 +8,13 @@ function TaskForm({ onSubmit, onCancel }) {
     energy: 3,
     is_habit: false,
     is_today: false,
-    due_date: ''
+    due_date: '',
+    recurrence_type: 'daily',
+    recurrence_interval: 1,
+    recurrence_days: '[]'
   });
+
+  const [selectedWeekDays, setSelectedWeekDays] = useState([]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,6 +34,23 @@ function TaskForm({ onSubmit, onCancel }) {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
+  const toggleWeekDay = (day) => {
+    setSelectedWeekDays(prev => {
+      const newDays = prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day].sort((a, b) => a - b);
+
+      setFormData(prevForm => ({
+        ...prevForm,
+        recurrence_days: JSON.stringify(newDays)
+      }));
+
+      return newDays;
+    });
+  };
+
+  const weekDayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
     <form onSubmit={handleSubmit}>
@@ -106,6 +128,61 @@ function TaskForm({ onSubmit, onCancel }) {
         />
         <label htmlFor="is_habit">Habit</label>
       </div>
+
+      {/* Habit recurrence settings */}
+      {formData.is_habit && (
+        <div className="form-group" style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #333' }}>
+          <label className="form-label">Recurrence</label>
+
+          <select
+            className="form-input"
+            name="recurrence_type"
+            value={formData.recurrence_type}
+            onChange={handleChange}
+            style={{ marginBottom: '1rem' }}
+          >
+            <option value="daily">Every Day</option>
+            <option value="every_n_days">Every N Days</option>
+            <option value="weekly">Specific Days of Week</option>
+            <option value="none">No Repeat (One-time)</option>
+          </select>
+
+          {formData.recurrence_type === 'every_n_days' && (
+            <div className="form-group">
+              <label className="form-label">Every N Days</label>
+              <input
+                className="form-input"
+                type="number"
+                name="recurrence_interval"
+                min="1"
+                max="30"
+                value={formData.recurrence_interval}
+                onChange={handleChange}
+                placeholder="e.g., 2 for every other day"
+              />
+            </div>
+          )}
+
+          {formData.recurrence_type === 'weekly' && (
+            <div className="form-group">
+              <label className="form-label">Days of Week</label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                {weekDayNames.map((day, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => toggleWeekDay(index)}
+                    className={selectedWeekDays.includes(index) ? 'btn btn-primary btn-small' : 'btn btn-small'}
+                    style={{ minWidth: '50px' }}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="checkbox-group">
         <input
