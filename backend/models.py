@@ -21,6 +21,7 @@ class Task(Base):
 
     # Time tracking (accumulated seconds)
     time_spent = Column(Integer, default=0)  # Total seconds spent on this task
+    estimated_time = Column(Integer, default=0)  # Estimated time in seconds
 
     # Habit-specific fields
     recurrence_type = Column(String, default="none")  # none, daily, every_n_days, weekly
@@ -58,3 +59,65 @@ class Task(Base):
 
         self.urgency = urgency
         return urgency
+
+
+class Settings(Base):
+    __tablename__ = "settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Task limits
+    max_tasks_per_day = Column(Integer, default=10)
+
+    # Base points
+    points_per_task_base = Column(Integer, default=10)
+    points_per_habit_base = Column(Integer, default=15)
+
+    # Multipliers and weights
+    streak_multiplier = Column(Float, default=2.0)
+    energy_weight = Column(Float, default=3.0)
+    time_efficiency_weight = Column(Float, default=0.5)
+
+    # Penalties
+    incomplete_day_penalty = Column(Integer, default=20)
+    missed_day_penalty = Column(Integer, default=50)
+    idle_day_penalty = Column(Integer, default=30)
+
+    # Updated timestamp
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PointHistory(Base):
+    __tablename__ = "point_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False, unique=True, index=True)
+
+    # Points breakdown
+    points_earned = Column(Integer, default=0)  # Total earned from tasks/habits
+    points_penalty = Column(Integer, default=0)  # Total penalties
+    points_bonus = Column(Integer, default=0)   # Daily completion bonuses
+    daily_total = Column(Integer, default=0)    # Net for the day
+    cumulative_total = Column(Integer, default=0)  # Running total
+
+    # Task statistics
+    tasks_completed = Column(Integer, default=0)
+    habits_completed = Column(Integer, default=0)
+    tasks_planned = Column(Integer, default=0)  # Tasks that were in TODAY
+    completion_rate = Column(Float, default=0.0)
+
+    # Detailed breakdown (JSON)
+    details = Column(String, nullable=True)  # JSON with per-task breakdown
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PointGoal(Base):
+    __tablename__ = "point_goals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    target_points = Column(Integer, nullable=False)
+    reward_description = Column(String, nullable=False)
+    deadline = Column(Date, nullable=True)
+    achieved = Column(Boolean, default=False)
+    achieved_date = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
