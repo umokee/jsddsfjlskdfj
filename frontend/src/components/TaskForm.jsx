@@ -20,9 +20,9 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
   // Populate form when editing
   useEffect(() => {
     if (editTask) {
-      // Convert due_date from ISO to datetime-local format
+      // Convert due_date from ISO to date format (YYYY-MM-DD)
       const dueDate = editTask.due_date
-        ? new Date(editTask.due_date).toISOString().slice(0, 16)
+        ? new Date(editTask.due_date).toISOString().slice(0, 10)
         : '';
 
       setFormData({
@@ -160,10 +160,10 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
       </div>
 
       <div className="form-group">
-        <label className="form-label">Due Date & Time</label>
+        <label className="form-label">Due Date</label>
         <input
           className="form-input"
-          type="datetime-local"
+          type="date"
           name="due_date"
           value={formData.due_date}
           onChange={handleChange}
@@ -174,7 +174,7 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
           }}
         />
         <small style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-          Click the calendar icon to select date and time
+          Select date (time is automatically set to midnight)
         </small>
       </div>
 
