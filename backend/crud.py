@@ -146,23 +146,27 @@ def delete_task(db: Session, task_id: int) -> bool:
 
 def start_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     """Start a task (stop all active first)"""
-    # Stop all active tasks
+    # Stop all active tasks (save elapsed time and clear started_at)
     active_tasks = db.query(Task).filter(Task.status == "active").all()
     for task in active_tasks:
+        if task.started_at:
+            elapsed = (datetime.utcnow() - task.started_at).total_seconds()
+            task.time_spent = (task.time_spent or 0) + int(elapsed)
         task.status = "pending"
+        task.started_at = None  # Important: clear old started_at
 
     if task_id:
         db_task = get_task(db, task_id)
         if db_task:
             db_task.status = "active"
-            db_task.started_at = datetime.utcnow()
+            db_task.started_at = datetime.utcnow()  # Set fresh started_at
             db_task.is_today = True
     else:
         # Start next available task
         db_task = get_next_task(db) or get_next_habit(db)
         if db_task:
             db_task.status = "active"
-            db_task.started_at = datetime.utcnow()
+            db_task.started_at = datetime.utcnow()  # Set fresh started_at
 
     db.commit()
     if db_task:
@@ -226,6 +230,10 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
 
     if not db_task:
         return None
+
+    # Prevent completing already completed tasks (prevents duplicates on fast clicks)
+    if db_task.status == "completed":
+        return db_task
 
     completion_date = datetime.utcnow()
     db_task.status = "completed"

@@ -19,35 +19,31 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit }) {
           <div className="task-header">
             <div className="task-title">{habit.description}</div>
             <div className="task-actions">
-              {habit.status !== 'active' && (
-                <button
-                  className="btn btn-small btn-primary"
-                  onClick={() => onStart(habit.id)}
-                >
-                  Start
-                </button>
+              {habit.status === 'pending' && (
+                <>
+                  <button
+                    className="btn btn-small"
+                    onClick={() => onComplete(habit.id)}
+                  >
+                    Done
+                  </button>
+                  {onEdit && (
+                    <button
+                      className="btn btn-small"
+                      onClick={() => onEdit(habit)}
+                      title="Edit habit"
+                    >
+                      ✎
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-small btn-danger"
+                    onClick={() => onDelete(habit.id)}
+                  >
+                    ×
+                  </button>
+                </>
               )}
-              <button
-                className="btn btn-small"
-                onClick={() => onComplete(habit.id)}
-              >
-                Done
-              </button>
-              {onEdit && (
-                <button
-                  className="btn btn-small"
-                  onClick={() => onEdit(habit)}
-                  title="Edit habit"
-                >
-                  ✎
-                </button>
-              )}
-              <button
-                className="btn btn-small btn-danger"
-                onClick={() => onDelete(habit.id)}
-              >
-                ×
-              </button>
             </div>
           </div>
 
