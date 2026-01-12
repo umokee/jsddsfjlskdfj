@@ -218,7 +218,7 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
         if mood and mood.isdigit():
             energy_level = int(mood)
             if 0 <= energy_level <= 5:
-                query = query.filter(Task.energy == energy_level)
+                query = query.filter(Task.energy <= energy_level)  # До N включительно
 
         available_tasks = query.limit(20).all()
         random.shuffle(available_tasks)
