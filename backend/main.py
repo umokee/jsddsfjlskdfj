@@ -12,7 +12,8 @@ from backend.schemas import (
     TaskCreate, TaskUpdate, TaskResponse, StatsResponse,
     SettingsUpdate, SettingsResponse,
     PointHistoryResponse,
-    PointGoalCreate, PointGoalUpdate, PointGoalResponse
+    PointGoalCreate, PointGoalUpdate, PointGoalResponse,
+    RestDayCreate, RestDayResponse
 )
 from backend.auth import verify_api_key
 from backend import crud
@@ -258,6 +259,27 @@ async def delete_goal_endpoint(goal_id: int, db: Session = Depends(get_db)):
     """Delete a point goal"""
     if not crud.delete_point_goal(db, goal_id):
         raise HTTPException(status_code=404, detail="Goal not found")
+
+
+# ===== REST DAYS ENDPOINTS =====
+
+@app.get("/api/rest-days", response_model=List[RestDayResponse], dependencies=[Depends(verify_api_key)])
+async def get_rest_days_endpoint(db: Session = Depends(get_db)):
+    """Get all rest days"""
+    return crud.get_rest_days(db)
+
+
+@app.post("/api/rest-days", response_model=RestDayResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
+async def create_rest_day_endpoint(rest_day: RestDayCreate, db: Session = Depends(get_db)):
+    """Create a rest day"""
+    return crud.create_rest_day(db, rest_day)
+
+
+@app.delete("/api/rest-days/{rest_day_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_api_key)])
+async def delete_rest_day_endpoint(rest_day_id: int, db: Session = Depends(get_db)):
+    """Delete a rest day"""
+    if not crud.delete_rest_day(db, rest_day_id):
+        raise HTTPException(status_code=404, detail="Rest day not found")
 
 
 if __name__ == "__main__":

@@ -5,8 +5,8 @@ from typing import List, Optional
 import random
 import json
 
-from backend.models import Task, Settings, PointHistory, PointGoal
-from backend.schemas import TaskCreate, TaskUpdate, SettingsUpdate, PointGoalCreate, PointGoalUpdate
+from backend.models import Task, Settings, PointHistory, PointGoal, RestDay
+from backend.schemas import TaskCreate, TaskUpdate, SettingsUpdate, PointGoalCreate, PointGoalUpdate, RestDayCreate
 
 def get_task(db: Session, task_id: int) -> Optional[Task]:
     return db.query(Task).filter(Task.id == task_id).first()
@@ -323,8 +323,26 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     return db_task
 
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:
-    """Generate daily task plan"""
+    """Generate daily task plan (max once per day)"""
     today = datetime.utcnow().date()
+    settings = get_settings(db)
+
+    # Check if roll was already done today
+    if settings.last_roll_date == today:
+        return {
+            "error": "Roll already done today",
+            "habits": [],
+            "tasks": [],
+            "deleted_habits": 0,
+            "penalty_info": {
+                "penalty": 0,
+                "completion_rate": 0,
+                "tasks_completed": 0,
+                "tasks_planned": 0,
+                "missed_habits": 0
+            }
+        }
+
     today_start = datetime.combine(today, datetime.min.time())
 
     # 1. Delete overdue habits (only delete habits from BEFORE today, not today)
@@ -387,6 +405,10 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
     # Calculate penalties for yesterday (before rolling to new day)
     penalty_info = calculate_daily_penalties(db)
 
+    # Update last_roll_date to prevent multiple rolls per day
+    settings.last_roll_date = today
+    db.commit()
+
     # Get plan summary
     habits = get_today_habits(db)
     today_tasks = db.query(Task).filter(
@@ -438,17 +460,18 @@ def calculate_task_points(task: Task, settings: Settings) -> int:
     # Bonus for energy (0-5)
     energy_bonus = task.energy * settings.energy_weight
 
-    # Smart time tracking
+    # Smart time tracking with automatic estimation
     actual_time = task.time_spent if task.time_spent else 0
-    estimated_time = task.estimated_time if task.estimated_time else 0
+    # Automatic estimated time based on energy: energy * minutes_per_unit * 60 seconds
+    expected_time = task.energy * settings.minutes_per_energy_unit * 60
 
     time_modifier = 0.0
 
-    if actual_time > 0 and estimated_time > 0:
-        # Calculate efficiency: estimated / actual
+    if actual_time > 0 and expected_time > 0:
+        # Calculate efficiency: expected / actual
         # > 1.0 means faster than expected (bonus)
         # < 1.0 means slower than expected (penalty)
-        efficiency = estimated_time / actual_time
+        efficiency = expected_time / actual_time
 
         # If easy task (energy <= 2) done very slowly (efficiency < 0.3) - big penalty
         if task.energy <= 2 and efficiency < 0.3:
@@ -462,14 +485,18 @@ def calculate_task_points(task: Task, settings: Settings) -> int:
 
     total_points = base + energy_bonus + time_modifier
 
-    # Minimum 20% of base points
-    return max(int(total_points), int(base * 0.2))
+    # Minimum 20% of (base + energy) to ensure energy effort is rewarded
+    minimum_points = int((base + energy_bonus) * 0.2)
+    return max(int(total_points), minimum_points)
 
 
 def calculate_habit_points(task: Task, settings: Settings) -> int:
     """Calculate points for completing a habit"""
     base = settings.points_per_habit_base
-    streak_bonus = task.streak * settings.streak_multiplier
+    # Cap streak bonus at 30 days (habit formation period)
+    # With new defaults: 10 + 30*1 = 40 max points per habit
+    capped_streak = min(task.streak, 30)
+    streak_bonus = capped_streak * settings.streak_multiplier
     return int(base + streak_bonus)
 
 
@@ -479,10 +506,21 @@ def get_or_create_today_history(db: Session) -> PointHistory:
     history = db.query(PointHistory).filter(PointHistory.date == today).first()
 
     if not history:
-        # Get yesterday's cumulative total
+        # Apply penalties to yesterday before creating today
+        # This ensures yesterday is finalized before starting today
         yesterday = today - timedelta(days=1)
         yesterday_history = db.query(PointHistory).filter(PointHistory.date == yesterday).first()
-        previous_total = yesterday_history.cumulative_total if yesterday_history else 0
+
+        if yesterday_history and yesterday_history.points_penalty == 0:
+            # Yesterday hasn't been finalized yet - calculate penalties
+            _finalize_day_penalties(db, yesterday)
+            db.refresh(yesterday_history)  # Reload after finalization
+
+        # Get most recent history entry (handles gaps in days)
+        last_history = db.query(PointHistory).filter(
+            PointHistory.date < today
+        ).order_by(PointHistory.date.desc()).first()
+        previous_total = last_history.cumulative_total if last_history else 0
 
         history = PointHistory(
             date=today,
@@ -529,67 +567,133 @@ def add_task_completion_points(db: Session, task: Task) -> None:
     db.commit()
 
 
-def calculate_daily_penalties(db: Session) -> dict:
-    """Calculate penalties for the day (called during Roll)"""
+def _finalize_day_penalties(db: Session, target_date: date) -> dict:
+    """Internal function to finalize penalties for a specific date"""
     settings = get_settings(db)
-    history = get_or_create_today_history(db)
-    today = date.today()
 
-    # Count tasks that were planned for today
-    tasks_in_today = db.query(Task).filter(
+    # Check if this is a rest day - no penalties
+    rest_day = db.query(RestDay).filter(RestDay.date == target_date).first()
+    if rest_day:
+        return {
+            "penalty": 0,
+            "completion_rate": 1.0,
+            "tasks_completed": 0,
+            "tasks_planned": 0,
+            "missed_habits": 0,
+            "is_rest_day": True
+        }
+
+    # Get history for target date
+    day_history = db.query(PointHistory).filter(PointHistory.date == target_date).first()
+
+    # If no history for that day, no penalties
+    if not day_history:
+        return {
+            "penalty": 0,
+            "completion_rate": 0,
+            "tasks_completed": 0,
+            "tasks_planned": 0,
+            "missed_habits": 0
+        }
+
+    # Count tasks that were completed on target date
+    day_start = datetime.combine(target_date, datetime.min.time())
+    day_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
+
+    tasks_completed = db.query(Task).filter(
         and_(
-            Task.is_today == True,
+            Task.status == "completed",
+            Task.completed_at >= day_start,
+            Task.completed_at < day_end,
             Task.is_habit == False
         )
     ).count()
 
-    # Count today's habits (should have been done)
-    today_start = datetime.combine(today, datetime.min.time())
-    today_end = datetime.combine(today + timedelta(days=1), datetime.min.time())
-    habits_due = db.query(Task).filter(
+    habits_completed = db.query(Task).filter(
         and_(
-            Task.is_habit == True,
-            Task.due_date >= today_start,
-            Task.due_date < today_end
+            Task.status == "completed",
+            Task.completed_at >= day_start,
+            Task.completed_at < day_end,
+            Task.is_habit == True
         )
     ).count()
 
-    history.tasks_planned = max(tasks_in_today, settings.max_tasks_per_day)
+    # Update completion counts (if not already set)
+    if day_history.tasks_completed == 0:
+        day_history.tasks_completed = tasks_completed
+    if day_history.habits_completed == 0:
+        day_history.habits_completed = habits_completed
+
+    # Count habits that were due on target date
+    habits_due = db.query(Task).filter(
+        and_(
+            Task.is_habit == True,
+            Task.due_date >= day_start,
+            Task.due_date < day_end
+        )
+    ).count()
+
+    # Set tasks_planned to actual count (fair completion rate)
+    if day_history.tasks_planned == 0:
+        day_history.tasks_planned = max(day_history.tasks_completed, 1)
 
     penalty = 0
 
     # Check if idle day (no tasks/habits completed at all)
-    if history.tasks_completed == 0 and history.habits_completed == 0:
+    if day_history.tasks_completed == 0 and day_history.habits_completed == 0:
         penalty += settings.idle_day_penalty
     else:
         # Calculate completion rate
-        total_planned = max(history.tasks_planned, 1)
-        completion_rate = history.tasks_completed / total_planned
-        history.completion_rate = completion_rate
+        completion_rate = min(day_history.tasks_completed / day_history.tasks_planned, 1.0)
+        day_history.completion_rate = completion_rate
 
-        # Penalty for incomplete day (< 50%)
-        if completion_rate < 0.5:
+        # Penalty for incomplete day (threshold now 80% instead of 50%)
+        if completion_rate < settings.incomplete_day_threshold:
             penalty += int(settings.incomplete_day_penalty * (1 - completion_rate))
 
-    # Penalty for missed habits
-    missed_habits = max(0, habits_due - history.habits_completed)
-    if missed_habits > 0:
-        penalty += int(missed_habits * settings.points_per_habit_base * 0.5)
+    # Progressive penalty for missed habits based on streak
+    # The longer the streak, the bigger the penalty for breaking it
+    missed_habits_count = max(0, habits_due - day_history.habits_completed)
+    if missed_habits_count > 0:
+        # Get all habits that were due but not completed
+        missed_habits = db.query(Task).filter(
+            and_(
+                Task.is_habit == True,
+                Task.due_date >= day_start,
+                Task.due_date < day_end,
+                Task.status != "completed"
+            )
+        ).all()
 
-    # Apply penalties
-    history.points_penalty = penalty
-    history.daily_total = history.points_earned + history.points_bonus - history.points_penalty
-    history.cumulative_total = history.cumulative_total - penalty
+        for habit in missed_habits:
+            # Base penalty
+            habit_penalty = settings.missed_habit_penalty_base
+            # Add progressive penalty based on streak: penalty * (1 + factor * streak)
+            # E.g., streak 20, factor 0.5: penalty * (1 + 0.5 * 20) = penalty * 11
+            if habit.streak > 0:
+                habit_penalty = int(habit_penalty * (1 + settings.progressive_penalty_factor * habit.streak))
+            penalty += habit_penalty
+
+    # Apply penalties (but never go below 0 cumulative)
+    day_history.points_penalty = penalty
+    day_history.daily_total = day_history.points_earned + day_history.points_bonus - day_history.points_penalty
+    day_history.cumulative_total = max(0, day_history.cumulative_total - penalty)
 
     db.commit()
 
     return {
         "penalty": penalty,
-        "completion_rate": history.completion_rate,
-        "tasks_completed": history.tasks_completed,
-        "tasks_planned": history.tasks_planned,
+        "completion_rate": day_history.completion_rate,
+        "tasks_completed": day_history.tasks_completed,
+        "tasks_planned": day_history.tasks_planned,
         "missed_habits": missed_habits
     }
+
+
+def calculate_daily_penalties(db: Session) -> dict:
+    """Calculate penalties for YESTERDAY (called during Roll for new day)"""
+    yesterday = date.today() - timedelta(days=1)
+    return _finalize_day_penalties(db, yesterday)
 
 
 def get_point_history(db: Session, days: int = 30) -> List[PointHistory]:
@@ -703,3 +807,29 @@ def check_goal_achievements(db: Session) -> List[PointGoal]:
         db.commit()
 
     return achieved_goals
+
+
+# ===== REST DAY FUNCTIONS =====
+
+def get_rest_days(db: Session) -> List[RestDay]:
+    """Get all rest days"""
+    return db.query(RestDay).order_by(RestDay.date).all()
+
+
+def create_rest_day(db: Session, rest_day: RestDayCreate) -> RestDay:
+    """Create a rest day"""
+    db_rest_day = RestDay(**rest_day.model_dump())
+    db.add(db_rest_day)
+    db.commit()
+    db.refresh(db_rest_day)
+    return db_rest_day
+
+
+def delete_rest_day(db: Session, rest_day_id: int) -> bool:
+    """Delete a rest day"""
+    db_rest_day = db.query(RestDay).filter(RestDay.id == rest_day_id).first()
+    if not db_rest_day:
+        return False
+    db.delete(db_rest_day)
+    db.commit()
+    return True
