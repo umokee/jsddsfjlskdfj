@@ -11,6 +11,7 @@ import {
   completeTask,
   rollTasks,
   createTask,
+  updateTask,
   deleteTask,
   getApiKey,
   setApiKey as setApiKeyStorage,
@@ -33,6 +34,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
 
   useEffect(() => {
     if (apiKey) {
@@ -114,14 +116,32 @@ function App() {
     }
   };
 
-  const handleCreateTask = async (taskData) => {
+  const handleSubmitTask = async (taskData) => {
     try {
-      await createTask(taskData);
+      if (editingTask) {
+        // Update existing task
+        await updateTask(editingTask.id, taskData);
+      } else {
+        // Create new task
+        await createTask(taskData);
+      }
       await loadData();
       setShowTaskForm(false);
+      setEditingTask(null);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create task');
+      const action = editingTask ? 'update' : 'create';
+      setError(err.response?.data?.detail || `Failed to ${action} task`);
     }
+  };
+
+  const handleEditTask = (task) => {
+    setEditingTask(task);
+    setShowTaskForm(true);
+  };
+
+  const handleCancelEdit = () => {
+    setShowTaskForm(false);
+    setEditingTask(null);
   };
 
   const handleDeleteTask = async (taskId) => {
@@ -213,7 +233,7 @@ function App() {
       )}
 
       <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
-        <button className="btn btn-primary" onClick={() => setShowTaskForm(!showTaskForm)}>
+        <button className="btn btn-primary" onClick={() => { setShowTaskForm(!showTaskForm); setEditingTask(null); }}>
           {showTaskForm ? 'Cancel' : 'New Task'}
         </button>
         <button className="btn" onClick={handleRoll}>Roll Daily Plan</button>
@@ -226,7 +246,11 @@ function App() {
 
       {showTaskForm && (
         <div className="section" style={{ marginBottom: '2rem' }}>
-          <TaskForm onSubmit={handleCreateTask} onCancel={() => setShowTaskForm(false)} />
+          <TaskForm
+            onSubmit={handleSubmitTask}
+            onCancel={handleCancelEdit}
+            editTask={editingTask}
+          />
         </div>
       )}
 
@@ -245,6 +269,7 @@ function App() {
                 onStart={handleStart}
                 onComplete={handleComplete}
                 onDelete={handleDeleteTask}
+                onEdit={handleEditTask}
               />
             </div>
           )}
@@ -257,6 +282,7 @@ function App() {
                 onStart={handleStart}
                 onComplete={handleComplete}
                 onDelete={handleDeleteTask}
+                onEdit={handleEditTask}
               />
             </div>
           )}
@@ -273,6 +299,7 @@ function App() {
             onStart={handleStart}
             onComplete={handleComplete}
             onDelete={handleDeleteTask}
+            onEdit={handleEditTask}
           />
         </div>
 
@@ -285,6 +312,7 @@ function App() {
             onStart={handleStart}
             onComplete={handleComplete}
             onDelete={handleDeleteTask}
+            onEdit={handleEditTask}
           />
         </div>
       </div>

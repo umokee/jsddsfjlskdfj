@@ -1,6 +1,6 @@
 import { formatTimeSpent } from '../utils/timeFormat';
 
-function TaskList({ tasks, onStart, onComplete, onDelete }) {
+function TaskList({ tasks, onStart, onComplete, onDelete, onEdit }) {
   const getPriorityClass = (priority) => {
     if (priority >= 7) return 'priority-high';
     if (priority >= 4) return 'priority-medium';
@@ -52,6 +52,15 @@ function TaskList({ tasks, onStart, onComplete, onDelete }) {
               >
                 Done
               </button>
+              {onEdit && (
+                <button
+                  className="btn btn-small"
+                  onClick={() => onEdit(task)}
+                  title="Edit task"
+                >
+                  ✎
+                </button>
+              )}
               <button
                 className="btn btn-small btn-danger"
                 onClick={() => onDelete(task.id)}

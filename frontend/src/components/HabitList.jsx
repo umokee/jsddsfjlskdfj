@@ -1,6 +1,6 @@
 import { formatTimeSpent } from '../utils/timeFormat';
 
-function HabitList({ habits, onStart, onComplete, onDelete }) {
+function HabitList({ habits, onStart, onComplete, onDelete, onEdit }) {
   if (!habits || habits.length === 0) {
     return (
       <div className="empty-state">
@@ -33,6 +33,15 @@ function HabitList({ habits, onStart, onComplete, onDelete }) {
               >
                 Done
               </button>
+              {onEdit && (
+                <button
+                  className="btn btn-small"
+                  onClick={() => onEdit(habit)}
+                  title="Edit habit"
+                >
+                  ✎
+                </button>
+              )}
               <button
                 className="btn btn-small btn-danger"
                 onClick={() => onDelete(habit.id)}
