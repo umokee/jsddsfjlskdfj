@@ -85,7 +85,7 @@ function Settings({ onClose }) {
 
       <form onSubmit={handleSubmit}>
         <div className="settings-section">
-          <h3>📋 Task Limits</h3>
+          <h3>Task Limits</h3>
           <div className="form-group">
             <label>Max Tasks Per Day:</label>
             <input
@@ -100,7 +100,7 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>⭐ Base Points</h3>
+          <h3>Base Points</h3>
           <div className="form-group">
             <label>Points Per Task:</label>
             <input
@@ -128,7 +128,7 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>⚡ Multipliers & Weights</h3>
+          <h3>Multipliers & Weights</h3>
           <div className="form-group">
             <label>Streak Multiplier:</label>
             <input
@@ -171,7 +171,7 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>⏱️ Time Estimation (Automatic)</h3>
+          <h3>Time Estimation (Automatic)</h3>
           <div className="form-group">
             <label>Minutes Per Energy Unit:</label>
             <input
@@ -187,9 +187,9 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>⚠️ Penalties</h3>
+          <h3>Penalties</h3>
           <div className="info-box" style={{ marginBottom: '1.5rem' }}>
-            💡 Progressive penalties increase based on consecutive days WITH penalties (penalty streak), not habit streak.
+            Progressive penalties increase based on consecutive days WITH penalties (penalty streak), not habit streak.
           </div>
           <div className="form-group">
             <label>Incomplete Day Penalty:</label>
@@ -280,10 +280,10 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>🔄 Habit Types</h3>
+          <h3>Habit Types</h3>
           <div className="info-box" style={{ marginBottom: '1.5rem' }}>
-            💪 <strong>Skills:</strong> New habits you're building (full points)<br />
-            🔄 <strong>Routines:</strong> Easy daily tasks that get reduced points
+            <strong>Skills:</strong> New habits you're building (full points)<br />
+            <strong>Routines:</strong> Easy daily tasks that get reduced points
           </div>
           <div className="form-group">
             <label>Routine Habit Multiplier:</label>

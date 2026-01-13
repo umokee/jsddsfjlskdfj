@@ -199,15 +199,15 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
             value={formData.depends_on || ''}
             onChange={handleChange}
           >
-            <option value="">⚡ Independent Task (No Dependencies)</option>
+            <option value="">Independent Task (No Dependencies)</option>
             {availableTasks.map(task => (
               <option key={task.id} value={task.id}>
-                🔗 Depends on: {task.description.substring(0, 40)}{task.description.length > 40 ? '...' : ''} (P:{task.priority} E:{task.energy})
+                Depends on: {task.description.substring(0, 40)}{task.description.length > 40 ? '...' : ''} (P:{task.priority} E:{task.energy})
               </option>
             ))}
           </select>
           <div className="info-box" style={{ marginTop: '0.75rem' }}>
-            ℹ️ This task will only appear in Roll after its dependency is completed
+            This task will only appear in Roll after its dependency is completed
           </div>
         </div>
       )}
@@ -238,7 +238,7 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
                   checked={formData.habit_type === 'skill'}
                   onChange={handleChange}
                 />
-                <span>💪 Skill (New Habit)</span>
+                <span>Skill (New Habit)</span>
               </label>
               <label className="radio-label">
                 <input
@@ -248,13 +248,13 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
                   checked={formData.habit_type === 'routine'}
                   onChange={handleChange}
                 />
-                <span>🔄 Routine (Daily Task)</span>
+                <span>Routine (Daily Task)</span>
               </label>
             </div>
             <div className="info-box">
               {formData.habit_type === 'skill'
-                ? '💡 Skills: Full points. For building new habits like exercise, meditation, learning.'
-                : '⚡ Routines: 50% points. For easy daily tasks like brushing teeth, making bed.'}
+                ? 'Skills: Full points. For building new habits like exercise, meditation, learning.'
+                : 'Routines: 50% points. For easy daily tasks like brushing teeth, making bed.'}
             </div>
           </div>
 
