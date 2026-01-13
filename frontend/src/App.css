@@ -340,3 +340,215 @@ body {
   font-size: 1.2rem;
   color: var(--text-secondary);
 }
+
+/* Settings Styles */
+.settings {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: 2rem;
+  max-width: 900px;
+  margin: 2rem auto;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.settings-header h2 {
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.close-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+}
+
+.close-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.settings-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+
+.settings-section h3 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 1.5rem;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.settings-section .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.settings-section .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.settings-section .form-group small {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.settings-section input[type="number"],
+.settings-section select {
+  width: 100%;
+  max-width: 200px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.settings-section input[type="number"]:focus,
+.settings-section select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--border);
+}
+
+.form-actions button {
+  flex: 1;
+  max-width: 200px;
+}
+
+/* Radio Group Styles */
+.radio-group {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.radio-label:hover {
+  border-color: var(--accent);
+  background: rgba(0, 255, 136, 0.05);
+}
+
+.radio-label input[type="radio"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.radio-label input[type="radio"]:checked + span,
+.radio-label:has(input[type="radio"]:checked) {
+  color: var(--accent);
+}
+
+.radio-label:has(input[type="radio"]:checked) {
+  border-color: var(--accent);
+  background: rgba(0, 255, 136, 0.05);
+}
+
+/* Dependency Section */
+.dependency-section {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dependency-section .form-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Habit Settings Section */
+.habit-settings {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.habit-type-selector {
+  margin-bottom: 1rem;
+}
+
+/* Info Box */
+.info-box {
+  background: rgba(0, 255, 136, 0.05);
+  border: 1px solid var(--accent-dim);
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.info-box-warning {
+  background: rgba(255, 170, 0, 0.05);
+  border-color: var(--warning);
+}
+
+/* Select Improvements */
+select.form-input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300ff88' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}
+
+select.form-input option {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}

@@ -191,24 +191,24 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
 
       {/* Task Dependencies - only show for non-habit tasks */}
       {!formData.is_habit && (
-        <div className="form-group">
-          <label className="form-label">Depends On (Optional)</label>
+        <div className="dependency-section">
+          <label className="form-label">Task Dependency</label>
           <select
             className="form-input"
             name="depends_on"
             value={formData.depends_on || ''}
             onChange={handleChange}
           >
-            <option value="">None (no dependencies)</option>
+            <option value="">⚡ Independent Task (No Dependencies)</option>
             {availableTasks.map(task => (
               <option key={task.id} value={task.id}>
-                {task.description} (Priority: {task.priority}, Energy: {task.energy})
+                🔗 Depends on: {task.description.substring(0, 40)}{task.description.length > 40 ? '...' : ''} (P:{task.priority} E:{task.energy})
               </option>
             ))}
           </select>
-          <small style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-            This task will only be selectable after the dependency is completed
-          </small>
+          <div className="info-box" style={{ marginTop: '0.75rem' }}>
+            ℹ️ This task will only appear in Roll after its dependency is completed
+          </div>
         </div>
       )}
 
@@ -226,35 +226,39 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
 
       {/* Habit recurrence settings */}
       {formData.is_habit && (
-        <div className="form-group" style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #333' }}>
-          <label className="form-label">Habit Type</label>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="habit_type"
-                value="skill"
-                checked={formData.habit_type === 'skill'}
-                onChange={handleChange}
-              />
-              <span>Skill (new habit)</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="habit_type"
-                value="routine"
-                checked={formData.habit_type === 'routine'}
-                onChange={handleChange}
-              />
-              <span>Routine (daily routine)</span>
-            </label>
+        <div className="habit-settings">
+          <div className="habit-type-selector">
+            <label className="form-label">Habit Type</label>
+            <div className="radio-group">
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="habit_type"
+                  value="skill"
+                  checked={formData.habit_type === 'skill'}
+                  onChange={handleChange}
+                />
+                <span>💪 Skill (New Habit)</span>
+              </label>
+              <label className="radio-label">
+                <input
+                  type="radio"
+                  name="habit_type"
+                  value="routine"
+                  checked={formData.habit_type === 'routine'}
+                  onChange={handleChange}
+                />
+                <span>🔄 Routine (Daily Task)</span>
+              </label>
+            </div>
+            <div className="info-box">
+              {formData.habit_type === 'skill'
+                ? '💡 Skills: Full points. For building new habits like exercise, meditation, learning.'
+                : '⚡ Routines: 50% points. For easy daily tasks like brushing teeth, making bed.'}
+            </div>
           </div>
-          <small style={{ color: '#888', fontSize: '0.75rem', marginBottom: '1rem', display: 'block' }}>
-            Skills give full points, routines give 50% points (easier daily tasks like "brush teeth")
-          </small>
 
-          <label className="form-label">Recurrence</label>
+          <label className="form-label" style={{ marginTop: '1rem' }}>Recurrence Pattern</label>
 
           <select
             className="form-input"
