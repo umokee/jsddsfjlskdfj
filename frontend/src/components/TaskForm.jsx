@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import api from '../api';
 
 function TaskForm({ onSubmit, onCancel, editTask }) {
   const [formData, setFormData] = useState({
@@ -11,10 +12,34 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
     due_date: '',
     recurrence_type: 'daily',
     recurrence_interval: 1,
-    recurrence_days: '[]'
+    recurrence_days: '[]',
+    depends_on: null,
+    habit_type: 'skill'
   });
 
   const [selectedWeekDays, setSelectedWeekDays] = useState([]);
+  const [availableTasks, setAvailableTasks] = useState([]);
+
+  // Fetch available tasks for dependency dropdown
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const response = await api.get('/tasks');
+        // Filter to only pending tasks (not habits, not completed)
+        const pendingTasks = response.data.filter(
+          task => task.status === 'pending' && !task.is_habit
+        );
+        // Exclude current task if editing
+        const filtered = editTask
+          ? pendingTasks.filter(task => task.id !== editTask.id)
+          : pendingTasks;
+        setAvailableTasks(filtered);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+    fetchTasks();
+  }, [editTask]);
 
   // Populate form when editing
   useEffect(() => {
@@ -34,7 +59,9 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
         due_date: dueDate,
         recurrence_type: editTask.recurrence_type || 'daily',
         recurrence_interval: editTask.recurrence_interval || 1,
-        recurrence_days: editTask.recurrence_days || '[]'
+        recurrence_days: editTask.recurrence_days || '[]',
+        depends_on: editTask.depends_on || null,
+        habit_type: editTask.habit_type || 'skill'
       });
 
       // Parse weekly days
@@ -56,7 +83,9 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
       ...formData,
       due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
       // If not a habit, force recurrence to 'none'
-      recurrence_type: formData.is_habit ? formData.recurrence_type : 'none'
+      recurrence_type: formData.is_habit ? formData.recurrence_type : 'none',
+      // Convert depends_on to integer or null (habits can't have dependencies)
+      depends_on: formData.is_habit ? null : (formData.depends_on ? parseInt(formData.depends_on, 10) : null)
     };
 
     onSubmit(submitData);
@@ -160,6 +189,29 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
         </small>
       </div>
 
+      {/* Task Dependencies - only show for non-habit tasks */}
+      {!formData.is_habit && (
+        <div className="form-group">
+          <label className="form-label">Depends On (Optional)</label>
+          <select
+            className="form-input"
+            name="depends_on"
+            value={formData.depends_on || ''}
+            onChange={handleChange}
+          >
+            <option value="">None (no dependencies)</option>
+            {availableTasks.map(task => (
+              <option key={task.id} value={task.id}>
+                {task.description} (Priority: {task.priority}, Energy: {task.energy})
+              </option>
+            ))}
+          </select>
+          <small style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+            This task will only be selectable after the dependency is completed
+          </small>
+        </div>
+      )}
+
       <div className="checkbox-group">
         <input
           className="checkbox"
@@ -175,6 +227,33 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
       {/* Habit recurrence settings */}
       {formData.is_habit && (
         <div className="form-group" style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #333' }}>
+          <label className="form-label">Habit Type</label>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="habit_type"
+                value="skill"
+                checked={formData.habit_type === 'skill'}
+                onChange={handleChange}
+              />
+              <span>Skill (new habit)</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="habit_type"
+                value="routine"
+                checked={formData.habit_type === 'routine'}
+                onChange={handleChange}
+              />
+              <span>Routine (daily routine)</span>
+            </label>
+          </div>
+          <small style={{ color: '#888', fontSize: '0.75rem', marginBottom: '1rem', display: 'block' }}>
+            Skills give full points, routines give 50% points (easier daily tasks like "brush teeth")
+          </small>
+
           <label className="form-label">Recurrence</label>
 
           <select
