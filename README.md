@@ -1,52 +1,52 @@
-# Task Manager with Points System
+# Task Manager с системой поинтов
 
-Comprehensive task and habit manager with gamification through a points system. Built with FastAPI backend and React frontend.
+Комплексный менеджер задач и привычек с геймификацией через систему поинтов. Построен на FastAPI backend и React frontend.
 
-## Table of Contents
+## Содержание
 
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Project Structure](#project-structure)
-- [Points System](#points-system)
-- [API Reference](#api-reference)
-- [Settings Reference](#settings-reference)
-- [Database Migration](#database-migration)
-- [Deployment](#deployment)
-- [Security](#security)
-
----
-
-## Features
-
-### Core Features
-- **Task Management**: Priority (0-10), Energy (0-5), Due dates
-- **Habit Tracking**: Daily habits with streak counting (max 30 days)
-- **Task Dependencies**: Sequential task chains (Task B depends on Task A)
-- **Daily Planning**: Smart "Roll" algorithm for daily task selection
-- **Points System**: Comprehensive gamification with rewards and penalties
-- **Goals**: Set point-based goals with reward tracking
-- **Point Calculator**: Project future points based on performance
-
-### Points System Features
-- Automatic point calculation based on task completion
-- Streak bonuses for habits (capped at 30 days)
-- Energy-based multipliers
-- Time efficiency bonuses
-- Progressive penalties for consecutive days with penalties
-- Separate penalties for tasks and habits
-- Habit types: Skills (full points) vs Routines (50% points)
-- Rest days support (no penalties)
-
-### Technical Features
-- API Key authentication
-- Fail2ban integration for security
-- SQLite database with automatic migrations
-- Responsive terminal-style UI
-- NixOS deployment module
+- [Возможности](#возможности)
+- [Быстрый старт](#быстрый-старт)
+- [Структура проекта](#структура-проекта)
+- [Система поинтов](#система-поинтов)
+- [Справочник API](#справочник-api)
+- [Справочник настроек](#справочник-настроек)
+- [Миграция базы данных](#миграция-базы-данных)
+- [Деплой](#деплой)
+- [Безопасность](#безопасность)
 
 ---
 
-## Quick Start
+## Возможности
+
+### Основные функции
+- **Управление задачами**: Приоритет (0-10), Энергия (0-5), Сроки выполнения
+- **Отслеживание привычек**: Ежедневные привычки с подсчётом стрика (максимум 30 дней)
+- **Зависимости задач**: Последовательные цепочки задач (Задача B зависит от Задачи A)
+- **Ежедневное планирование**: Умный алгоритм "Roll" для выбора задач на день
+- **Система поинтов**: Комплексная геймификация с наградами и штрафами
+- **Цели**: Установка целей на основе поинтов с отслеживанием вознаграждений
+- **Калькулятор поинтов**: Прогноз будущих поинтов на основе производительности
+
+### Возможности системы поинтов
+- Автоматический подсчёт поинтов при выполнении задач
+- Бонусы за стрик привычек (ограничение 30 дней)
+- Множители на основе энергии
+- Бонусы за эффективность по времени
+- Прогрессивные штрафы за последовательные дни со штрафами
+- Раздельные штрафы для задач и привычек
+- Типы привычек: Навыки (полные поинты) vs Рутина (50% поинтов)
+- Поддержка дней отдыха (без штрафов)
+
+### Технические возможности
+- Аутентификация по API ключу
+- Интеграция с Fail2ban для безопасности
+- База данных SQLite с автоматическими миграциями
+- Адаптивный UI в стиле терминала
+- Модуль для деплоя на NixOS
+
+---
+
+## Быстрый старт
 
 ### Backend
 
@@ -54,14 +54,14 @@ Comprehensive task and habit manager with gamification through a points system. 
 cd backend
 pip install -r requirements.txt
 
-# Set API key (optional, default: "your-secret-key-change-me")
+# Установить API ключ (опционально, по умолчанию: "your-secret-key-change-me")
 export TASK_MANAGER_API_KEY="your-secret-key"
 
-# Run server
+# Запустить сервер
 python -m backend.main
 ```
 
-Backend runs on `http://localhost:8000`
+Backend запускается на `http://localhost:8000`
 
 ### Frontend
 
@@ -69,254 +69,254 @@ Backend runs on `http://localhost:8000`
 cd frontend
 npm install
 
-# Set API key and URL in .env (or use defaults)
+# Установить API ключ и URL в .env (или использовать значения по умолчанию)
 echo "VITE_API_KEY=your-secret-key" > .env
 echo "VITE_API_URL=http://localhost:8000" >> .env
 
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`
+Frontend запускается на `http://localhost:5173`
 
-### First Run
+### Первый запуск
 
-1. Open `http://localhost:5173` in browser
-2. The system creates default settings automatically
-3. Create your first task or habit
-4. Click "Roll Daily Plan" to select tasks for today
-5. Complete tasks to earn points!
+1. Откройте `http://localhost:5173` в браузере
+2. Система автоматически создаст настройки по умолчанию
+3. Создайте первую задачу или привычку
+4. Нажмите "Roll Daily Plan" для выбора задач на сегодня
+5. Выполняйте задачи и зарабатывайте поинты!
 
 ---
 
-## Project Structure
+## Структура проекта
 
 ```
 umtask/
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py              # FastAPI app & all API endpoints
-│   ├── models.py            # SQLAlchemy database models
-│   ├── schemas.py           # Pydantic validation schemas
-│   ├── crud.py              # Business logic & calculations
-│   ├── auth.py              # API key authentication
-│   ├── requirements.txt     # Python dependencies
-│   ├── migrate_db.py        # Database migration script
-│   └── tasks.db             # SQLite database (created on first run)
+│   ├── main.py              # FastAPI приложение и все API эндпоинты
+│   ├── models.py            # Модели базы данных SQLAlchemy
+│   ├── schemas.py           # Схемы валидации Pydantic
+│   ├── crud.py              # Бизнес-логика и расчёты
+│   ├── auth.py              # Аутентификация по API ключу
+│   ├── requirements.txt     # Python зависимости
+│   ├── migrate_db.py        # Скрипт миграции БД
+│   └── tasks.db             # SQLite база данных (создаётся при первом запуске)
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── TaskForm.jsx         # Create/edit tasks
-│   │   │   ├── TaskList.jsx         # Task list display
-│   │   │   ├── HabitList.jsx        # Habit list display
-│   │   │   ├── Timer.jsx            # Task timer
-│   │   │   ├── Settings.jsx         # Points system settings
-│   │   │   ├── PointsDisplay.jsx    # Points & history
-│   │   │   ├── PointsGoals.jsx      # Goals management
-│   │   │   └── PointsCalculator.jsx # Future projections
-│   │   ├── App.jsx          # Main app component
-│   │   ├── App.css          # Global styles
-│   │   └── api.js           # Axios API client
+│   │   │   ├── TaskForm.jsx         # Создание/редактирование задач
+│   │   │   ├── TaskList.jsx         # Отображение списка задач
+│   │   │   ├── HabitList.jsx        # Отображение списка привычек
+│   │   │   ├── Timer.jsx            # Таймер задачи
+│   │   │   ├── Settings.jsx         # Настройки системы поинтов
+│   │   │   ├── PointsDisplay.jsx    # Поинты и история
+│   │   │   ├── PointsGoals.jsx      # Управление целями
+│   │   │   └── PointsCalculator.jsx # Прогнозы на будущее
+│   │   ├── App.jsx          # Главный компонент приложения
+│   │   ├── App.css          # Глобальные стили
+│   │   └── api.js           # Axios API клиент
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
 │
 ├── deployment/
-│   ├── nixos-module.nix     # NixOS service module
-│   ├── NIXOS-SETUP.md       # NixOS deployment guide
-│   └── FAIL2BAN.md          # Fail2ban setup guide
+│   ├── nixos-module.nix     # Модуль сервиса для NixOS
+│   ├── NIXOS-SETUP.md       # Руководство по деплою на NixOS
+│   └── FAIL2BAN.md          # Руководство по настройке Fail2ban
 │
-└── README.md                # This file
+└── README.md                # Этот файл
 ```
 
 ---
 
-## Points System
+## Система поинтов
 
-### Overview
+### Обзор
 
-The points system gamifies task completion with rewards for productivity and penalties for inactivity.
+Система поинтов геймифицирует выполнение задач с наградами за продуктивность и штрафами за бездействие.
 
-### Earning Points
+### Заработок поинтов
 
-#### Task Completion
-
-```
-Base Points: 10 (configurable)
-Energy Bonus: energy_level × energy_weight (default: 3.0)
-Time Efficiency Bonus: (1 - time_taken/expected_time) × time_efficiency_weight (default: 0.5)
-
-Formula:
-points = base + (energy × weight) + efficiency_bonus
-```
-
-**Example:**
-- Task with energy=3, completed in expected time
-- Points = 10 + (3 × 3.0) + 0 = **19 points**
-
-#### Habit Completion
+#### Выполнение задачи
 
 ```
-Base Points: 10 (configurable)
-Streak Bonus: min(current_streak, 30) × streak_multiplier (default: 1.0)
-Habit Type Multiplier:
-  - Skill: 1.0 (full points)
-  - Routine: 0.5 (half points)
+Базовые поинты: 10 (настраивается)
+Бонус за энергию: уровень_энергии × вес_энергии (по умолчанию: 3.0)
+Бонус за эффективность: (1 - затраченное_время/ожидаемое_время) × вес_эффективности (по умолчанию: 0.5)
 
-Formula:
-points = (base + streak_bonus) × habit_type_multiplier
+Формула:
+поинты = база + (энергия × вес) + бонус_за_эффективность
 ```
 
-**Example:**
-- Skill habit with 15-day streak
-- Points = (10 + 15 × 1.0) × 1.0 = **25 points**
+**Пример:**
+- Задача с энергией=3, выполнена за ожидаемое время
+- Поинты = 10 + (3 × 3.0) + 0 = **19 поинтов**
 
-**Routine Example:**
-- Routine habit (like "brush teeth") with 20-day streak
-- Points = (10 + 20 × 1.0) × 0.5 = **15 points**
-
-### Penalties
-
-#### Idle Tasks Penalty
-Applied when **0 tasks** completed in a day
-- Default: -20 points
-- Applied independently from habits
-
-#### Idle Habits Penalty
-Applied when **0 habits** completed in a day
-- Default: -20 points
-- Applied independently from tasks
-
-#### Incomplete Day Penalty
-Applied when completion rate < threshold
-- Default: -20 points
-- Threshold: 80% (configurable)
-- Only applies if tasks were planned
-
-#### Missed Habit Penalty
-Applied for each uncompleted habit
-```
-Base Penalty: 50 (configurable)
-Habit Type Multiplier:
-  - Skill: 1.0
-  - Routine: 0.5
-
-Formula:
-penalty = base × habit_type_multiplier
-```
-
-#### Progressive Penalties (Surge Pricing)
-
-Penalties increase based on **penalty streak** (consecutive days WITH penalties):
+#### Выполнение привычки
 
 ```
-Penalty Streak: Number of consecutive days with any penalty
-Reset: After 3 consecutive days without penalties (configurable)
+Базовые поинты: 10 (настраивается)
+Бонус за стрик: min(текущий_стрик, 30) × множитель_стрика (по умолчанию: 1.0)
+Множитель типа привычки:
+  - Навык: 1.0 (полные поинты)
+  - Рутина: 0.5 (половина поинтов)
 
-Formula:
-final_penalty = base_penalty × (1 + factor × penalty_streak)
-
-Where factor = progressive_penalty_factor (default: 0.5)
+Формула:
+поинты = (база + бонус_за_стрик) × множитель_типа_привычки
 ```
 
-**Example:**
-- Day 1: -20 penalty → streak = 1 → -20 × (1 + 0.5×1) = **-30 points**
-- Day 2: -20 penalty → streak = 2 → -20 × (1 + 0.5×2) = **-40 points**
-- Day 3: -20 penalty → streak = 3 → -20 × (1 + 0.5×3) = **-50 points**
-- Day 4: No penalty for 1 day (streak still active)
-- Day 5-7: No penalty for 3 days → **streak resets to 0**
+**Пример:**
+- Навык с 15-дневным стриком
+- Поинты = (10 + 15 × 1.0) × 1.0 = **25 поинтов**
 
-### Task Dependencies
+**Пример рутины:**
+- Рутинная привычка (например "почистить зубы") с 20-дневным стриком
+- Поинты = (10 + 20 × 1.0) × 0.5 = **15 поинтов**
 
-Tasks can depend on other tasks being completed first.
+### Штрафы
 
-**Roll Algorithm Behavior:**
-1. **Pass 1**: Select tasks with completed dependencies (or no dependencies)
-2. **Pass 2**: If slots remain, select tasks whose dependency is in today's plan
-3. Dependent tasks can be completed today after their dependency
+#### Штраф за бездействие (задачи)
+Применяется когда **0 задач** выполнено за день
+- По умолчанию: -20 поинтов
+- Применяется независимо от привычек
 
-**Example:**
-- Task A: "Learn React" (no dependency)
-- Task B: "Build React project" (depends on A)
-- Roll selects A → B can also be selected (both in today's plan)
+#### Штраф за бездействие (привычки)
+Применяется когда **0 привычек** выполнено за день
+- По умолчанию: -20 поинтов
+- Применяется независимо от задач
 
-### Habit Types
+#### Штраф за неполный день
+Применяется когда процент выполнения < порога
+- По умолчанию: -20 поинтов
+- Порог: 80% (настраивается)
+- Применяется только если задачи были запланированы
 
-**Skills** (habit_type='skill'):
-- New habits you're building
-- Full points and penalties
-- Examples: Exercise, meditation, learning
+#### Штраф за пропуск привычки
+Применяется за каждую невыполненную привычку
+```
+Базовый штраф: 50 (настраивается)
+Множитель типа привычки:
+  - Навык: 1.0
+  - Рутина: 0.5
 
-**Routines** (habit_type='routine'):
-- Easy daily tasks
-- 50% points and penalties (configurable)
-- Examples: Brush teeth, make bed, shower
+Формула:
+штраф = база × множитель_типа_привычки
+```
 
-### Rest Days
+#### Прогрессивные штрафы (Surge Pricing)
 
-Special dates with no penalties applied:
-- Create via API: `POST /api/rest-days`
-- Examples: Holidays, vacation days, sick days
-- Points earned normally, but no penalties
+Штрафы увеличиваются на основе **стрика штрафов** (последовательные дни СО штрафами):
+
+```
+Стрик штрафов: Количество последовательных дней с любыми штрафами
+Сброс: После 3 последовательных дней без штрафов (настраивается)
+
+Формула:
+итоговый_штраф = базовый_штраф × (1 + фактор × стрик_штрафов)
+
+Где фактор = progressive_penalty_factor (по умолчанию: 0.5)
+```
+
+**Пример:**
+- День 1: -20 штраф → стрик = 1 → -20 × (1 + 0.5×1) = **-30 поинтов**
+- День 2: -20 штраф → стрик = 2 → -20 × (1 + 0.5×2) = **-40 поинтов**
+- День 3: -20 штраф → стрик = 3 → -20 × (1 + 0.5×3) = **-50 поинтов**
+- День 4: Нет штрафа 1 день (стрик всё ещё активен)
+- День 5-7: Нет штрафа 3 дня → **стрик сбрасывается на 0**
+
+### Зависимости задач
+
+Задачи могут зависеть от выполнения других задач.
+
+**Поведение алгоритма Roll:**
+1. **Проход 1**: Выбирает задачи с выполненными зависимостями (или без зависимостей)
+2. **Проход 2**: Если остались слоты, выбирает задачи, чья зависимость в плане на сегодня
+3. Зависимые задачи можно выполнить сегодня после их зависимости
+
+**Пример:**
+- Задача A: "Изучить React" (нет зависимости)
+- Задача B: "Построить проект на React" (зависит от A)
+- Roll выбирает A → B также может быть выбрана (обе в плане на сегодня)
+
+### Типы привычек
+
+**Навыки** (habit_type='skill'):
+- Новые привычки, которые вы строите
+- Полные поинты и штрафы
+- Примеры: Упражнения, медитация, обучение
+
+**Рутина** (habit_type='routine'):
+- Лёгкие ежедневные задачи
+- 50% поинтов и штрафов (настраивается)
+- Примеры: Почистить зубы, застелить кровать, душ
+
+### Дни отдыха
+
+Специальные даты без применения штрафов:
+- Создание через API: `POST /api/rest-days`
+- Примеры: Праздники, дни отпуска, больничные
+- Поинты начисляются нормально, но штрафов нет
 
 ---
 
-## API Reference
+## Справочник API
 
-All endpoints require `X-API-Key` header with your API key.
+Все эндпоинты требуют заголовок `X-API-Key` с вашим API ключом.
 
-### Tasks
+### Задачи
 
-#### Get All Tasks
+#### Получить все задачи
 ```http
 GET /api/tasks
 ```
 
-Returns all tasks with calculated urgency.
+Возвращает все задачи с рассчитанной срочностью.
 
-#### Get Pending Tasks
+#### Получить ожидающие задачи
 ```http
 GET /api/tasks/pending
 ```
 
-Returns pending tasks sorted by urgency (highest first).
+Возвращает ожидающие задачи, отсортированные по срочности (сначала высокая).
 
-#### Get Current Task
+#### Получить текущую задачу
 ```http
 GET /api/tasks/current
 ```
 
-Returns currently active task, or next task if none active.
+Возвращает текущую активную задачу или следующую задачу, если нет активной.
 
-#### Get Today's Habits
+#### Получить сегодняшние привычки
 ```http
 GET /api/tasks/habits
 ```
 
-Returns all habits due today.
+Возвращает все привычки на сегодня.
 
-#### Get Today's Tasks
+#### Получить сегодняшние задачи
 ```http
 GET /api/tasks/today
 ```
 
-Returns all tasks marked for today (is_today=true).
+Возвращает все задачи, отмеченные на сегодня (is_today=true).
 
-#### Get Specific Task
+#### Получить конкретную задачу
 ```http
 GET /api/tasks/{task_id}
 ```
 
-Returns task by ID.
+Возвращает задачу по ID.
 
-#### Create Task
+#### Создать задачу
 ```http
 POST /api/tasks
 Content-Type: application/json
 
 {
-  "description": "Task description",
-  "project": "Project name",
+  "description": "Описание задачи",
+  "project": "Название проекта",
   "priority": 5,
   "energy": 3,
   "is_habit": false,
@@ -328,95 +328,95 @@ Content-Type: application/json
 }
 ```
 
-**Fields:**
-- `description` (required): Task description
-- `project`: Optional project name
-- `priority`: 0-10, affects urgency calculation
-- `energy`: 0-5, affects points and urgency
-- `is_habit`: Is this a habit?
-- `is_today`: Schedule for today?
-- `due_date`: ISO datetime (time ignored, set to midnight)
-- `depends_on`: ID of task this depends on (tasks only)
-- `habit_type`: "skill" or "routine" (habits only)
-- `recurrence_type`: "none", "daily", "every_n_days", "weekly" (habits only)
+**Поля:**
+- `description` (обязательно): Описание задачи
+- `project`: Опциональное название проекта
+- `priority`: 0-10, влияет на расчёт срочности
+- `energy`: 0-5, влияет на поинты и срочность
+- `is_habit`: Это привычка?
+- `is_today`: Запланировать на сегодня?
+- `due_date`: ISO datetime (время игнорируется, устанавливается полночь)
+- `depends_on`: ID задачи, от которой зависит эта (только задачи)
+- `habit_type`: "skill" или "routine" (только привычки)
+- `recurrence_type`: "none", "daily", "every_n_days", "weekly" (только привычки)
 
-#### Update Task
+#### Обновить задачу
 ```http
 PUT /api/tasks/{task_id}
 Content-Type: application/json
 
 {
-  "description": "Updated description",
+  "description": "Обновлённое описание",
   "priority": 7
 }
 ```
 
-#### Delete Task
+#### Удалить задачу
 ```http
 DELETE /api/tasks/{task_id}
 ```
 
-### Task Actions
+### Действия с задачами
 
-#### Start Task
+#### Начать задачу
 ```http
 POST /api/tasks/start?task_id=123
 ```
 
-Starts specified task (or next task if ID omitted). Stops any currently active task.
+Начинает указанную задачу (или следующую, если ID не указан). Останавливает любую активную задачу.
 
-#### Stop Task
+#### Остановить задачу
 ```http
 POST /api/tasks/stop
 ```
 
-Stops currently active task.
+Останавливает текущую активную задачу.
 
-#### Complete Task
+#### Завершить задачу
 ```http
 POST /api/tasks/done?task_id=123
 ```
 
-Completes specified task (or current task if ID omitted). Awards points.
+Завершает указанную задачу (или текущую, если ID не указан). Начисляет поинты.
 
-#### Roll Daily Plan
+#### Roll ежедневного плана
 ```http
 POST /api/tasks/roll?mood=3&daily_limit=5&critical_days=2
 ```
 
-Generates daily task plan. Must be called once per day.
+Генерирует ежедневный план задач. Должен вызываться один раз в день.
 
-**Parameters:**
-- `mood` (optional): 0-5, filters tasks by energy level
-- `daily_limit`: Max tasks to select (default: 5)
-- `critical_days`: Days until deadline for critical tasks (default: 2)
+**Параметры:**
+- `mood` (опционально): 0-5, фильтрует задачи по уровню энергии
+- `daily_limit`: Максимум задач для выбора (по умолчанию: 5)
+- `critical_days`: Дни до дедлайна для критических задач (по умолчанию: 2)
 
-**Algorithm:**
-1. Delete overdue habits from previous days
-2. Clear is_today flag from all regular tasks
-3. Select critical tasks (due within critical_days)
-4. Fill remaining slots with tasks whose dependencies are met
-5. If slots remain, add tasks whose dependency is in today's plan
-6. Calculate penalties for yesterday
-7. Update last_roll_date
+**Алгоритм:**
+1. Удаляет просроченные привычки с предыдущих дней
+2. Очищает флаг is_today со всех обычных задач
+3. Выбирает критические задачи (срок в течение critical_days)
+4. Заполняет оставшиеся слоты задачами с выполненными зависимостями
+5. Если остались слоты, добавляет задачи, чья зависимость в плане на сегодня
+6. Рассчитывает штрафы за вчера
+7. Обновляет last_roll_date
 
-### Points
+### Поинты
 
-#### Get Current Points
+#### Получить текущие поинты
 ```http
 GET /api/points/current
 ```
 
-Returns total points accumulated.
+Возвращает общее количество накопленных поинтов.
 
-#### Get Points History
+#### Получить историю поинтов
 ```http
 GET /api/points/history?days=7
 ```
 
-Returns daily point history.
+Возвращает историю поинтов по дням.
 
-**Response:**
+**Ответ:**
 ```json
 [
   {
@@ -434,14 +434,14 @@ Returns daily point history.
 ]
 ```
 
-#### Get Points Projection
+#### Получить прогноз поинтов
 ```http
 GET /api/points/projection?target_date=2024-12-31
 ```
 
-Projects future points based on last 30 days average.
+Прогнозирует будущие поинты на основе среднего за последние 30 дней.
 
-**Response:**
+**Ответ:**
 ```json
 {
   "current_total": 500,
@@ -454,84 +454,84 @@ Projects future points based on last 30 days average.
 }
 ```
 
-Projections:
-- **Minimum**: 70% of average (pessimistic)
-- **Average**: Current average (realistic)
-- **Maximum**: 130% of average (optimistic)
+Прогнозы:
+- **Минимум**: 70% от среднего (пессимистичный)
+- **Средний**: Текущий средний (реалистичный)
+- **Максимум**: 130% от среднего (оптимистичный)
 
-### Goals
+### Цели
 
-#### Get Goals
+#### Получить цели
 ```http
 GET /api/goals?include_achieved=false
 ```
 
-Returns active goals (or all if include_achieved=true).
+Возвращает активные цели (или все, если include_achieved=true).
 
-#### Create Goal
+#### Создать цель
 ```http
 POST /api/goals
 Content-Type: application/json
 
 {
   "target_points": 1000,
-  "reward_description": "Buy new laptop",
+  "reward_description": "Купить новый ноутбук",
   "deadline": "2024-12-31"
 }
 ```
 
-#### Update Goal
+#### Обновить цель
 ```http
 PUT /api/goals/{goal_id}
 Content-Type: application/json
 
 {
-  "reward_description": "Updated reward"
+  "reward_description": "Обновлённое вознаграждение"
 }
 ```
 
-Goals are automatically marked as achieved when points reach target.
+Цели автоматически отмечаются как достигнутые, когда поинты достигают цели.
 
-#### Delete Goal
+#### Удалить цель
 ```http
 DELETE /api/goals/{goal_id}
 ```
 
-### Rest Days
+### Дни отдыха
 
-#### Get Rest Days
+#### Получить дни отдыха
 ```http
 GET /api/rest-days
 ```
 
-Returns all rest days (future and past).
+Возвращает все дни отдыха (будущие и прошлые).
 
-#### Create Rest Day
+#### Создать день отдыха
 ```http
 POST /api/rest-days
 Content-Type: application/json
 
 {
   "date": "2024-12-25",
-  "description": "Christmas"
+  "description": "Рождество"
 }
 ```
 
-#### Delete Rest Day
+#### Удалить день отдыха
 ```http
 DELETE /api/rest-days/{rest_day_id}
 ```
 
-### Settings
+### Настройки
 
-#### Get Settings
+#### Получить настройки
 ```http
 GET /api/settings
 ```
 
-Returns current points system settings.
+Возвращает текущие настройки системы поинтов.
 
-#### Update Settings
+#### Обновить настройки
 ```http
 PUT /api/settings
 Content-Type: application/json
@@ -542,16 +542,16 @@ Content-Type: application/json
 }
 ```
 
-### Statistics
+### Статистика
 
-#### Get Daily Stats
+#### Получить дневную статистику
 ```http
 GET /api/stats
 ```
 
-Returns statistics for current day.
+Возвращает статистику за текущий день.
 
-**Response:**
+**Ответ:**
 ```json
 {
   "pending_tasks": 5,
@@ -565,96 +565,96 @@ Returns statistics for current day.
 
 ---
 
-## Settings Reference
+## Справочник настроек
 
-All settings are configurable via Settings page in UI or API.
+Все настройки настраиваются через страницу Settings в UI или через API.
 
-### Task Limits
+### Лимиты задач
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `max_tasks_per_day` | 10 | 1-100 | Maximum tasks in daily plan |
+| Настройка | По умолчанию | Диапазон | Описание |
+|-----------|--------------|----------|----------|
+| `max_tasks_per_day` | 10 | 1-100 | Максимум задач в ежедневном плане |
 
-### Base Points
+### Базовые поинты
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `points_per_task_base` | 10 | 1-1000 | Base points per task |
-| `points_per_habit_base` | 10 | 1-1000 | Base points per habit |
+| Настройка | По умолчанию | Диапазон | Описание |
+|-----------|--------------|----------|----------|
+| `points_per_task_base` | 10 | 1-1000 | Базовые поинты за задачу |
+| `points_per_habit_base` | 10 | 1-1000 | Базовые поинты за привычку |
 
-### Multipliers & Weights
+### Множители и веса
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `streak_multiplier` | 1.0 | 0-10 | Points per streak day (capped at 30 days) |
-| `energy_weight` | 3.0 | 0-20 | Points multiplier per energy level |
-| `time_efficiency_weight` | 0.5 | 0-5 | Impact of time efficiency on points |
+| Настройка | По умолчанию | Диапазон | Описание |
+|-----------|--------------|----------|----------|
+| `streak_multiplier` | 1.0 | 0-10 | Поинты за день стрика (ограничение 30 дней) |
+| `energy_weight` | 3.0 | 0-20 | Множитель поинтов за уровень энергии |
+| `time_efficiency_weight` | 0.5 | 0-5 | Влияние эффективности по времени на поинты |
 
-### Time Estimation
+### Оценка времени
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `minutes_per_energy_unit` | 30 | 5-180 | Expected minutes per energy level |
+| Настройка | По умолчанию | Диапазон | Описание |
+|-----------|--------------|----------|----------|
+| `minutes_per_energy_unit` | 30 | 5-180 | Ожидаемые минуты на уровень энергии |
 
-**Example:**
-- Energy 3 task = 3 × 30 = 90 minutes expected
+**Пример:**
+- Задача с энергией 3 = 3 × 30 = 90 минут ожидается
 
-### Penalties
+### Штрафы
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `incomplete_day_penalty` | 20 | 0-500 | Penalty for < threshold completion |
-| `incomplete_day_threshold` | 0.8 | 0-1 | Minimum completion rate (80%) |
-| `missed_habit_penalty_base` | 50 | 0-500 | Base penalty per missed habit |
-| `progressive_penalty_factor` | 0.5 | 0-5 | Penalty streak multiplier |
-| `penalty_streak_reset_days` | 3 | 1-30 | Days without penalty to reset streak |
-| `idle_tasks_penalty` | 20 | 0-500 | Penalty for 0 tasks completed |
-| `idle_habits_penalty` | 20 | 0-500 | Penalty for 0 habits completed |
+| Настройка | По умолчанию | Диапазон | Описание |
+|-----------|--------------|----------|----------|
+| `incomplete_day_penalty` | 20 | 0-500 | Штраф за выполнение < порога |
+| `incomplete_day_threshold` | 0.8 | 0-1 | Минимальный процент выполнения (80%) |
+| `missed_habit_penalty_base` | 50 | 0-500 | Базовый штраф за пропуск привычки |
+| `progressive_penalty_factor` | 0.5 | 0-5 | Множитель стрика штрафов |
+| `penalty_streak_reset_days` | 3 | 1-30 | Дни без штрафа для сброса стрика |
+| `idle_tasks_penalty` | 20 | 0-500 | Штраф за 0 выполненных задач |
+| `idle_habits_penalty` | 20 | 0-500 | Штраф за 0 выполненных привычек |
 
-### Habit Types
+### Типы привычек
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `routine_habit_multiplier` | 0.5 | 0-1 | Points/penalty multiplier for routine habits |
+| Настройка | По умолчанию | Диапазон | Описание |
+|-----------|--------------|----------|----------|
+| `routine_habit_multiplier` | 0.5 | 0-1 | Множитель поинтов/штрафов для рутинных привычек |
 
 ---
 
-## Database Migration
+## Миграция базы данных
 
-If upgrading from a previous version, run the migration script:
+При обновлении с предыдущей версии запустите скрипт миграции:
 
 ```bash
 python backend/migrate_db.py
 ```
 
-**This adds:**
-- `depends_on` column to tasks (task dependencies)
-- `habit_type` column to tasks (skill vs routine)
-- `penalty_streak` column to point_history
-- New penalty columns to settings
-- `routine_habit_multiplier` to settings
+**Добавляет:**
+- Колонку `depends_on` в tasks (зависимости задач)
+- Колонку `habit_type` в tasks (навык vs рутина)
+- Колонку `penalty_streak` в point_history
+- Новые колонки штрафов в settings
+- `routine_habit_multiplier` в settings
 
-The script is safe to run multiple times (checks if columns exist).
+Скрипт безопасно запускать несколько раз (проверяет существование колонок).
 
 ---
 
-## Deployment
+## Деплой
 
-### Local Development
+### Локальная разработка
 
-See [Quick Start](#quick-start) above.
+Смотрите [Быстрый старт](#быстрый-старт) выше.
 
-### NixOS (Recommended)
+### NixOS (Рекомендуется)
 
-Full automated deployment with:
+Полностью автоматизированный деплой с:
 - Git clone
-- Frontend build
-- Backend service
+- Сборка фронтенда
+- Сервис backend
 - Reverse proxy (Caddy)
-- Fail2ban integration
-- Automatic API key generation
+- Интеграция Fail2ban
+- Автоматическая генерация API ключа
 
-**Minimal configuration:**
+**Минимальная конфигурация:**
 
 ```nix
 { config, pkgs, ... }:
@@ -665,83 +665,83 @@ Full automated deployment with:
 
   services.task-manager = {
     enable = true;
-    domain = "tasks.example.com";  # Optional
+    domain = "tasks.example.com";  # Опционально
   };
 }
 ```
 
-See `deployment/NIXOS-SETUP.md` for details.
+Смотрите `deployment/NIXOS-SETUP.md` для деталей.
 
-### Docker (Coming Soon)
+### Docker (В разработке)
 
-Docker deployment is planned but not yet available.
+Деплой через Docker планируется, но пока недоступен.
 
-### Systemd (Manual)
+### Systemd (Ручной)
 
-1. Install dependencies
-2. Create systemd service (see `deployment/systemd-service.example`)
-3. Configure reverse proxy (Nginx/Caddy)
-4. Set up Fail2ban (see `deployment/FAIL2BAN.md`)
+1. Установите зависимости
+2. Создайте systemd сервис (смотрите `deployment/systemd-service.example`)
+3. Настройте reverse proxy (Nginx/Caddy)
+4. Настройте Fail2ban (смотрите `deployment/FAIL2BAN.md`)
 
 ---
 
-## Security
+## Безопасность
 
-### API Key Authentication
+### Аутентификация по API ключу
 
-All API endpoints require `X-API-Key` header.
+Все API эндпоинты требуют заголовок `X-API-Key`.
 
-**Set custom key:**
+**Установить свой ключ:**
 
 ```bash
 # Backend
-export TASK_MANAGER_API_KEY="your-secure-random-key"
+export TASK_MANAGER_API_KEY="ваш-безопасный-случайный-ключ"
 
 # Frontend .env
-VITE_API_KEY=your-secure-random-key
+VITE_API_KEY=ваш-безопасный-случайный-ключ
 ```
 
-### Fail2ban Integration
+### Интеграция Fail2ban
 
-Automatically logs failed authentication attempts with IP addresses.
+Автоматически логирует неудачные попытки аутентификации с IP адресами.
 
-**Default settings:**
-- Max retries: 2
-- Ban time: 52 weeks
-- Find time: 1 day
+**Настройки по умолчанию:**
+- Максимум попыток: 2
+- Время бана: 52 недели
+- Время поиска: 1 день
 
-See `deployment/FAIL2BAN.md` for setup.
+Смотрите `deployment/FAIL2BAN.md` для настройки.
 
 ### HTTPS
 
-Use reverse proxy (Nginx/Caddy) for HTTPS in production.
+Используйте reverse proxy (Nginx/Caddy) для HTTPS в продакшене.
 
-NixOS module includes Caddy with automatic HTTPS.
+Модуль NixOS включает Caddy с автоматическим HTTPS.
 
 ---
 
-## Technologies
+## Технологии
 
 **Backend:**
-- FastAPI - Modern Python web framework
-- SQLAlchemy - ORM for database
-- SQLite - Embedded database
-- Pydantic - Data validation
+- FastAPI - Современный Python веб-фреймворк
+- SQLAlchemy - ORM для базы данных
+- SQLite - Встроенная база данных
+- Pydantic - Валидация данных
 
 **Frontend:**
-- React - UI library
-- Vite - Build tool
-- Axios - HTTP client
-- Vanilla CSS - No framework, terminal-style theme
+- React - UI библиотека
+- Vite - Инструмент сборки
+- Axios - HTTP клиент
+- Vanilla CSS - Без фреймворков, тема в стиле терминала
 
-**Deployment:**
-- NixOS - Declarative deployment
-- Systemd - Service management
-- Fail2ban - Security
+**Деплой:**
+- NixOS - Декларативный деплой
+- Systemd - Управление сервисами
+- Fail2ban - Безопасность
 - Caddy/Nginx - Reverse proxy
 
 ---
 
-## License
+## Лицензия
 
 MIT
