@@ -497,7 +497,14 @@ def calculate_habit_points(task: Task, settings: Settings) -> int:
     # With new defaults: 10 + 30*1 = 40 max points per habit
     capped_streak = min(task.streak, 30)
     streak_bonus = capped_streak * settings.streak_multiplier
-    return int(base + streak_bonus)
+
+    total = base + streak_bonus
+
+    # Apply routine multiplier if this is a routine habit (not a skill)
+    if task.habit_type == "routine":
+        total = int(total * settings.routine_habit_multiplier)
+
+    return int(total)
 
 
 def get_or_create_today_history(db: Session) -> PointHistory:
@@ -639,20 +646,23 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
 
     penalty = 0
 
-    # Check if idle day (no tasks/habits completed at all)
-    if day_history.tasks_completed == 0 and day_history.habits_completed == 0:
-        penalty += settings.idle_day_penalty
-    else:
-        # Calculate completion rate
+    # Separate idle penalties for tasks and habits
+    if day_history.tasks_completed == 0:
+        penalty += settings.idle_tasks_penalty
+
+    if day_history.habits_completed == 0:
+        penalty += settings.idle_habits_penalty
+
+    # Penalty for incomplete day (if at least some tasks were done)
+    if day_history.tasks_completed > 0:
         completion_rate = min(day_history.tasks_completed / day_history.tasks_planned, 1.0)
         day_history.completion_rate = completion_rate
 
-        # Penalty for incomplete day (threshold now 80% instead of 50%)
+        # Penalty for incomplete day (threshold 80%)
         if completion_rate < settings.incomplete_day_threshold:
             penalty += int(settings.incomplete_day_penalty * (1 - completion_rate))
 
-    # Progressive penalty for missed habits based on streak
-    # The longer the streak, the bigger the penalty for breaking it
+    # Penalty for missed habits
     missed_habits_count = max(0, habits_due - day_history.habits_completed)
     if missed_habits_count > 0:
         # Get all habits that were due but not completed
@@ -666,13 +676,53 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
         ).all()
 
         for habit in missed_habits:
-            # Base penalty
+            # Base penalty for missed habit
             habit_penalty = settings.missed_habit_penalty_base
-            # Add progressive penalty based on streak: penalty * (1 + factor * streak)
-            # E.g., streak 20, factor 0.5: penalty * (1 + 0.5 * 20) = penalty * 11
-            if habit.streak > 0:
-                habit_penalty = int(habit_penalty * (1 + settings.progressive_penalty_factor * habit.streak))
+
+            # Apply routine multiplier if routine habit
+            if habit.habit_type == "routine":
+                habit_penalty = int(habit_penalty * settings.routine_habit_multiplier)
+
             penalty += habit_penalty
+
+    # Get yesterday's penalty streak to determine current streak
+    yesterday_date = target_date - timedelta(days=1)
+    yesterday_history = db.query(PointHistory).filter(PointHistory.date == yesterday_date).first()
+
+    if penalty > 0:
+        # Got penalties today - increment streak
+        if yesterday_history and yesterday_history.penalty_streak > 0:
+            day_history.penalty_streak = yesterday_history.penalty_streak + 1
+        else:
+            day_history.penalty_streak = 1
+
+        # Apply progressive penalty based on PENALTY STREAK (not habit streak!)
+        # The more days in a row you get penalties, the bigger they become
+        # Formula: penalty * (1 + factor * penalty_streak)
+        progressive_multiplier = 1 + (settings.progressive_penalty_factor * day_history.penalty_streak)
+        penalty = int(penalty * progressive_multiplier)
+    else:
+        # No penalties today
+        # Check if we should reset the streak (3 days without penalties by default)
+        if yesterday_history:
+            days_without_penalty = 1  # Today has no penalty
+
+            # Count consecutive days without penalty before yesterday
+            check_date = yesterday_date
+            for _ in range(settings.penalty_streak_reset_days - 1):
+                hist = db.query(PointHistory).filter(PointHistory.date == check_date).first()
+                if hist and hist.points_penalty == 0:
+                    days_without_penalty += 1
+                    check_date -= timedelta(days=1)
+                else:
+                    break
+
+            if days_without_penalty >= settings.penalty_streak_reset_days:
+                day_history.penalty_streak = 0  # Reset streak
+            else:
+                day_history.penalty_streak = yesterday_history.penalty_streak  # Keep current streak
+        else:
+            day_history.penalty_streak = 0
 
     # Apply penalties (but never go below 0 cumulative)
     day_history.points_penalty = penalty

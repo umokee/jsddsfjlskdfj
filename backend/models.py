@@ -23,10 +23,14 @@ class Task(Base):
     time_spent = Column(Integer, default=0)  # Total seconds spent on this task
     estimated_time = Column(Integer, default=0)  # Estimated time in seconds
 
+    # Task dependencies
+    depends_on = Column(Integer, nullable=True)  # ID of task that must be completed first
+
     # Habit-specific fields
     recurrence_type = Column(String, default="none")  # none, daily, every_n_days, weekly
     recurrence_interval = Column(Integer, default=1)   # For every_n_days: interval in days
     recurrence_days = Column(String, nullable=True)    # For weekly: JSON array like "[1,3,5]" (Mon,Wed,Fri)
+    habit_type = Column(String, default="skill")  # skill (new habit) or routine (daily routine)
     streak = Column(Integer, default=0)                # Current streak count
     last_completed_date = Column(Date, nullable=True)  # Last completion date for streak tracking
 
@@ -84,8 +88,13 @@ class Settings(Base):
     incomplete_day_penalty = Column(Integer, default=20)
     incomplete_day_threshold = Column(Float, default=0.8)  # 80% completion required (was 50%)
     missed_habit_penalty_base = Column(Integer, default=50)
-    progressive_penalty_factor = Column(Float, default=0.5)  # Multiplier for streak-based penalties
-    idle_day_penalty = Column(Integer, default=30)
+    progressive_penalty_factor = Column(Float, default=0.5)  # Multiplier for penalty streak
+    idle_tasks_penalty = Column(Integer, default=20)  # Penalty for 0 tasks completed
+    idle_habits_penalty = Column(Integer, default=20)  # Penalty for 0 habits completed
+    penalty_streak_reset_days = Column(Integer, default=3)  # Days without penalties to reset streak
+
+    # Habit types
+    routine_habit_multiplier = Column(Float, default=0.5)  # Points multiplier for routine habits
 
     # Roll limits
     last_roll_date = Column(Date, nullable=True)  # Track last roll to enforce 1/day
@@ -112,6 +121,9 @@ class PointHistory(Base):
     habits_completed = Column(Integer, default=0)
     tasks_planned = Column(Integer, default=0)  # Tasks that were in TODAY
     completion_rate = Column(Float, default=0.0)
+
+    # Penalty streak tracking
+    penalty_streak = Column(Integer, default=0)  # Consecutive days with penalties
 
     # Detailed breakdown (JSON)
     details = Column(String, nullable=True)  # JSON with per-task breakdown
