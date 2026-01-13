@@ -334,35 +334,19 @@ def task_dependencies_met(db: Session, task: Task) -> bool:
     return dependency.status == "completed"
 
 
-def get_dependency_chain(db: Session, task: Task, visited: set = None) -> list:
-    """Get all tasks that depend on this task (recursively).
-    Returns a list of tasks in dependency order (tasks that depend on this one).
+def task_dependency_in_today_plan(db: Session, task: Task) -> bool:
+    """Check if task's dependency is already scheduled for today.
+    This means the task could be completed today after its dependency.
     """
-    if visited is None:
-        visited = set()
+    if not task.depends_on:
+        return False  # No dependency to check
 
-    # Prevent infinite loops
-    if task.id in visited:
-        return []
-    visited.add(task.id)
+    dependency = db.query(Task).filter(Task.id == task.depends_on).first()
+    if not dependency:
+        return False  # Dependency doesn't exist
 
-    chain = []
-
-    # Find tasks that directly depend on this task
-    dependent_tasks = db.query(Task).filter(
-        and_(
-            Task.depends_on == task.id,
-            Task.status == "pending",
-            Task.is_habit == False
-        )
-    ).all()
-
-    for dep_task in dependent_tasks:
-        chain.append(dep_task)
-        # Recursively get tasks that depend on this dependent task
-        chain.extend(get_dependency_chain(db, dep_task, visited))
-
-    return chain
+    # Dependency is in today's plan (pending and scheduled for today)
+    return dependency.status == "pending" and dependency.is_today == True
 
 
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:
@@ -407,7 +391,7 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
         )
     ).update({Task.is_today: False})
 
-    # 3. Add critical tasks (due soon) and their dependency chains
+    # 3. Add critical tasks (due soon)
     critical_date = today_start + timedelta(days=critical_days)
     critical_tasks = db.query(Task).filter(
         and_(
@@ -420,15 +404,11 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
 
     for task in critical_tasks:
         task.is_today = True
-        # Also select the dependency chain for critical tasks
-        chain = get_dependency_chain(db, task)
-        for dep_task in chain:
-            dep_task.is_today = True
 
     # 4. Add random tasks to fill daily limit
-    # Important: We select tasks whose dependencies are met, and also select
-    # all tasks that depend on the selected task (the entire dependency chain).
-    # This is unlike TaskWarrior which only selected the first task.
+    # Two-pass approach:
+    # Pass 1: Select tasks whose dependencies are already completed
+    # Pass 2: If slots remain, select tasks whose dependency is in today's plan
     slots = max(0, daily_limit - len(critical_tasks))
     if slots > 0:
         # Get all available pending tasks
@@ -440,7 +420,7 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
             )
         ).all()
 
-        # Filter to only tasks whose dependencies are met (or have no dependencies)
+        # Pass 1: Tasks with completed dependencies (or no dependencies)
         ready_tasks = [t for t in available_tasks if task_dependencies_met(db, t)]
 
         # Apply mood/energy filter if specified
@@ -452,25 +432,33 @@ def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, cr
         # Shuffle for randomness
         random.shuffle(ready_tasks)
 
-        # Select tasks and their dependency chains
+        # Select tasks up to available slots
         selected_count = 0
         for task in ready_tasks:
             if selected_count >= slots:
                 break
-
             if not task.is_today:
                 task.is_today = True
                 selected_count += 1
 
-                # Also select all tasks that depend on this one (dependency chain)
-                # This ensures that if we select task A, we also select tasks B, C, D
-                # that depend on A (and on each other)
-                chain = get_dependency_chain(db, task)
-                for dep_task in chain:
-                    if not dep_task.is_today:
-                        dep_task.is_today = True
-                        # Note: dependency chain tasks don't count against the limit
-                        # This ensures complete chains are always selected together
+        # Pass 2: If slots remain, select tasks whose dependency is in today's plan
+        # These can be completed today after their dependency is done
+        if selected_count < slots:
+            # Tasks whose dependency is scheduled for today
+            dependent_tasks = [t for t in available_tasks
+                             if not t.is_today and task_dependency_in_today_plan(db, t)]
+
+            # Apply mood/energy filter
+            if mood and mood.isdigit():
+                energy_level = int(mood)
+                if 0 <= energy_level <= 5:
+                    dependent_tasks = [t for t in dependent_tasks if t.energy <= energy_level]
+
+            # Shuffle and select
+            random.shuffle(dependent_tasks)
+            remaining_slots = slots - selected_count
+            for task in dependent_tasks[:remaining_slots]:
+                task.is_today = True
 
     db.commit()
 
