@@ -18,7 +18,10 @@ function Settings({ onClose }) {
     incomplete_day_threshold: 0.8,
     missed_habit_penalty_base: 50,
     progressive_penalty_factor: 0.5,
-    idle_day_penalty: 30,
+    idle_tasks_penalty: 20,
+    idle_habits_penalty: 20,
+    penalty_streak_reset_days: 3,
+    routine_habit_multiplier: 0.5,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,7 +85,7 @@ function Settings({ onClose }) {
 
       <form onSubmit={handleSubmit}>
         <div className="settings-section">
-          <h3>Task Limits</h3>
+          <h3>📋 Task Limits</h3>
           <div className="form-group">
             <label>Max Tasks Per Day:</label>
             <input
@@ -97,7 +100,7 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>Base Points</h3>
+          <h3>⭐ Base Points</h3>
           <div className="form-group">
             <label>Points Per Task:</label>
             <input
@@ -125,7 +128,7 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>Multipliers & Weights</h3>
+          <h3>⚡ Multipliers & Weights</h3>
           <div className="form-group">
             <label>Streak Multiplier:</label>
             <input
@@ -168,7 +171,7 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>Time Estimation (Automatic)</h3>
+          <h3>⏱️ Time Estimation (Automatic)</h3>
           <div className="form-group">
             <label>Minutes Per Energy Unit:</label>
             <input
@@ -184,7 +187,10 @@ function Settings({ onClose }) {
         </div>
 
         <div className="settings-section">
-          <h3>Penalties</h3>
+          <h3>⚠️ Penalties</h3>
+          <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            💡 Progressive penalties increase based on consecutive days WITH penalties (penalty streak), not habit streak.
+          </div>
           <div className="form-group">
             <label>Incomplete Day Penalty:</label>
             <input
@@ -233,19 +239,64 @@ function Settings({ onClose }) {
               min="0"
               max="5"
             />
-            <small>Penalty multiplier based on streak (e.g., 20-day streak, factor 0.5 → penalty × 11)</small>
+            <small>Penalty multiplier based on PENALTY STREAK (consecutive days with penalties). Formula: penalty × (1 + factor × streak)</small>
           </div>
           <div className="form-group">
-            <label>Idle Day Penalty:</label>
+            <label>Penalty Streak Reset Days:</label>
             <input
               type="number"
-              name="idle_day_penalty"
-              value={formData.idle_day_penalty}
+              name="penalty_streak_reset_days"
+              value={formData.penalty_streak_reset_days}
+              onChange={handleChange}
+              min="1"
+              max="30"
+            />
+            <small>Number of consecutive days without penalties to reset penalty streak (default: 3 days)</small>
+          </div>
+          <div className="form-group">
+            <label>Idle Tasks Penalty:</label>
+            <input
+              type="number"
+              name="idle_tasks_penalty"
+              value={formData.idle_tasks_penalty}
               onChange={handleChange}
               min="0"
               max="500"
             />
-            <small>Penalty for no tasks/habits completed at all</small>
+            <small>Penalty for completing 0 tasks in a day</small>
+          </div>
+          <div className="form-group">
+            <label>Idle Habits Penalty:</label>
+            <input
+              type="number"
+              name="idle_habits_penalty"
+              value={formData.idle_habits_penalty}
+              onChange={handleChange}
+              min="0"
+              max="500"
+            />
+            <small>Penalty for completing 0 habits in a day (applied separately from tasks)</small>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h3>🔄 Habit Types</h3>
+          <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            💪 <strong>Skills:</strong> New habits you're building (full points)<br />
+            🔄 <strong>Routines:</strong> Easy daily tasks that get reduced points
+          </div>
+          <div className="form-group">
+            <label>Routine Habit Multiplier:</label>
+            <input
+              type="number"
+              step="0.1"
+              name="routine_habit_multiplier"
+              value={formData.routine_habit_multiplier}
+              onChange={handleChange}
+              min="0"
+              max="1"
+            />
+            <small>Points multiplier for routine habits (easy daily tasks like "brush teeth"). Default: 0.5 (50% points)</small>
           </div>
         </div>
 
