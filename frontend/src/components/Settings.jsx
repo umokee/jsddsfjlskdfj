@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-import { API_URL, API_KEY } from '../config';
+import { API_URL } from '../config';
+import { getApiKey } from '../api';
 
 function Settings({ onClose }) {
   const [settings, setSettings] = useState(null);
@@ -39,7 +40,7 @@ function Settings({ onClose }) {
   const fetchRestDays = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/rest-days`, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       setRestDays(response.data);
     } catch (error) {
@@ -54,7 +55,7 @@ function Settings({ onClose }) {
     try {
       await axios.post(`${API_URL}/api/rest-days`,
         { date: newRestDay },
-        { headers: { 'X-API-Key': API_KEY } }
+        { headers: { 'X-API-Key': getApiKey() } }
       );
       setNewRestDay('');
       fetchRestDays();
@@ -67,7 +68,7 @@ function Settings({ onClose }) {
   const deleteRestDay = async (id) => {
     try {
       await axios.delete(`${API_URL}/api/rest-days/${id}`, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       fetchRestDays();
     } catch (error) {
@@ -78,7 +79,7 @@ function Settings({ onClose }) {
   const fetchSettings = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/settings`, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       setSettings(response.data);
       setFormData(response.data);
@@ -103,7 +104,7 @@ function Settings({ onClose }) {
 
     try {
       await axios.put(`${API_URL}/api/settings`, formData, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       alert('Settings saved successfully!');
       if (onClose) onClose();
