@@ -32,6 +32,15 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
               <div className="task-actions">
                 {habit.status === 'pending' && (
                   <>
+                    {isToday && onStart && (
+                      <button
+                        className="btn btn-small btn-primary"
+                        onClick={() => onStart(habit.id)}
+                        title="Start timer for this habit"
+                      >
+                        Start
+                      </button>
+                    )}
                     {showDone && (
                       <button
                         className="btn btn-small"

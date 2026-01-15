@@ -25,10 +25,52 @@ function Settings({ onClose }) {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [restDays, setRestDays] = useState([]);
+  const [newRestDay, setNewRestDay] = useState('');
 
   useEffect(() => {
     fetchSettings();
+    fetchRestDays();
   }, []);
+
+  const fetchRestDays = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/rest-days`, {
+        headers: { 'X-API-Key': API_KEY }
+      });
+      setRestDays(response.data);
+    } catch (error) {
+      console.error('Failed to fetch rest days:', error);
+    }
+  };
+
+  const addRestDay = async (e) => {
+    e.preventDefault();
+    if (!newRestDay) return;
+
+    try {
+      await axios.post(`${API_URL}/api/rest-days`,
+        { date: newRestDay },
+        { headers: { 'X-API-Key': API_KEY } }
+      );
+      setNewRestDay('');
+      fetchRestDays();
+    } catch (error) {
+      console.error('Failed to add rest day:', error);
+      alert('Failed to add rest day');
+    }
+  };
+
+  const deleteRestDay = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/api/rest-days/${id}`, {
+        headers: { 'X-API-Key': API_KEY }
+      });
+      fetchRestDays();
+    } catch (error) {
+      console.error('Failed to delete rest day:', error);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -297,6 +339,68 @@ function Settings({ onClose }) {
               max="1"
             />
             <small>Points multiplier for routine habits (easy daily tasks like "brush teeth"). Default: 0.5 (50% points)</small>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h3>Rest Days</h3>
+          <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            Designate specific days as rest days where no penalties will be applied, regardless of task/habit completion.
+          </div>
+
+          <div className="form-group">
+            <label>Add Rest Day:</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="date"
+                value={newRestDay}
+                onChange={(e) => setNewRestDay(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={addRestDay}
+                disabled={!newRestDay}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          <div className="rest-days-list">
+            {restDays.length === 0 ? (
+              <p style={{ color: '#888', fontSize: '0.875rem' }}>No rest days scheduled</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {restDays.map((day) => (
+                  <li key={day.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.5rem',
+                    borderBottom: '1px solid var(--border)',
+                    fontSize: '0.875rem'
+                  }}>
+                    <span>{new Date(day.date).toLocaleDateString()}</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteRestDay(day.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--danger)',
+                        cursor: 'pointer',
+                        fontSize: '1.2rem'
+                      }}
+                      title="Delete rest day"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 

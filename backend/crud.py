@@ -175,8 +175,9 @@ def start_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
             db_task.started_at = datetime.utcnow()  # Set fresh started_at
             db_task.is_today = True
     else:
-        # Start next available task
-        db_task = get_next_task(db) or get_next_habit(db)
+        # Start next available TASK ONLY (not habits)
+        # Habits should be started manually by user
+        db_task = get_next_task(db)
         if db_task:
             db_task.status = "active"
             db_task.started_at = datetime.utcnow()  # Set fresh started_at

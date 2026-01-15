@@ -79,9 +79,15 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // For habits, due_date is required - default to today if not set
+    let dueDate = formData.due_date ? new Date(formData.due_date).toISOString() : null;
+    if (formData.is_habit && !dueDate) {
+      dueDate = new Date().toISOString();
+    }
+
     const submitData = {
       ...formData,
-      due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
+      due_date: dueDate,
       // If not a habit, force recurrence to 'none'
       recurrence_type: formData.is_habit ? formData.recurrence_type : 'none',
       // Convert depends_on to integer or null (habits can't have dependencies)

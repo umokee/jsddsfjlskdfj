@@ -178,10 +178,26 @@ async def complete_task(task_id: Optional[int] = None, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="No task to complete")
     return task
 
+@app.get("/api/tasks/can-roll", dependencies=[Depends(verify_api_key)])
+async def can_roll_today(db: Session = Depends(get_db)):
+    """Check if roll is available today"""
+    settings = crud.get_settings(db)
+    today = datetime.utcnow().date()
+    can_roll = settings.last_roll_date != today
+    return {
+        "can_roll": can_roll,
+        "last_roll_date": settings.last_roll_date.isoformat() if settings.last_roll_date else None
+    }
+
 @app.post("/api/tasks/roll", dependencies=[Depends(verify_api_key)])
 async def roll_tasks(mood: Optional[str] = None, db: Session = Depends(get_db)):
     """Generate daily task plan"""
     result = crud.roll_tasks(db, mood)
+
+    # Check if there was an error (already rolled today)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
     return {
         "message": "Daily plan generated",
         "habits_count": len(result["habits"]),
