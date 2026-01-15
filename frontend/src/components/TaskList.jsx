@@ -97,7 +97,10 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll }) {
             {task.is_habit && (
               <span className="task-badge">Habit</span>
             )}
-            {task.due_date && (
+            {task.is_today && (
+              <span>Today</span>
+            )}
+            {task.due_date && !task.is_today && (
               <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
             )}
           </div>

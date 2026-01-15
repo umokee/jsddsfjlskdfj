@@ -82,7 +82,7 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
                 🔥 {habit.streak} day{habit.streak > 1 ? 's' : ''}
               </span>
             )}
-            {habit.due_date && (
+            {isToday && (
               <span>Today</span>
             )}
           </div>
