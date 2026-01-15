@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// В production используем относительные пути (через reverse proxy)
+// В development - прямое подключение к backend
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '');
 const API_BASE = `${API_URL}/api`;
 
 let apiKey = localStorage.getItem('taskManagerApiKey') || import.meta.env.VITE_API_KEY || '';

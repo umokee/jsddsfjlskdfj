@@ -18,6 +18,7 @@ import {
   setApiKey as setApiKeyStorage,
   clearApiKey
 } from './api';
+import { API_URL } from './config';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import HabitList from './components/HabitList';
@@ -64,7 +65,7 @@ function App() {
 
   const loadPoints = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/points/current`, {
+      const response = await fetch(`${API_URL}/api/points/current`, {
         headers: { 'X-API-Key': apiKey }
       });
       const data = await response.json();
