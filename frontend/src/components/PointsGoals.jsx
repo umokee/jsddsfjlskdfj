@@ -41,7 +41,7 @@ function PointsGoals({ currentPoints }) {
 
     try {
       await axios.post(`${API_URL}/api/goals`, goalData, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       setFormData({ target_points: '', reward_description: '', deadline: '' });
       setShowForm(false);
@@ -58,7 +58,7 @@ function PointsGoals({ currentPoints }) {
 
     try {
       await axios.delete(`${API_URL}/api/goals/${goalId}`, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       fetchGoals();
     } catch (error) {
