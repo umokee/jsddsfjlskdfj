@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_KEY = import.meta.env.VITE_API_KEY;
+import { API_URL, API_KEY } from '../config';
 
 function PointsGoals({ currentPoints }) {
   const [goals, setGoals] = useState([]);
