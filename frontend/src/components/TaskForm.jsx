@@ -45,8 +45,9 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
   useEffect(() => {
     if (editTask) {
       // Convert due_date from ISO to date format (YYYY-MM-DD)
+      // Extract only the date part to avoid timezone issues
       const dueDate = editTask.due_date
-        ? new Date(editTask.due_date).toISOString().slice(0, 10)
+        ? editTask.due_date.split('T')[0]  // Take only YYYY-MM-DD part
         : '';
 
       setFormData({
