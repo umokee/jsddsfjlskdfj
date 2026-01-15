@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from backend.database import engine, get_db, Base
-from backend.models import Task
+from backend import models  # Import all models to register them with Base
 from backend.schemas import (
     TaskCreate, TaskUpdate, TaskResponse, StatsResponse,
     SettingsUpdate, SettingsResponse,
@@ -94,7 +94,7 @@ async def get_tasks(
 ):
     """Get all tasks with optional filtering"""
     if status_filter:
-        tasks = db.query(Task).filter(Task.status == status_filter).offset(skip).limit(limit).all()
+        tasks = db.query(models.Task).filter(models.Task.status == status_filter).offset(skip).limit(limit).all()
     else:
         tasks = crud.get_tasks(db, skip, limit)
     return tasks
