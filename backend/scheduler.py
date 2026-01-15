@@ -11,7 +11,7 @@ from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
-from backend.models import SessionLocal
+from backend.database import SessionLocal
 import backend.crud as crud
 
 # Configure logging
