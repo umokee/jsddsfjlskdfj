@@ -1,8 +1,11 @@
 import axios from 'axios';
 
-const API_BASE = '/api';
+// В production используем относительные пути (через reverse proxy)
+// В development - прямое подключение к backend
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '');
+const API_BASE = `${API_URL}/api`;
 
-let apiKey = localStorage.getItem('taskManagerApiKey') || '';
+let apiKey = localStorage.getItem('taskManagerApiKey') || import.meta.env.VITE_API_KEY || '';
 
 export const setApiKey = (key) => {
   apiKey = key;
@@ -45,5 +48,6 @@ export const startTask = (taskId = null) => api.post('/tasks/start', null, { par
 export const stopTask = () => api.post('/tasks/stop');
 export const completeTask = (taskId = null) => api.post('/tasks/done', null, { params: { task_id: taskId } });
 export const rollTasks = (mood = null) => api.post('/tasks/roll', null, { params: { mood } });
+export const canRoll = () => api.get('/tasks/can-roll');
 
 export default api;

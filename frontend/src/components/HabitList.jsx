@@ -1,13 +1,7 @@
 import { formatTimeSpent } from '../utils/timeFormat';
+import { formatDueDate, isToday, sortByDueDate } from '../utils/dateFormat';
 
 function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
-  const isTodayHabit = (habit) => {
-    if (!habit.due_date) return false;
-    const today = new Date().toDateString();
-    const habitDate = new Date(habit.due_date).toDateString();
-    return habitDate === today;
-  };
-
   if (!habits || habits.length === 0) {
     return (
       <div className="empty-state">
@@ -16,11 +10,15 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
     );
   }
 
+  // Sort habits by due date (today first, then tomorrow, etc.)
+  const sortedHabits = sortByDueDate(habits);
+
   return (
     <div className="task-list">
-      {habits.map((habit) => {
-        const isToday = isTodayHabit(habit);
-        const showDone = showAll ? isToday : true; // If showAll, only show Done for today's habits
+      {sortedHabits.map((habit) => {
+        const isTodayHabit = isToday(habit.due_date);
+        const showDone = showAll ? isTodayHabit : true; // If showAll, only show Done for today's habits
+        const dueDateLabel = formatDueDate(habit.due_date);
 
         return (
           <div
@@ -32,6 +30,15 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
               <div className="task-actions">
                 {habit.status === 'pending' && (
                   <>
+                    {isTodayHabit && onStart && (
+                      <button
+                        className="btn btn-small btn-primary"
+                        onClick={() => onStart(habit.id)}
+                        title="Start timer for this habit"
+                      >
+                        Start
+                      </button>
+                    )}
                     {showDone && (
                       <button
                         className="btn btn-small"
@@ -73,8 +80,8 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
                 🔥 {habit.streak} day{habit.streak > 1 ? 's' : ''}
               </span>
             )}
-            {habit.due_date && (
-              <span>Today</span>
+            {dueDateLabel && (
+              <span>{dueDateLabel}</span>
             )}
           </div>
         </div>

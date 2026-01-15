@@ -8,6 +8,59 @@ import json
 from backend.models import Task, Settings, PointHistory, PointGoal, RestDay
 from backend.schemas import TaskCreate, TaskUpdate, SettingsUpdate, PointGoalCreate, PointGoalUpdate, RestDayCreate
 
+
+def calculate_next_occurrence(start_date: datetime, recurrence_type: str, recurrence_interval: int = 1) -> datetime:
+    """
+    Calculate next occurrence date for recurring habits.
+    If start_date is in the past, calculates the next future occurrence.
+
+    Args:
+        start_date: Initial/start date for the habit
+        recurrence_type: "daily", "every_n_days", "weekly", or "none"
+        recurrence_interval: For "every_n_days", the number of days between occurrences
+
+    Returns:
+        Next occurrence date (today or in the future)
+    """
+    if recurrence_type == "none" or not start_date:
+        return start_date
+
+    now = datetime.utcnow()
+    current_date = start_date
+
+    # If start_date is already in the future, return it as-is
+    if current_date.replace(tzinfo=None) >= now:
+        return current_date
+
+    # Calculate next occurrence based on recurrence type
+    if recurrence_type == "daily":
+        # Daily recurrence
+        days_diff = (now.date() - current_date.date()).days
+        current_date = current_date + timedelta(days=days_diff)
+
+        # If we're past today's time, move to tomorrow
+        if current_date.replace(tzinfo=None) < now:
+            current_date = current_date + timedelta(days=1)
+
+    elif recurrence_type == "every_n_days":
+        # Every N days recurrence
+        days_diff = (now.date() - current_date.date()).days
+        # Calculate how many intervals have passed
+        intervals_passed = days_diff // recurrence_interval
+        # Add one more interval to get the next future date
+        next_interval = (intervals_passed + 1) * recurrence_interval
+        current_date = current_date + timedelta(days=next_interval)
+
+    elif recurrence_type == "weekly":
+        # Weekly recurrence (every 7 days)
+        days_diff = (now.date() - current_date.date()).days
+        weeks_passed = days_diff // 7
+        # Add one more week to get the next future date
+        current_date = current_date + timedelta(days=(weeks_passed + 1) * 7)
+
+    return current_date
+
+
 def get_task(db: Session, task_id: int) -> Optional[Task]:
     return db.query(Task).filter(Task.id == task_id).first()
 
@@ -125,6 +178,14 @@ def create_task(db: Session, task: TaskCreate) -> Task:
     if db_task.due_date:
         db_task.due_date = datetime.combine(db_task.due_date.date(), datetime.min.time())
 
+    # For recurring habits, calculate next occurrence if due_date is in the past
+    if db_task.is_habit and db_task.recurrence_type != "none" and db_task.due_date:
+        db_task.due_date = calculate_next_occurrence(
+            db_task.due_date,
+            db_task.recurrence_type,
+            db_task.recurrence_interval
+        )
+
     db_task.calculate_urgency()
     db.add(db_task)
     db.commit()
@@ -143,6 +204,14 @@ def update_task(db: Session, task_id: int, task_update: TaskUpdate) -> Optional[
     # Normalize due_date to midnight (remove time component)
     if db_task.due_date:
         db_task.due_date = datetime.combine(db_task.due_date.date(), datetime.min.time())
+
+    # For recurring habits, calculate next occurrence if due_date is in the past
+    if db_task.is_habit and db_task.recurrence_type != "none" and db_task.due_date:
+        db_task.due_date = calculate_next_occurrence(
+            db_task.due_date,
+            db_task.recurrence_type,
+            db_task.recurrence_interval
+        )
 
     db_task.calculate_urgency()
     db.commit()
@@ -175,8 +244,9 @@ def start_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
             db_task.started_at = datetime.utcnow()  # Set fresh started_at
             db_task.is_today = True
     else:
-        # Start next available task
-        db_task = get_next_task(db) or get_next_habit(db)
+        # Start next available TASK ONLY (not habits)
+        # Habits should be started manually by user
+        db_task = get_next_task(db)
         if db_task:
             db_task.status = "active"
             db_task.started_at = datetime.utcnow()  # Set fresh started_at
@@ -349,15 +419,41 @@ def task_dependency_in_today_plan(db: Session, task: Task) -> bool:
     return dependency.status == "pending" and dependency.is_today == True
 
 
+def can_roll_now(db: Session) -> tuple[bool, str]:
+    """Check if roll is available right now (considering both date and time)
+
+    Returns:
+        (can_roll, reason) - tuple of boolean and error message if any
+    """
+    settings = get_settings(db)
+    now = datetime.utcnow()
+    today = now.date()
+    current_time = now.strftime("%H:%M")
+
+    # Check if already rolled today
+    if settings.last_roll_date == today:
+        return False, "Roll already done today"
+
+    # Check if current time is after roll_available_time
+    # If it's a new day (last_roll was yesterday or earlier), check the time
+    if settings.last_roll_date != today:
+        roll_time = settings.roll_available_time or "00:00"
+        if current_time < roll_time:
+            return False, f"Roll will be available at {roll_time}"
+
+    return True, ""
+
+
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:
     """Generate daily task plan (max once per day)"""
     today = datetime.utcnow().date()
     settings = get_settings(db)
 
-    # Check if roll was already done today
-    if settings.last_roll_date == today:
+    # Check if roll is available (considering time)
+    can_roll, error_msg = can_roll_now(db)
+    if not can_roll:
         return {
-            "error": "Roll already done today",
+            "error": error_msg,
             "habits": [],
             "tasks": [],
             "deleted_habits": 0,

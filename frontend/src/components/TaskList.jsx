@@ -1,4 +1,5 @@
 import { formatTimeSpent } from '../utils/timeFormat';
+import { formatDueDate, sortByDueDate } from '../utils/dateFormat';
 
 function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll }) {
   const getPriorityClass = (priority) => {
@@ -28,10 +29,14 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll }) {
     );
   }
 
+  // Sort tasks by due date (today first, then tomorrow, etc.)
+  const sortedTasks = sortByDueDate(tasks);
+
   return (
     <div className="task-list">
-      {tasks.map((task) => {
+      {sortedTasks.map((task) => {
         const showDone = showAll ? task.is_today : true; // If showAll, only show Done for today's tasks
+        const dueDateLabel = formatDueDate(task.due_date);
 
         return (
           <div
@@ -97,8 +102,8 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll }) {
             {task.is_habit && (
               <span className="task-badge">Habit</span>
             )}
-            {task.due_date && (
-              <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
+            {dueDateLabel && (
+              <span>{dueDateLabel}</span>
             )}
           </div>
         </div>

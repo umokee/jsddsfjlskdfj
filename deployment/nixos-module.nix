@@ -56,6 +56,7 @@ let
     sqlalchemy
     pydantic
     python-multipart
+    apscheduler  # Для автоматического управления временем
   ]);
 
   # Node.js для сборки фронтенда
@@ -194,18 +195,55 @@ in {
       '';
     };
 
-    # 4. Backend API сервис
+    # 4. Инициализация базы данных
+    systemd.services.task-manager-db-init = {
+      description = "Initialize Task Manager Database";
+      after = [ "task-manager-git-sync.service" ];
+      requires = [ "task-manager-git-sync.service" ];
+      wantedBy = [ "multi-user.target" ];
+      path = [ pythonEnv pkgs.coreutils ];
+
+      environment = {
+        TASK_MANAGER_DB_DIR = projectPath;
+        PYTHONPATH = projectPath;
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        User = user;
+        Group = group;
+        WorkingDirectory = projectPath;
+      };
+
+      script = ''
+        set -e
+
+        # Запустить инициализацию базы данных
+        if [ -f ${projectPath}/backend/init_db.py ]; then
+          echo "Initializing database..."
+          ${pythonEnv}/bin/python ${projectPath}/backend/init_db.py
+          echo "Database initialization completed"
+        else
+          echo "Warning: init_db.py not found, skipping database initialization"
+        fi
+      '';
+    };
+
+    # 5. Backend API сервис
     systemd.services.task-manager-backend = {
       description = "Task Manager API Backend";
       after = [
         "task-manager-git-sync.service"
         "task-manager-api-key-init.service"
+        "task-manager-db-init.service"
         "network-online.target"
       ];
       wants = [ "network-online.target" ];
       requires = [
         "task-manager-git-sync.service"
         "task-manager-api-key-init.service"
+        "task-manager-db-init.service"
       ];
       wantedBy = [ "multi-user.target" ];
 
@@ -251,7 +289,7 @@ in {
       '';
     };
 
-    # 5. Reverse Proxy (Caddy)
+    # 6. Reverse Proxy (Caddy)
     services.caddy = lib.mkIf (reverseProxy == "caddy") {
       enable = true;
 
@@ -273,7 +311,7 @@ in {
       };
     };
 
-    # 5. Reverse Proxy (Nginx альтернатива)
+    # 7. Reverse Proxy (Nginx альтернатива)
     services.nginx = lib.mkIf (reverseProxy == "nginx") {
       enable = true;
 
@@ -300,7 +338,7 @@ in {
       };
     };
 
-    # 6. Fail2ban интеграция
+    # 8. Fail2ban интеграция
     environment.etc."fail2ban/filter.d/task-manager-api.conf" = lib.mkIf enableFail2ban {
       text = ''
         [Definition]

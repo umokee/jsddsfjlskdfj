@@ -45,8 +45,9 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
   useEffect(() => {
     if (editTask) {
       // Convert due_date from ISO to date format (YYYY-MM-DD)
+      // Extract only the date part to avoid timezone issues
       const dueDate = editTask.due_date
-        ? new Date(editTask.due_date).toISOString().slice(0, 10)
+        ? editTask.due_date.split('T')[0]  // Take only YYYY-MM-DD part
         : '';
 
       setFormData({
@@ -79,9 +80,15 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // For habits, due_date is required - default to today if not set
+    let dueDate = formData.due_date ? new Date(formData.due_date).toISOString() : null;
+    if (formData.is_habit && !dueDate) {
+      dueDate = new Date().toISOString();
+    }
+
     const submitData = {
       ...formData,
-      due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
+      due_date: dueDate,
       // If not a habit, force recurrence to 'none'
       recurrence_type: formData.is_habit ? formData.recurrence_type : 'none',
       // Convert depends_on to integer or null (habits can't have dependencies)
@@ -142,33 +149,36 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
         />
       </div>
 
-      <div className="form-row">
-        <div className="form-group">
-          <label className="form-label">Priority (0-10)</label>
-          <input
-            className="form-input"
-            type="number"
-            name="priority"
-            min="0"
-            max="10"
-            value={formData.priority}
-            onChange={handleChange}
-          />
-        </div>
+      {/* Priority and Energy - only for tasks, not habits */}
+      {!formData.is_habit && (
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Priority (0-10)</label>
+            <input
+              className="form-input"
+              type="number"
+              name="priority"
+              min="0"
+              max="10"
+              value={formData.priority}
+              onChange={handleChange}
+            />
+          </div>
 
-        <div className="form-group">
-          <label className="form-label">Energy (0-5)</label>
-          <input
-            className="form-input"
-            type="number"
-            name="energy"
-            min="0"
-            max="5"
-            value={formData.energy}
-            onChange={handleChange}
-          />
+          <div className="form-group">
+            <label className="form-label">Energy (0-5)</label>
+            <input
+              className="form-input"
+              type="number"
+              name="energy"
+              min="0"
+              max="5"
+              value={formData.energy}
+              onChange={handleChange}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="form-group">
         <label className="form-label">Due Date</label>
@@ -185,7 +195,9 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
           }}
         />
         <small style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-          Select date (time is automatically set to midnight)
+          {formData.is_habit
+            ? 'Start date for recurring habit (leave empty for today)'
+            : 'Deadline for task (leave empty for no deadline)'}
         </small>
       </div>
 
@@ -309,18 +321,6 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
           )}
         </div>
       )}
-
-      <div className="checkbox-group">
-        <input
-          className="checkbox"
-          type="checkbox"
-          id="is_today"
-          name="is_today"
-          checked={formData.is_today}
-          onChange={handleChange}
-        />
-        <label htmlFor="is_today">Schedule for Today</label>
-      </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
         <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>

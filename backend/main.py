@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from backend.database import engine, get_db, Base
-from backend.models import Task
+from backend import models  # Import all models to register them with Base
 from backend.schemas import (
     TaskCreate, TaskUpdate, TaskResponse, StatsResponse,
     SettingsUpdate, SettingsResponse,
@@ -17,6 +17,7 @@ from backend.schemas import (
 )
 from backend.auth import verify_api_key
 from backend import crud
+from backend.scheduler import start_scheduler, stop_scheduler
 from datetime import date
 
 # Configure logging for fail2ban integration
@@ -57,7 +58,7 @@ app = FastAPI(
 # CORS settings for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,6 +68,16 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Task Manager API started. Logging to: {log_path}")
+    # Start background scheduler for automatic tasks
+    start_scheduler()
+    logger.info("Background scheduler started")
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down Task Manager API")
+    stop_scheduler()
+    logger.info("Background scheduler stopped")
 
 # Health check (no auth required)
 @app.get("/")
@@ -83,7 +94,7 @@ async def get_tasks(
 ):
     """Get all tasks with optional filtering"""
     if status_filter:
-        tasks = db.query(Task).filter(Task.status == status_filter).offset(skip).limit(limit).all()
+        tasks = db.query(models.Task).filter(models.Task.status == status_filter).offset(skip).limit(limit).all()
     else:
         tasks = crud.get_tasks(db, skip, limit)
     return tasks
@@ -178,10 +189,27 @@ async def complete_task(task_id: Optional[int] = None, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="No task to complete")
     return task
 
+@app.get("/api/tasks/can-roll", dependencies=[Depends(verify_api_key)])
+async def can_roll_today(db: Session = Depends(get_db)):
+    """Check if roll is available right now (considering time)"""
+    can_roll, error_msg = crud.can_roll_now(db)
+    settings = crud.get_settings(db)
+    return {
+        "can_roll": can_roll,
+        "error_message": error_msg if not can_roll else None,
+        "roll_available_time": settings.roll_available_time,
+        "last_roll_date": settings.last_roll_date.isoformat() if settings.last_roll_date else None
+    }
+
 @app.post("/api/tasks/roll", dependencies=[Depends(verify_api_key)])
 async def roll_tasks(mood: Optional[str] = None, db: Session = Depends(get_db)):
     """Generate daily task plan"""
     result = crud.roll_tasks(db, mood)
+
+    # Check if there was an error (already rolled today)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
     return {
         "message": "Daily plan generated",
         "habits_count": len(result["habits"]),

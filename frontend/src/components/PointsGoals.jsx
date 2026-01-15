@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_KEY = import.meta.env.VITE_API_KEY;
+import { API_URL } from '../config';
+import { getApiKey } from '../api';
 
 function PointsGoals({ currentPoints }) {
   const [goals, setGoals] = useState([]);
@@ -22,7 +22,7 @@ function PointsGoals({ currentPoints }) {
     try {
       const response = await axios.get(
         `${API_URL}/api/goals?include_achieved=${showAchieved}`,
-        { headers: { 'X-API-Key': API_KEY } }
+        { headers: { 'X-API-Key': getApiKey() } }
       );
       setGoals(response.data);
     } catch (error) {
@@ -36,7 +36,7 @@ function PointsGoals({ currentPoints }) {
     const goalData = {
       target_points: parseInt(formData.target_points),
       reward_description: formData.reward_description,
-      deadline: formData.deadline || null
+      deadline: formData.deadline || undefined  // Send undefined so it's omitted from JSON
     };
 
     try {
@@ -48,7 +48,8 @@ function PointsGoals({ currentPoints }) {
       fetchGoals();
     } catch (error) {
       console.error('Failed to create goal:', error);
-      alert('Failed to create goal');
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to create goal';
+      alert(`Failed to create goal: ${errorMsg}`);
     }
   };
 

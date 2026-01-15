@@ -99,6 +99,12 @@ class Settings(Base):
     # Roll limits
     last_roll_date = Column(Date, nullable=True)  # Track last roll to enforce 1/day
 
+    # Time-based settings
+    roll_available_time = Column(String, default="00:00")  # Time when Roll becomes available (HH:MM format)
+    auto_penalties_enabled = Column(Boolean, default=True)  # Auto-apply penalties at midnight
+    auto_roll_enabled = Column(Boolean, default=False)  # Enable automatic roll
+    auto_roll_time = Column(String, default="06:00")  # Time for automatic roll (HH:MM format)
+
     # Updated timestamp
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
