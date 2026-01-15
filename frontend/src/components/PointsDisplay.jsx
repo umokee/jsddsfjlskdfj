@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-import { API_URL, API_KEY } from '../config';
+import { API_URL } from '../config';
+import { getApiKey } from '../api';
 
 function PointsDisplay() {
   const [currentPoints, setCurrentPoints] = useState(0);
@@ -17,7 +18,7 @@ function PointsDisplay() {
   const fetchCurrentPoints = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/points/current`, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       setCurrentPoints(response.data.points);
     } catch (error) {
@@ -28,7 +29,7 @@ function PointsDisplay() {
   const fetchHistory = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/points/history?days=${days}`, {
-        headers: { 'X-API-Key': API_KEY }
+        headers: { 'X-API-Key': getApiKey() }
       });
       setHistory(response.data);
     } catch (error) {

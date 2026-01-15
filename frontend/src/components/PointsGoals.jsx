@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-import { API_URL, API_KEY } from '../config';
+import { API_URL } from '../config';
+import { getApiKey } from '../api';
 
 function PointsGoals({ currentPoints }) {
   const [goals, setGoals] = useState([]);
@@ -21,7 +22,7 @@ function PointsGoals({ currentPoints }) {
     try {
       const response = await axios.get(
         `${API_URL}/api/goals?include_achieved=${showAchieved}`,
-        { headers: { 'X-API-Key': API_KEY } }
+        { headers: { 'X-API-Key': getApiKey() } }
       );
       setGoals(response.data);
     } catch (error) {
