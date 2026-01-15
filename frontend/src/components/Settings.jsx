@@ -108,7 +108,6 @@ function Settings({ onClose }) {
         headers: { 'X-API-Key': getApiKey() }
       });
       alert('Settings saved successfully!');
-      if (onClose) onClose();
     } catch (error) {
       console.error('Failed to save settings:', error);
       alert('Failed to save settings');
@@ -125,9 +124,6 @@ function Settings({ onClose }) {
     <div className="settings">
       <div className="settings-header">
         <h2>Settings</h2>
-        {onClose && (
-          <button onClick={onClose} className="close-btn">×</button>
-        )}
       </div>
 
       {/* Tab Navigation */}
@@ -428,11 +424,6 @@ function Settings({ onClose }) {
           <button type="submit" disabled={saving} className="btn btn-primary" style={{ minWidth: '150px' }}>
             {saving ? 'Saving...' : 'Save Settings'}
           </button>
-          {onClose && (
-            <button type="button" onClick={onClose} className="btn">
-              Cancel
-            </button>
-          )}
         </div>
       </form>
     </div>

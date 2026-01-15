@@ -348,8 +348,6 @@ body {
   padding: 2rem;
   max-width: 900px;
   margin: 2rem auto;
-  max-height: 90vh;
-  overflow-y: auto;
 }
 
 .settings-header {
