@@ -204,9 +204,24 @@ body {
 .command-content {
   flex: 1;
   padding: 2rem;
-  max-width: 1800px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
+}
+
+/* Add side margins on wide screens */
+@media (min-width: 1920px) {
+  .command-content {
+    max-width: 1400px;
+    padding: 2rem 4rem;
+  }
+}
+
+@media (min-width: 2560px) {
+  .command-content {
+    max-width: 1600px;
+    padding: 2rem 8rem;
+  }
 }
 
 /* ======================
@@ -480,6 +495,31 @@ small {
   font-style: italic;
 }
 
+/* Dependency Section */
+.dependency-section {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dependency-section .form-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Habit Settings */
+.habit-settings {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.habit-type-selector {
+  margin-bottom: 1rem;
+}
+
 /* ======================
    TASK LISTS
    ====================== */
@@ -667,14 +707,7 @@ small {
   margin: 0 auto;
 }
 
-.points-display > *:first-child,
-.points-goals > *:first-child,
-.points-calculator > *:first-child {
-  padding: 1.5rem 2rem;
-  background: var(--bg-tertiary);
-  border-bottom: 2px solid var(--border);
-}
-
+/* Headers */
 .points-display h2,
 .points-goals h2,
 .points-calculator h2 {
@@ -683,8 +716,21 @@ small {
   letter-spacing: 3px;
   color: var(--accent);
   margin: 0;
+  padding: 1.5rem 2rem;
+  background: var(--bg-tertiary);
+  border-bottom: 2px solid var(--border);
 }
 
+.points-calculator > p {
+  padding: 1rem 2rem;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Points Display */
 .points-current {
   text-align: center;
   padding: 3rem 2rem;
@@ -699,12 +745,574 @@ small {
   margin: 1rem 0;
 }
 
+.points-today {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.points-breakdown {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.points-breakdown .earned {
+  color: var(--accent);
+}
+
+.points-breakdown .penalty {
+  color: var(--danger);
+}
+
+.toggle-history-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-right: none;
+  color: var(--text-primary);
+  padding: 1rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.toggle-history-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent);
+}
+
+.points-history {
+  padding: 2rem;
+}
+
+.history-controls {
+  margin-bottom: 1.5rem;
+}
+
+.history-controls label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.history-controls select {
+  width: 100%;
+  max-width: 250px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.history-controls select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.history-entry {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 1.5rem;
+  align-items: center;
+  transition: all 0.15s;
+}
+
+.history-entry:hover {
+  border-left-color: var(--accent);
+  background: var(--bg-primary);
+}
+
+.history-date {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.history-stats {
+  display: flex;
+  gap: 2rem;
+  font-size: 0.8rem;
+}
+
+.history-stats .stat {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.history-stats .stat-label {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-stats .stat-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.history-points {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.history-points .earned {
+  color: var(--accent);
+}
+
+.history-points .penalty {
+  color: var(--danger);
+}
+
+.history-points .total {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 1rem;
+  min-width: 60px;
+  text-align: right;
+}
+
+.history-points .total.negative {
+  color: var(--danger);
+}
+
+/* Goals */
+.goals-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background: var(--bg-tertiary);
+  border-bottom: 2px solid var(--border);
+}
+
+.goals-header h2 {
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--accent);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.goals-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.goals-controls button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.goals-controls button:hover {
+  background: var(--bg-primary);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.goal-form {
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  padding: 2rem;
+}
+
+.goal-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.goal-form .form-group:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
+.goal-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.goal-form input {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: all 0.15s;
+}
+
+.goal-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.goal-form button[type="submit"] {
+  width: 100%;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: 1px solid var(--accent);
+  padding: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.goal-form button[type="submit"]:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+
+.goals-list {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.no-goals {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  letter-spacing: 1px;
+}
+
+.goal-item {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  padding: 1.5rem;
+  transition: all 0.15s;
+}
+
+.goal-item:hover {
+  border-left-color: var(--accent);
+  background: var(--bg-primary);
+}
+
+.goal-item.achieved {
+  border-left-color: var(--accent);
+  background: rgba(0, 255, 136, 0.03);
+}
+
+.goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.goal-target {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.goal-badge {
+  background: var(--accent);
+  color: var(--bg-primary);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+
+.delete-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(255, 68, 68, 0.05);
+}
+
+.goal-reward {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.goal-deadline {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.goal-progress {
+  height: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+
+.goal-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+.goal-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.goal-achieved-date {
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-top: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Calculator */
+.calculator-input {
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  padding: 2rem;
+}
+
+.calculator-input label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.calculator-input input {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  transition: all 0.15s;
+}
+
+.calculator-input input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.calculator-input button {
+  width: 100%;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: 1px solid var(--accent);
+  padding: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.calculator-input button:hover:not(:disabled) {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+
+.calculator-input button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.projection-results {
+  padding: 2rem;
+}
+
+.projection-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.projection-header h3 {
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 0.5rem;
+  color: var(--accent);
+}
+
+.projection-header p {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.projection-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.stat-card .stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.stat-card .stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.projection-ranges h4 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.range-item {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.range-item.pessimistic {
+  border-left-color: var(--danger);
+}
+
+.range-item.realistic {
+  border-left-color: var(--accent);
+}
+
+.range-item.optimistic {
+  border-left-color: var(--accent-dim);
+}
+
+.range-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.range-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: 1px;
+}
+
+.range-diff {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.projection-note {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.6;
+}
+
 /* ======================
    RADIO GROUPS
    ====================== */
 .radio-group {
   display: flex;
-  gap: 0;
+  gap: 0.5rem;
   margin-bottom: 1rem;
 }
 
@@ -717,16 +1325,7 @@ small {
   padding: 0.75rem 1rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-right: none;
   transition: all 0.15s;
-}
-
-.radio-label:first-child {
-  border-left: 1px solid var(--border);
-}
-
-.radio-label:last-child {
-  border-right: 1px solid var(--border);
 }
 
 .radio-label:hover {
