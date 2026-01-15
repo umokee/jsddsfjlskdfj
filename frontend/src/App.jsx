@@ -43,6 +43,7 @@ function App() {
   const [currentView, setCurrentView] = useState('tasks'); // tasks, points, goals, calculator, settings
   const [currentPoints, setCurrentPoints] = useState(0);
   const [canRollToday, setCanRollToday] = useState(true);
+  const [rollMessage, setRollMessage] = useState('');
 
   useEffect(() => {
     if (apiKey) {
@@ -107,6 +108,7 @@ function App() {
     try {
       const response = await canRoll();
       setCanRollToday(response.data.can_roll);
+      setRollMessage(response.data.error_message || '');
     } catch (err) {
       console.error('Failed to check roll status:', err);
     }
@@ -323,18 +325,24 @@ function App() {
         </div>
       )}
 
-      <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
-        <button className="btn btn-primary" onClick={() => { setShowTaskForm(!showTaskForm); setEditingTask(null); }}>
-          {showTaskForm ? 'Cancel' : 'New Task'}
-        </button>
-        {canRollToday && (
-          <button className="btn" onClick={handleRoll}>Roll Daily Plan</button>
-        )}
-        {!currentTask && (
-          <button className="btn btn-primary" onClick={() => handleStart()}>
-            Start Next Task
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button className="btn btn-primary" onClick={() => { setShowTaskForm(!showTaskForm); setEditingTask(null); }}>
+            {showTaskForm ? 'Cancel' : 'New Task'}
           </button>
-        )}
+          {canRollToday ? (
+            <button className="btn" onClick={handleRoll}>Roll Daily Plan</button>
+          ) : (
+            rollMessage && (
+              <span style={{ color: '#888', fontSize: '0.875rem' }}>{rollMessage}</span>
+            )
+          )}
+          {!currentTask && (
+            <button className="btn btn-primary" onClick={() => handleStart()}>
+              Start Next Task
+            </button>
+          )}
+        </div>
       </div>
 
       {showTaskForm && (

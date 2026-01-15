@@ -22,6 +22,10 @@ function Settings({ onClose }) {
     idle_habits_penalty: 20,
     penalty_streak_reset_days: 3,
     routine_habit_multiplier: 0.5,
+    roll_available_time: "00:00",
+    auto_penalties_enabled: true,
+    auto_roll_enabled: false,
+    auto_roll_time: "06:00",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,10 +91,10 @@ function Settings({ onClose }) {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: parseFloat(value) || 0
+      [name]: type === 'checkbox' ? checked : (type === 'time' || type === 'text' && value.includes(':')) ? value : (parseFloat(value) || 0)
     }));
   };
 
@@ -402,6 +406,63 @@ function Settings({ onClose }) {
               </ul>
             )}
           </div>
+        </div>
+
+        <div className="settings-section">
+          <h3>Automation & Time Settings</h3>
+          <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            Configure when Roll becomes available and enable automatic tasks.
+          </div>
+
+          <div className="form-group">
+            <label>Roll Available Time:</label>
+            <input
+              type="time"
+              name="roll_available_time"
+              value={formData.roll_available_time}
+              onChange={handleChange}
+            />
+            <small>Time when Roll button becomes available each day (default: 00:00 midnight)</small>
+          </div>
+
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                name="auto_penalties_enabled"
+                checked={formData.auto_penalties_enabled}
+                onChange={handleChange}
+              />
+              <span>Auto-apply penalties at midnight</span>
+            </label>
+            <small>Automatically calculate and apply penalties for yesterday at midnight</small>
+          </div>
+
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                name="auto_roll_enabled"
+                checked={formData.auto_roll_enabled}
+                onChange={handleChange}
+              />
+              <span>Enable automatic Roll</span>
+            </label>
+            <small>Automatically perform daily Roll at the specified time</small>
+          </div>
+
+          {formData.auto_roll_enabled && (
+            <div className="form-group">
+              <label>Auto Roll Time:</label>
+              <input
+                type="time"
+                name="auto_roll_time"
+                value={formData.auto_roll_time}
+                onChange={handleChange}
+              />
+              <small>Time for automatic daily Roll (only if enabled)</small>
+            </div>
+          )}
         </div>
 
         <div className="form-actions">

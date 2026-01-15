@@ -350,15 +350,41 @@ def task_dependency_in_today_plan(db: Session, task: Task) -> bool:
     return dependency.status == "pending" and dependency.is_today == True
 
 
+def can_roll_now(db: Session) -> tuple[bool, str]:
+    """Check if roll is available right now (considering both date and time)
+
+    Returns:
+        (can_roll, reason) - tuple of boolean and error message if any
+    """
+    settings = get_settings(db)
+    now = datetime.utcnow()
+    today = now.date()
+    current_time = now.strftime("%H:%M")
+
+    # Check if already rolled today
+    if settings.last_roll_date == today:
+        return False, "Roll already done today"
+
+    # Check if current time is after roll_available_time
+    # If it's a new day (last_roll was yesterday or earlier), check the time
+    if settings.last_roll_date != today:
+        roll_time = settings.roll_available_time or "00:00"
+        if current_time < roll_time:
+            return False, f"Roll will be available at {roll_time}"
+
+    return True, ""
+
+
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:
     """Generate daily task plan (max once per day)"""
     today = datetime.utcnow().date()
     settings = get_settings(db)
 
-    # Check if roll was already done today
-    if settings.last_roll_date == today:
+    # Check if roll is available (considering time)
+    can_roll, error_msg = can_roll_now(db)
+    if not can_roll:
         return {
-            "error": "Roll already done today",
+            "error": error_msg,
             "habits": [],
             "tasks": [],
             "deleted_habits": 0,

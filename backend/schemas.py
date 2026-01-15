@@ -83,6 +83,10 @@ class SettingsBase(BaseModel):
     idle_habits_penalty: int = Field(default=20, ge=0, le=500)
     penalty_streak_reset_days: int = Field(default=3, ge=1, le=30)
     routine_habit_multiplier: float = Field(default=0.5, ge=0.0, le=1.0)
+    roll_available_time: str = Field(default="00:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    auto_penalties_enabled: bool = Field(default=True)
+    auto_roll_enabled: bool = Field(default=False)
+    auto_roll_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
 
 
 class SettingsUpdate(SettingsBase):

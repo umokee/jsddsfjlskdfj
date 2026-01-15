@@ -17,6 +17,7 @@ from backend.schemas import (
 )
 from backend.auth import verify_api_key
 from backend import crud
+from backend.scheduler import start_scheduler, stop_scheduler
 from datetime import date
 
 # Configure logging for fail2ban integration
@@ -67,6 +68,16 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Task Manager API started. Logging to: {log_path}")
+    # Start background scheduler for automatic tasks
+    start_scheduler()
+    logger.info("Background scheduler started")
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down Task Manager API")
+    stop_scheduler()
+    logger.info("Background scheduler stopped")
 
 # Health check (no auth required)
 @app.get("/")
@@ -180,12 +191,13 @@ async def complete_task(task_id: Optional[int] = None, db: Session = Depends(get
 
 @app.get("/api/tasks/can-roll", dependencies=[Depends(verify_api_key)])
 async def can_roll_today(db: Session = Depends(get_db)):
-    """Check if roll is available today"""
+    """Check if roll is available right now (considering time)"""
+    can_roll, error_msg = crud.can_roll_now(db)
     settings = crud.get_settings(db)
-    today = datetime.utcnow().date()
-    can_roll = settings.last_roll_date != today
     return {
         "can_roll": can_roll,
+        "error_message": error_msg if not can_roll else None,
+        "roll_available_time": settings.roll_available_time,
         "last_roll_date": settings.last_roll_date.isoformat() if settings.last_roll_date else None
     }
 
