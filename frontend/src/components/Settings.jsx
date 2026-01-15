@@ -22,13 +22,59 @@ function Settings({ onClose }) {
     idle_habits_penalty: 20,
     penalty_streak_reset_days: 3,
     routine_habit_multiplier: 0.5,
+    roll_available_time: "00:00",
+    auto_penalties_enabled: true,
+    auto_roll_enabled: false,
+    auto_roll_time: "06:00",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [restDays, setRestDays] = useState([]);
+  const [newRestDay, setNewRestDay] = useState('');
 
   useEffect(() => {
     fetchSettings();
+    fetchRestDays();
   }, []);
+
+  const fetchRestDays = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/rest-days`, {
+        headers: { 'X-API-Key': API_KEY }
+      });
+      setRestDays(response.data);
+    } catch (error) {
+      console.error('Failed to fetch rest days:', error);
+    }
+  };
+
+  const addRestDay = async (e) => {
+    e.preventDefault();
+    if (!newRestDay) return;
+
+    try {
+      await axios.post(`${API_URL}/api/rest-days`,
+        { date: newRestDay },
+        { headers: { 'X-API-Key': API_KEY } }
+      );
+      setNewRestDay('');
+      fetchRestDays();
+    } catch (error) {
+      console.error('Failed to add rest day:', error);
+      alert('Failed to add rest day');
+    }
+  };
+
+  const deleteRestDay = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/api/rest-days/${id}`, {
+        headers: { 'X-API-Key': API_KEY }
+      });
+      fetchRestDays();
+    } catch (error) {
+      console.error('Failed to delete rest day:', error);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -45,10 +91,10 @@ function Settings({ onClose }) {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: parseFloat(value) || 0
+      [name]: type === 'checkbox' ? checked : (type === 'time' || type === 'text' && value.includes(':')) ? value : (parseFloat(value) || 0)
     }));
   };
 
@@ -298,6 +344,125 @@ function Settings({ onClose }) {
             />
             <small>Points multiplier for routine habits (easy daily tasks like "brush teeth"). Default: 0.5 (50% points)</small>
           </div>
+        </div>
+
+        <div className="settings-section">
+          <h3>Rest Days</h3>
+          <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            Designate specific days as rest days where no penalties will be applied, regardless of task/habit completion.
+          </div>
+
+          <div className="form-group">
+            <label>Add Rest Day:</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="date"
+                value={newRestDay}
+                onChange={(e) => setNewRestDay(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={addRestDay}
+                disabled={!newRestDay}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          <div className="rest-days-list">
+            {restDays.length === 0 ? (
+              <p style={{ color: '#888', fontSize: '0.875rem' }}>No rest days scheduled</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {restDays.map((day) => (
+                  <li key={day.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.5rem',
+                    borderBottom: '1px solid var(--border)',
+                    fontSize: '0.875rem'
+                  }}>
+                    <span>{new Date(day.date).toLocaleDateString()}</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteRestDay(day.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--danger)',
+                        cursor: 'pointer',
+                        fontSize: '1.2rem'
+                      }}
+                      title="Delete rest day"
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h3>Automation & Time Settings</h3>
+          <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            Configure when Roll becomes available and enable automatic tasks.
+          </div>
+
+          <div className="form-group">
+            <label>Roll Available Time:</label>
+            <input
+              type="time"
+              name="roll_available_time"
+              value={formData.roll_available_time}
+              onChange={handleChange}
+            />
+            <small>Time when Roll button becomes available each day (default: 00:00 midnight)</small>
+          </div>
+
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                name="auto_penalties_enabled"
+                checked={formData.auto_penalties_enabled}
+                onChange={handleChange}
+              />
+              <span>Auto-apply penalties at midnight</span>
+            </label>
+            <small>Automatically calculate and apply penalties for yesterday at midnight</small>
+          </div>
+
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                name="auto_roll_enabled"
+                checked={formData.auto_roll_enabled}
+                onChange={handleChange}
+              />
+              <span>Enable automatic Roll</span>
+            </label>
+            <small>Automatically perform daily Roll at the specified time</small>
+          </div>
+
+          {formData.auto_roll_enabled && (
+            <div className="form-group">
+              <label>Auto Roll Time:</label>
+              <input
+                type="time"
+                name="auto_roll_time"
+                value={formData.auto_roll_time}
+                onChange={handleChange}
+              />
+              <small>Time for automatic daily Roll (only if enabled)</small>
+            </div>
+          )}
         </div>
 
         <div className="form-actions">

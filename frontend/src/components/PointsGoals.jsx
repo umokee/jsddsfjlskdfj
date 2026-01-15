@@ -36,7 +36,7 @@ function PointsGoals({ currentPoints }) {
     const goalData = {
       target_points: parseInt(formData.target_points),
       reward_description: formData.reward_description,
-      deadline: formData.deadline || null
+      deadline: formData.deadline || undefined  // Send undefined so it's omitted from JSON
     };
 
     try {
@@ -48,7 +48,8 @@ function PointsGoals({ currentPoints }) {
       fetchGoals();
     } catch (error) {
       console.error('Failed to create goal:', error);
-      alert('Failed to create goal');
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to create goal';
+      alert(`Failed to create goal: ${errorMsg}`);
     }
   };
 
