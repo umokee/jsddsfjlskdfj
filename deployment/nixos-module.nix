@@ -195,13 +195,18 @@ in {
       '';
     };
 
-    # 4. Миграция базы данных
-    systemd.services.task-manager-db-migrate = {
-      description = "Migrate Task Manager Database";
+    # 4. Инициализация базы данных
+    systemd.services.task-manager-db-init = {
+      description = "Initialize Task Manager Database";
       after = [ "task-manager-git-sync.service" ];
       requires = [ "task-manager-git-sync.service" ];
       wantedBy = [ "multi-user.target" ];
       path = [ pythonEnv pkgs.coreutils ];
+
+      environment = {
+        TASK_MANAGER_DB_DIR = projectPath;
+        PYTHONPATH = projectPath;
+      };
 
       serviceConfig = {
         Type = "oneshot";
@@ -214,13 +219,13 @@ in {
       script = ''
         set -e
 
-        # Запустить миграцию если файл миграции существует
-        if [ -f ${projectPath}/backend/migrate_time_settings.py ]; then
-          echo "Running database migration..."
-          ${pythonEnv}/bin/python ${projectPath}/backend/migrate_time_settings.py ${projectPath}/task_manager.db || true
-          echo "Migration completed"
+        # Запустить инициализацию базы данных
+        if [ -f ${projectPath}/backend/init_db.py ]; then
+          echo "Initializing database..."
+          ${pythonEnv}/bin/python ${projectPath}/backend/init_db.py
+          echo "Database initialization completed"
         else
-          echo "No migration script found, skipping"
+          echo "Warning: init_db.py not found, skipping database initialization"
         fi
       '';
     };
@@ -231,14 +236,14 @@ in {
       after = [
         "task-manager-git-sync.service"
         "task-manager-api-key-init.service"
-        "task-manager-db-migrate.service"
+        "task-manager-db-init.service"
         "network-online.target"
       ];
       wants = [ "network-online.target" ];
       requires = [
         "task-manager-git-sync.service"
         "task-manager-api-key-init.service"
-        "task-manager-db-migrate.service"
+        "task-manager-db-init.service"
       ];
       wantedBy = [ "multi-user.target" ];
 
