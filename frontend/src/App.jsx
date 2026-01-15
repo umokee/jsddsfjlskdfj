@@ -19,6 +19,7 @@ import {
   clearApiKey
 } from './api';
 import { API_URL } from './config';
+import Sidebar from './components/Sidebar';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import HabitList from './components/HabitList';
@@ -235,60 +236,22 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1>TASK MANAGER</h1>
-        <div className="nav-buttons" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          <button
-            className={currentView === 'tasks' ? 'btn btn-primary' : 'btn'}
-            onClick={() => setCurrentView('tasks')}
-          >
-            Tasks
-          </button>
-          <button
-            className={currentView === 'points' ? 'btn btn-primary' : 'btn'}
-            onClick={() => setCurrentView('points')}
-          >
-            Points
-          </button>
-          <button
-            className={currentView === 'goals' ? 'btn btn-primary' : 'btn'}
-            onClick={() => setCurrentView('goals')}
-          >
-            Goals
-          </button>
-          <button
-            className={currentView === 'calculator' ? 'btn btn-primary' : 'btn'}
-            onClick={() => setCurrentView('calculator')}
-          >
-            Calculator
-          </button>
-          <button
-            className={currentView === 'settings' ? 'btn btn-primary' : 'btn'}
-            onClick={() => setCurrentView('settings')}
-          >
-            Settings
-          </button>
-        </div>
-        <div className="stats">
-          <div className="stat-item">
-            <span>Points:</span>
-            <span className="stat-value">{currentPoints}</span>
+    <div className="app-container">
+      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+
+      <main className="main-content">
+        <header className="top-bar">
+          <div className="top-bar-stats">
+            <div className="stat-badge">
+              <span className="stat-label">Points</span>
+              <span className="stat-value accent">{currentPoints}</span>
+            </div>
+            <div className="stat-badge">
+              <span className="stat-label">Done Today</span>
+              <span className="stat-value">{stats?.done_today || 0}</span>
+            </div>
           </div>
-          <div className="stat-item">
-            <span>Done Today:</span>
-            <span className="stat-value">{stats?.done_today || 0}</span>
-          </div>
-          <div className="stat-item">
-            <span>Pending Today:</span>
-            <span className="stat-value">{stats?.pending_today || 0}</span>
-          </div>
-          <div className="stat-item">
-            <span>Total Pending:</span>
-            <span className="stat-value">{stats?.total_pending || 0}</span>
-          </div>
-        </div>
-      </header>
+        </header>
 
       {error && <div className="error-message">{error}</div>}
 
@@ -422,6 +385,7 @@ function App() {
       </div>
         </>
       )}
+      </main>
     </div>
   );
 }
