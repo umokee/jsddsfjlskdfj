@@ -31,7 +31,7 @@ def check_auto_roll():
         if not settings.auto_roll_enabled:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now()
         today = now.date()
         current_time = now.strftime("%H:%M")
         auto_roll_time = settings.auto_roll_time or "06:00"
@@ -62,7 +62,7 @@ def check_auto_penalties():
         if not settings.auto_penalties_enabled:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now()
         current_time = now.strftime("%H:%M")
         penalty_time = settings.penalty_time or "00:01"
 
@@ -113,7 +113,7 @@ def check_auto_backup():
         if not settings.auto_backup_enabled:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now()
         current_time = now.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
 

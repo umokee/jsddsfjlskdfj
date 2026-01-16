@@ -90,7 +90,7 @@ def create_local_backup(db: Session, backup_type: str = "auto") -> Optional[Back
         # Update last_backup_date in settings
         settings = db.query(Settings).first()
         if settings:
-            settings.last_backup_date = datetime.utcnow()
+            settings.last_backup_date = datetime.now()
             db.commit()
 
         # Cleanup old backups

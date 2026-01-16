@@ -57,7 +57,7 @@ def get_default_value(column) -> str:
     if hasattr(default, 'arg'):
         value = default.arg
 
-        # Handle callable defaults (like datetime.utcnow)
+        # Handle callable defaults (like datetime.now)
         if callable(value):
             # For datetime functions, use SQLite's CURRENT_TIMESTAMP
             if 'datetime' in str(value):
