@@ -52,26 +52,33 @@ def check_auto_roll():
         db.close()
 
 
-def apply_midnight_penalties():
-    """Apply penalties for yesterday at midnight"""
+def check_auto_penalties():
+    """Check if automatic penalties should be applied"""
     db: Session = SessionLocal()
     try:
         settings = crud.get_settings(db)
 
         # Only proceed if auto_penalties is enabled
         if not settings.auto_penalties_enabled:
-            logger.info("Auto penalties disabled, skipping")
             return
 
-        logger.info("Applying midnight penalties for yesterday")
+        now = datetime.utcnow()
+        current_time = now.strftime("%H:%M")
+        penalty_time = settings.penalty_time or "00:01"
 
-        # This will be called daily, so apply penalties for yesterday
+        # Check if it's time for penalties
+        if current_time != penalty_time:
+            return
+
+        logger.info(f"Applying penalties for yesterday at {current_time}")
+
+        # Apply penalties for yesterday
         penalty_info = crud.calculate_daily_penalties(db)
 
-        logger.info(f"Midnight penalties applied: {penalty_info.get('penalty', 0)} points")
+        logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
 
     except Exception as e:
-        logger.error(f"Error in apply_midnight_penalties: {e}")
+        logger.error(f"Error in check_auto_penalties: {e}")
     finally:
         db.close()
 
@@ -162,11 +169,12 @@ def start_scheduler():
         replace_existing=True
     )
 
-    # Apply penalties at midnight (00:01 to ensure it's a new day)
+    # Check for auto-penalties every minute
+    # (the function itself checks if it's time to apply penalties)
     scheduler.add_job(
-        apply_midnight_penalties,
-        CronTrigger(hour=0, minute=1),
-        id='midnight_penalties',
+        check_auto_penalties,
+        CronTrigger(minute='*'),  # Every minute
+        id='check_auto_penalties',
         replace_existing=True
     )
 

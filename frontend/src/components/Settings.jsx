@@ -25,6 +25,7 @@ function Settings({ onClose }) {
     routine_habit_multiplier: 0.5,
     roll_available_time: "00:00",
     auto_penalties_enabled: true,
+    penalty_time: "00:01",
     auto_roll_enabled: false,
     auto_roll_time: "06:00",
     auto_backup_enabled: true,
@@ -307,9 +308,15 @@ function Settings({ onClose }) {
               <h3>Auto-Penalties</h3>
               <div className="checkbox-group">
                 <input className="checkbox" type="checkbox" name="auto_penalties_enabled" checked={formData.auto_penalties_enabled} onChange={handleChange} id="auto_penalties" />
-                <label htmlFor="auto_penalties">Enable automatic penalties at midnight</label>
+                <label htmlFor="auto_penalties">Enable automatic penalties</label>
               </div>
-              <small style={{ display: 'block', marginTop: '0.5rem' }}>Automatically calculate and apply penalties for yesterday</small>
+              {formData.auto_penalties_enabled && (
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label">Penalty Calculation Time</label>
+                  <input className="form-input" type="time" name="penalty_time" value={formData.penalty_time} onChange={handleChange} />
+                  <small>Penalties for yesterday are applied at this time</small>
+                </div>
+              )}
             </div>
 
             <div className="settings-section">

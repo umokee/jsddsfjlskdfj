@@ -103,6 +103,7 @@ class Settings(Base):
     # Time-based settings
     roll_available_time = Column(String, default="00:00")  # Time when Roll becomes available (HH:MM format)
     auto_penalties_enabled = Column(Boolean, default=True)  # Auto-apply penalties at midnight
+    penalty_time = Column(String, default="00:01")  # Time when penalties are calculated (HH:MM format)
     auto_roll_enabled = Column(Boolean, default=False)  # Enable automatic roll
     auto_roll_time = Column(String, default="06:00")  # Time for automatic roll (HH:MM format)
 
