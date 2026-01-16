@@ -27,12 +27,17 @@ function Settings({ onClose }) {
     auto_penalties_enabled: true,
     auto_roll_enabled: false,
     auto_roll_time: "06:00",
+    auto_backup_enabled: true,
+    backup_time: "03:00",
+    backup_interval_days: 1,
+    backup_keep_local_count: 10,
+    google_drive_enabled: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [restDays, setRestDays] = useState([]);
   const [newRestDay, setNewRestDay] = useState('');
-  const [activeTab, setActiveTab] = useState('points'); // points, penalties, automation, rest
+  const [activeTab, setActiveTab] = useState('points'); // points, penalties, automation, backups, rest
 
   useEffect(() => {
     fetchSettings();
@@ -149,6 +154,13 @@ function Settings({ onClose }) {
           onClick={() => setActiveTab('automation')}
         >
           Automation
+        </button>
+        <button
+          type="button"
+          className={`tab-button ${activeTab === 'backups' ? 'active' : ''}`}
+          onClick={() => setActiveTab('backups')}
+        >
+          Backups
         </button>
         <button
           type="button"
@@ -310,6 +322,59 @@ function Settings({ onClose }) {
                 <div className="form-group" style={{ marginTop: '1rem' }}>
                   <label className="form-label">Auto Roll Time</label>
                   <input className="form-input" type="time" name="auto_roll_time" value={formData.auto_roll_time} onChange={handleChange} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Backups Tab */}
+        {activeTab === 'backups' && (
+          <div>
+            <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+              Automatic database backups protect your data. Backups are stored locally and optionally uploaded to Google Drive.
+            </div>
+
+            <div className="settings-section">
+              <h3>Auto-Backup</h3>
+              <div className="checkbox-group">
+                <input className="checkbox" type="checkbox" name="auto_backup_enabled" checked={formData.auto_backup_enabled} onChange={handleChange} id="auto_backup" />
+                <label htmlFor="auto_backup">Enable automatic backups</label>
+              </div>
+
+              {formData.auto_backup_enabled && (
+                <>
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label className="form-label">Backup Time (daily)</label>
+                    <input className="form-input" type="time" name="backup_time" value={formData.backup_time} onChange={handleChange} />
+                    <small>Database will be backed up at this time every day</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Backup Interval (days)</label>
+                    <input className="form-input" type="number" name="backup_interval_days" value={formData.backup_interval_days} onChange={handleChange} min="1" max="30" />
+                    <small>Create backup every N days (1 = daily)</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Keep Local Backups</label>
+                    <input className="form-input" type="number" name="backup_keep_local_count" value={formData.backup_keep_local_count} onChange={handleChange} min="1" max="100" />
+                    <small>Number of backups to keep locally (older ones are deleted)</small>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="settings-section">
+              <h3>Google Drive Integration</h3>
+              <div className="checkbox-group">
+                <input className="checkbox" type="checkbox" name="google_drive_enabled" checked={formData.google_drive_enabled} onChange={handleChange} id="google_drive" />
+                <label htmlFor="google_drive">Upload backups to Google Drive</label>
+              </div>
+              {formData.google_drive_enabled && (
+                <div className="info-box" style={{ marginTop: '1rem', backgroundColor: 'rgba(255, 193, 7, 0.1)' }}>
+                  <strong>Note:</strong> Requires Google Drive API credentials to be configured on the server.
+                  Set GOOGLE_DRIVE_CREDENTIALS environment variable with path to service account JSON file.
                 </div>
               )}
             </div>

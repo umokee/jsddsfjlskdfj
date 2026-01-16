@@ -3,16 +3,18 @@ Background scheduler for automatic task management
 Handles:
 - Automatic penalties at midnight
 - Automatic roll at configured time
+- Automatic database backups
 - Resetting last_roll_date for new day
 """
 
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
 import backend.crud as crud
+import backend.backup_service as backup_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -94,6 +96,55 @@ def reset_roll_availability():
         db.close()
 
 
+def check_auto_backup():
+    """Check if automatic backup should be executed"""
+    db: Session = SessionLocal()
+    try:
+        settings = crud.get_settings(db)
+
+        # Only proceed if auto_backup is enabled
+        if not settings.auto_backup_enabled:
+            return
+
+        now = datetime.utcnow()
+        current_time = now.strftime("%H:%M")
+        backup_time = settings.backup_time or "03:00"
+
+        # Check if it's time for backup
+        if current_time != backup_time:
+            return
+
+        # Check if we need to backup based on interval
+        if settings.last_backup_date:
+            days_since_backup = (now - settings.last_backup_date).days
+            if days_since_backup < settings.backup_interval_days:
+                logger.info(f"Backup not needed yet (last backup: {days_since_backup} days ago)")
+                return
+
+        logger.info(f"Executing automatic backup at {current_time}")
+
+        # Create backup
+        backup = backup_service.create_local_backup(backup_type="auto")
+
+        if backup:
+            logger.info(f"Auto-backup successful: {backup.filename}")
+
+            # Upload to Google Drive if enabled
+            if settings.google_drive_enabled:
+                try:
+                    backup_service.upload_to_google_drive(backup)
+                    logger.info(f"Auto-backup uploaded to Google Drive")
+                except Exception as e:
+                    logger.error(f"Google Drive upload failed: {e}")
+        else:
+            logger.error("Auto-backup failed")
+
+    except Exception as e:
+        logger.error(f"Error in check_auto_backup: {e}")
+    finally:
+        db.close()
+
+
 # Create scheduler instance
 scheduler = BackgroundScheduler()
 
@@ -116,6 +167,15 @@ def start_scheduler():
         apply_midnight_penalties,
         CronTrigger(hour=0, minute=1),
         id='midnight_penalties',
+        replace_existing=True
+    )
+
+    # Check for auto-backup every minute
+    # (the function itself checks if it's time to backup)
+    scheduler.add_job(
+        check_auto_backup,
+        CronTrigger(minute='*'),  # Every minute
+        id='check_auto_backup',
         replace_existing=True
     )
 

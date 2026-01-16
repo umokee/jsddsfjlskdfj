@@ -88,6 +88,11 @@ class SettingsBase(BaseModel):
     auto_penalties_enabled: bool = Field(default=True)
     auto_roll_enabled: bool = Field(default=False)
     auto_roll_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    auto_backup_enabled: bool = Field(default=True)
+    backup_time: str = Field(default="03:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    backup_interval_days: int = Field(default=1, ge=1, le=30)
+    backup_keep_local_count: int = Field(default=10, ge=1, le=100)
+    google_drive_enabled: bool = Field(default=False)
 
 
 class SettingsUpdate(SettingsBase):
@@ -97,6 +102,7 @@ class SettingsUpdate(SettingsBase):
 class SettingsResponse(SettingsBase):
     id: int
     updated_at: datetime
+    last_backup_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -167,6 +173,26 @@ class RestDayCreate(RestDayBase):
 class RestDayResponse(RestDayBase):
     id: int
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Backup schemas
+class BackupBase(BaseModel):
+    filename: str
+    size_bytes: int
+    backup_type: str = "auto"
+
+
+class BackupResponse(BackupBase):
+    id: int
+    filepath: str
+    created_at: datetime
+    uploaded_to_drive: bool = False
+    google_drive_id: Optional[str] = None
+    status: str = "completed"
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True

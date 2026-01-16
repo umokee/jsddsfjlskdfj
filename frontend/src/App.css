@@ -1388,3 +1388,170 @@ small {
     align-items: stretch;
   }
 }
+
+/* ===== BACKUPS PAGE ===== */
+
+.backups {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.backups-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.backups-header h2 {
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin: 0;
+}
+
+/* Backup Status Indicator */
+
+.backup-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  font-family: var(--font-mono);
+}
+
+.backup-status-ok {
+  border-left-color: var(--success);
+}
+
+.backup-status-warning {
+  border-left-color: #ff9800;
+}
+
+.backup-status-error {
+  border-left-color: var(--danger);
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.backup-status-ok .status-indicator {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.backup-status-warning .status-indicator {
+  background: #ff9800;
+  box-shadow: 0 0 8px #ff9800;
+}
+
+.backup-status-error .status-indicator {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+
+.status-info {
+  flex: 1;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+.status-date {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Backups List */
+
+.backups-list h3 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.backup-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.backup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+  font-family: var(--font-mono);
+}
+
+.backup-item:hover {
+  background: var(--bg-primary);
+  border-color: var(--accent-dim);
+}
+
+.backup-info {
+  flex: 1;
+}
+
+.backup-filename {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.5px;
+}
+
+.backup-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.backup-type {
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+}
+
+.backup-type-auto {
+  color: var(--accent);
+}
+
+.backup-type-manual {
+  color: var(--success);
+}
+
+.backup-cloud {
+  color: #2196f3;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.no-backups {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  letter-spacing: 0.5px;
+}
