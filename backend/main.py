@@ -18,6 +18,7 @@ from backend.schemas import (
 from backend.auth import verify_api_key
 from backend import crud
 from backend.scheduler import start_scheduler, stop_scheduler
+from backend.auto_migrate import auto_migrate
 from datetime import date
 
 # Configure logging for fail2ban integration
@@ -48,6 +49,13 @@ logger = logging.getLogger("task_manager")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Run automatic schema migrations (add missing columns)
+try:
+    auto_migrate()
+except Exception as e:
+    logger.error(f"Auto-migration failed: {e}")
+    # Don't crash the app - continue with existing schema
 
 app = FastAPI(
     title="Task Manager API",

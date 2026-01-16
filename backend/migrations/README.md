@@ -1,56 +1,86 @@
-# Database Migrations
+# Automatic Database Migrations
 
-This directory contains database migration scripts for schema changes.
+This project uses an **automatic migration system** that detects and adds missing columns when the application starts.
 
-## How to run migrations
+## How it works
 
-### Method 1: Run migration script (Recommended)
+1. When the backend starts, it automatically:
+   - Creates all missing tables (via SQLAlchemy's `create_all()`)
+   - Compares SQLAlchemy models with the actual database schema
+   - Adds any missing columns with their default values
+   - Logs all changes to the console and log file
+
+2. **You don't need to run any migration scripts manually!**
+
+## What happens when you update
+
+When you pull new code that adds database fields:
+
+1. **Just restart the backend:**
+   ```bash
+   # If using systemd
+   sudo systemctl restart task-manager
+
+   # If running manually
+   pkill -f "python.*backend/main.py"
+   python -m uvicorn backend.main:app --reload
+   ```
+
+2. The auto-migration system will:
+   - Detect new columns in the models
+   - Add them to the database automatically
+   - Show messages like: `✓ Added column: settings.max_streak_bonus_days`
+
+3. **Your data is safe!** The system only ADDS columns, never deletes or modifies existing data.
+
+## Manual migration (optional)
+
+If you want to run migrations manually without starting the app:
 
 ```bash
-# From project root directory
-python backend/migrations/add_max_streak_bonus_days.py
+# From project root
+python -m backend.auto_migrate
 ```
 
-The script will:
-- Automatically detect your database location
-- Check if the column already exists
-- Add the column if needed
-- Show success/error messages
+## How to verify
 
-### Method 2: Manual SQL (if you prefer)
+Check the logs to see what migrations were applied:
 
 ```bash
-# Find your database
-sqlite3 /var/lib/task-manager/tasks.db
-# OR if using local development
-sqlite3 ./tasks.db
+# View recent logs
+tail -f /var/log/task-manager/app.log
+
+# Or if using local logs
+tail -f logs/app.log
 ```
 
-Then run:
-```sql
--- Check if column exists
-PRAGMA table_info(settings);
-
--- Add column if it doesn't exist
-ALTER TABLE settings ADD COLUMN max_streak_bonus_days INTEGER DEFAULT 30 NOT NULL;
-
--- Verify
-PRAGMA table_info(settings);
+You should see messages like:
+```
+INFO - Starting automatic schema migration...
+INFO - Adding column 'max_streak_bonus_days' to table 'settings'
+INFO - ✓ Added column: settings.max_streak_bonus_days
+INFO - ✓ Migration completed: 1 column(s) added
 ```
 
-## After migration
+## Technical details
 
-Restart your backend service:
-```bash
-# If using systemd
-sudo systemctl restart task-manager
+The auto-migration system (`backend/auto_migrate.py`):
+- Uses SQLAlchemy's introspection to compare models with database
+- Generates and executes `ALTER TABLE ADD COLUMN` statements
+- Handles default values and NOT NULL constraints
+- Supports all SQLAlchemy column types
+- Is idempotent (safe to run multiple times)
 
-# If running manually
-# Kill the old process and start again
-pkill -f "python.*backend/main.py"
-python -m uvicorn backend.main:app --reload
-```
+## Limitations
 
-## Migration History
+The auto-migration system can:
+- ✅ Add new columns
+- ✅ Set default values
+- ✅ Handle all SQLAlchemy types
 
-- **add_max_streak_bonus_days.py** - Adds configurable max streak bonus days parameter
+The system cannot:
+- ❌ Remove columns (must be done manually)
+- ❌ Rename columns (must be done manually)
+- ❌ Change column types (must be done manually)
+
+For complex migrations (rename, remove, change type), create a manual migration script in this directory.
