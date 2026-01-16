@@ -131,7 +131,7 @@ def check_auto_backup():
         logger.info(f"Executing automatic backup at {current_time}")
 
         # Create backup
-        backup = backup_service.create_local_backup(backup_type="auto")
+        backup = backup_service.create_local_backup(db, backup_type="auto")
 
         if backup:
             logger.info(f"Auto-backup successful: {backup.filename}")

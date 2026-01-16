@@ -332,7 +332,7 @@ async def get_backups_endpoint(limit: int = 50, db: Session = Depends(get_db)):
 @app.post("/api/backups/create", response_model=BackupResponse, dependencies=[Depends(verify_api_key)])
 async def create_backup_endpoint(db: Session = Depends(get_db)):
     """Create a manual backup"""
-    backup = backup_service.create_local_backup(backup_type="manual")
+    backup = backup_service.create_local_backup(db, backup_type="manual")
 
     if not backup:
         raise HTTPException(status_code=500, detail="Failed to create backup")

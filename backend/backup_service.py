@@ -45,18 +45,17 @@ def get_backup_filepath(backup_type: str = "auto") -> tuple[str, str]:
     return filename, filepath
 
 
-def create_local_backup(backup_type: str = "auto") -> Optional[Backup]:
+def create_local_backup(db: Session, backup_type: str = "auto") -> Optional[Backup]:
     """
     Create a local backup of the database.
 
     Args:
+        db: Database session
         backup_type: "auto" or "manual"
 
     Returns:
         Backup object if successful, None otherwise
     """
-    db = SessionLocal()
-
     try:
         # Check if database exists
         if not DB_PATH.exists():
@@ -103,8 +102,6 @@ def create_local_backup(backup_type: str = "auto") -> Optional[Backup]:
         logger.error(f"✗ Backup failed: {e}")
         db.rollback()
         return None
-    finally:
-        db.close()
 
 
 def cleanup_old_backups(db: Session):
