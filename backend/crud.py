@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, date
 from typing import List, Optional
 import random
 import json
+import math
 
 from backend.models import Task, Settings, PointHistory, PointGoal, RestDay
 from backend.schemas import TaskCreate, TaskUpdate, SettingsUpdate, PointGoalCreate, PointGoalUpdate, RestDayCreate
@@ -610,57 +611,104 @@ def update_settings(db: Session, settings_update: SettingsUpdate) -> Settings:
 # ===== POINTS CALCULATION FUNCTIONS =====
 
 def calculate_task_points(task: Task, settings: Settings) -> int:
-    """Calculate points for completing a task (without priority bonus)"""
+    """
+    Calculate points for completing a task using Balanced Progress v2.0 formula.
+
+    Formula: Points = Base × EnergyMultiplier × TimeQualityFactor × FocusFactor
+
+    EnergyMultiplier = energy_mult_base + (energy × energy_mult_step)
+        E0 -> 0.6, E1 -> 0.8, E2 -> 1.0, E3 -> 1.2, E4 -> 1.4, E5 -> 1.6
+
+    TimeQualityFactor based on actual_time / expected_time ratio:
+        - ActualTime < min_work_time: 0.5 (suspiciously fast)
+        - Ratio < 0.5: 0.8 (too fast, maybe task is simpler than stated)
+        - 0.5 ≤ Ratio ≤ 1.5: 1.0 (normal range)
+        - 1.5 < Ratio ≤ 3.0: 0.9 (slightly slow)
+        - Ratio > 3.0: 0.7 (very slow or distracted)
+
+    FocusFactor:
+        - Task was active without pauses: 1.1
+        - Had pauses: 1.0
+        - Completed without start: 0.8
+    """
     base = settings.points_per_task_base
 
-    # Bonus for energy (0-5)
-    energy_bonus = task.energy * settings.energy_weight
+    # 1. Energy Multiplier
+    energy_multiplier = settings.energy_mult_base + (task.energy * settings.energy_mult_step)
 
-    # Smart time tracking with automatic estimation
+    # 2. Time Quality Factor
     actual_time = task.time_spent if task.time_spent else 0
-    # Automatic estimated time based on energy: energy * minutes_per_unit * 60 seconds
-    expected_time = task.energy * settings.minutes_per_energy_unit * 60
+    expected_time = task.energy * settings.minutes_per_energy_unit * 60  # in seconds
 
-    time_modifier = 0.0
-
-    if actual_time > 0 and expected_time > 0:
-        # Calculate efficiency: expected / actual
-        # > 1.0 means faster than expected (bonus)
-        # < 1.0 means slower than expected (penalty)
-        efficiency = expected_time / actual_time
-
-        # If easy task (energy <= 2) done very slowly (efficiency < 0.3) - big penalty
-        if task.energy <= 2 and efficiency < 0.3:
-            time_modifier = -base * 0.5
-        elif efficiency > 1.0:
-            # Bonus for efficiency (max 50% of base)
-            time_modifier = min(base * settings.time_efficiency_weight * (efficiency - 1), base * 0.5)
+    if actual_time < settings.min_work_time_seconds:
+        # Suspiciously fast (< 2 min by default)
+        time_quality_factor = 0.5
+    elif expected_time > 0:
+        ratio = actual_time / expected_time
+        if ratio < 0.5:
+            time_quality_factor = 0.8  # Too fast
+        elif ratio <= 1.5:
+            time_quality_factor = 1.0  # Normal range
+        elif ratio <= 3.0:
+            time_quality_factor = 0.9  # Slightly slow
         else:
-            # Penalty for inefficiency
-            time_modifier = -base * settings.time_efficiency_weight * (1 - efficiency)
+            time_quality_factor = 0.7  # Very slow
+    else:
+        # Energy = 0, no expected time
+        time_quality_factor = 1.0
 
-    total_points = base + energy_bonus + time_modifier
+    # 3. Focus Factor
+    if task.started_at is None:
+        # Completed without starting - suspicious
+        focus_factor = 0.8
+    else:
+        # Normal completion with tracking
+        focus_factor = 1.0
 
-    # Minimum 20% of (base + energy) to ensure energy effort is rewarded
-    minimum_points = int((base + energy_bonus) * 0.2)
-    return max(int(total_points), minimum_points)
+    # Calculate total points
+    total_points = base * energy_multiplier * time_quality_factor * focus_factor
+
+    # Minimum 1 point for any completed task
+    return max(1, int(total_points))
 
 
 def calculate_habit_points(task: Task, settings: Settings) -> int:
-    """Calculate points for completing a habit"""
+    """
+    Calculate points for completing a habit using Balanced Progress v2.0 formula.
+
+    Skill habits: Base × StreakBonus
+        StreakBonus = 1 + log₂(streak + 1) × streak_log_factor
+
+        Examples with streak_log_factor = 0.15:
+        Streak 0  -> 1.00 (first time)
+        Streak 1  -> 1.15
+        Streak 3  -> 1.30
+        Streak 7  -> 1.45
+        Streak 14 -> 1.59
+        Streak 30 -> 1.74
+        Streak 60 -> 1.89
+        Streak 100 -> 2.00 (practical maximum)
+
+    Routine habits: Fixed points (routine_points_fixed), no streak bonus
+        Default: 6 points
+    """
+    # Routine habits get fixed points, no streak
+    if task.habit_type != "skill":
+        return settings.routine_points_fixed
+
+    # Skill habits: base + streak bonus
     base = settings.points_per_habit_base
+    streak = task.streak if task.streak else 0
 
-    # Only apply streak bonus for skill habits, not routines
-    if task.habit_type == "skill":
-        # Use configurable max streak days instead of hardcoded 30
-        capped_streak = min(task.streak, settings.max_streak_bonus_days)
-        streak_bonus = capped_streak * settings.streak_multiplier
-        total = base + streak_bonus
-    else:
-        # Routine habits get base points only, no streak bonus
-        total = base
+    # Cap streak for calculation
+    capped_streak = min(streak, settings.max_streak_bonus_days)
 
-    return int(total)
+    # Calculate streak bonus using log₂
+    # StreakBonus = 1 + log₂(streak + 1) × factor
+    streak_bonus = 1 + math.log2(capped_streak + 1) * settings.streak_log_factor
+
+    total = base * streak_bonus
+    return max(1, int(total))
 
 
 def get_or_create_today_history(db: Session) -> PointHistory:
@@ -731,7 +779,24 @@ def add_task_completion_points(db: Session, task: Task) -> None:
 
 
 def _finalize_day_penalties(db: Session, target_date: date) -> dict:
-    """Internal function to finalize penalties for a specific date"""
+    """
+    Finalize penalties for a specific date using Balanced Progress v2.0 formula.
+
+    Penalty types:
+    1. Idle Penalty: 30 points for 0 tasks AND 0 habits completed
+    2. Incomplete Day Penalty:
+       - < 40% completion: 15 points (severe)
+       - 40-60% completion: 10 × (1 - rate) points (scaled)
+       - 60%+ completion: 0 points
+    3. Missed Habit Penalty:
+       - Skill: 15 points
+       - Routine: 8 points (about half)
+
+    Progressive multiplier:
+    - Formula: 1 + min(penalty_streak × 0.1, 0.5)
+    - Max multiplier: 1.5
+    - Reset after 2 consecutive days without penalties
+    """
     settings = get_settings(db)
 
     # Check if this is a rest day - no penalties
@@ -796,29 +861,43 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
         )
     ).count()
 
-    # Set tasks_planned to actual count (fair completion rate)
+    # Set tasks_planned (use actual completed if not tracked)
     if day_history.tasks_planned == 0:
         day_history.tasks_planned = max(day_history.tasks_completed, 1)
 
     penalty = 0
+    missed_habits = []
 
-    # Separate idle penalties for tasks and habits
-    if day_history.tasks_completed == 0:
-        penalty += settings.idle_tasks_penalty
+    # === PENALTY 1: IDLE PENALTY ===
+    # Only apply if BOTH tasks and habits are 0
+    if day_history.tasks_completed == 0 and day_history.habits_completed == 0:
+        penalty += settings.idle_penalty
 
-    if day_history.habits_completed == 0:
-        penalty += settings.idle_habits_penalty
-
-    # Penalty for incomplete day (if at least some tasks were done)
-    if day_history.tasks_completed > 0:
+    # === PENALTY 2: INCOMPLETE DAY PENALTY ===
+    completion_rate = 0.0
+    if day_history.tasks_planned > 0:
         completion_rate = min(day_history.tasks_completed / day_history.tasks_planned, 1.0)
         day_history.completion_rate = completion_rate
 
-        # Penalty for incomplete day (threshold 80%)
-        if completion_rate < settings.incomplete_day_threshold:
+        if completion_rate < settings.incomplete_threshold_severe:
+            # Severe penalty for < 40% completion
+            penalty += settings.incomplete_penalty_severe
+        elif completion_rate < settings.incomplete_day_threshold:
+            # Scaled penalty for 40-60% completion
             penalty += int(settings.incomplete_day_penalty * (1 - completion_rate))
+        # 60%+ completion: no penalty
 
-    # Penalty for missed habits
+    # === DAILY CONSISTENCY BONUS ===
+    # Only apply bonus if there's something earned and good completion
+    if day_history.points_earned > 0:
+        if completion_rate >= 1.0:
+            # 100% completion: 10% bonus
+            day_history.points_bonus = int(day_history.points_earned * settings.completion_bonus_full)
+        elif completion_rate >= 0.8:
+            # 80%+ completion: 5% bonus
+            day_history.points_bonus = int(day_history.points_earned * settings.completion_bonus_good)
+
+    # === PENALTY 3: MISSED HABITS PENALTY ===
     missed_habits_count = max(0, habits_due - day_history.habits_completed)
     if missed_habits_count > 0:
         # Get all habits that were due but not completed
@@ -832,16 +911,14 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
         ).all()
 
         for habit in missed_habits:
-            # Base penalty for missed habit
-            habit_penalty = settings.missed_habit_penalty_base
+            if habit.habit_type == "skill":
+                # Full penalty for skill habits
+                penalty += settings.missed_habit_penalty_base
+            else:
+                # Reduced penalty for routines (about half)
+                penalty += int(settings.missed_habit_penalty_base * 0.5)
 
-            # Apply routine multiplier if routine habit
-            if habit.habit_type == "routine":
-                habit_penalty = int(habit_penalty * settings.routine_habit_multiplier)
-
-            penalty += habit_penalty
-
-    # Get yesterday's penalty streak to determine current streak
+    # === PROGRESSIVE PENALTY MULTIPLIER ===
     yesterday_date = target_date - timedelta(days=1)
     yesterday_history = db.query(PointHistory).filter(PointHistory.date == yesterday_date).first()
 
@@ -852,18 +929,19 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
         else:
             day_history.penalty_streak = 1
 
-        # Apply progressive penalty based on PENALTY STREAK (not habit streak!)
-        # The more days in a row you get penalties, the bigger they become
-        # Formula: penalty * (1 + factor * penalty_streak)
-        progressive_multiplier = 1 + (settings.progressive_penalty_factor * day_history.penalty_streak)
+        # Apply progressive penalty with cap
+        # Formula: 1 + min(penalty_streak × factor, max - 1)
+        progressive_multiplier = 1 + min(
+            day_history.penalty_streak * settings.progressive_penalty_factor,
+            settings.progressive_penalty_max - 1
+        )
         penalty = int(penalty * progressive_multiplier)
     else:
-        # No penalties today
-        # Check if we should reset the streak (3 days without penalties by default)
+        # No penalties today - check if we should reset streak
         if yesterday_history:
             days_without_penalty = 1  # Today has no penalty
 
-            # Count consecutive days without penalty before yesterday
+            # Count consecutive days without penalty
             check_date = yesterday_date
             for _ in range(settings.penalty_streak_reset_days - 1):
                 hist = db.query(PointHistory).filter(PointHistory.date == check_date).first()
@@ -876,14 +954,17 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
             if days_without_penalty >= settings.penalty_streak_reset_days:
                 day_history.penalty_streak = 0  # Reset streak
             else:
-                day_history.penalty_streak = yesterday_history.penalty_streak  # Keep current streak
+                day_history.penalty_streak = yesterday_history.penalty_streak  # Keep current
         else:
             day_history.penalty_streak = 0
 
-    # Apply penalties (but never go below 0 cumulative)
+    # Apply bonus and penalties (cumulative never goes below 0)
     day_history.points_penalty = penalty
     day_history.daily_total = day_history.points_earned + day_history.points_bonus - day_history.points_penalty
-    day_history.cumulative_total = max(0, day_history.cumulative_total - penalty)
+
+    # Update cumulative: add bonus, subtract penalty
+    net_change = day_history.points_bonus - penalty
+    day_history.cumulative_total = max(0, day_history.cumulative_total + net_change)
 
     db.commit()
 
