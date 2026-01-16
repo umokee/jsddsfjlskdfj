@@ -25,7 +25,7 @@ def calculate_next_occurrence(start_date: datetime, recurrence_type: str, recurr
     if recurrence_type == "none" or not start_date:
         return start_date
 
-    now = datetime.utcnow()
+    now = datetime.now()
     current_date = start_date
 
     # If start_date is already in the future, return it as-is
@@ -91,7 +91,7 @@ def get_next_task(db: Session) -> Optional[Task]:
 
 def get_next_habit(db: Session) -> Optional[Task]:
     """Get next habit for today"""
-    today = datetime.utcnow().date()
+    today = datetime.now().date()
     return db.query(Task).filter(
         and_(
             Task.status == "pending",
@@ -112,7 +112,7 @@ def get_all_habits(db: Session) -> List[Task]:
 
 def get_today_habits(db: Session) -> List[Task]:
     """Get all habits for today"""
-    today = datetime.utcnow().date()
+    today = datetime.now().date()
     return db.query(Task).filter(
         and_(
             Task.status == "pending",
@@ -134,7 +134,7 @@ def get_today_tasks(db: Session) -> List[Task]:
 
 def get_stats(db: Session) -> dict:
     """Get daily statistics"""
-    today = datetime.utcnow().date()
+    today = datetime.now().date()
     today_start = datetime.combine(today, datetime.min.time())
     today_end = datetime.combine(today + timedelta(days=1), datetime.min.time())
 
@@ -232,7 +232,7 @@ def start_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     active_tasks = db.query(Task).filter(Task.status == "active").all()
     for task in active_tasks:
         if task.started_at:
-            elapsed = (datetime.utcnow() - task.started_at).total_seconds()
+            elapsed = (datetime.now() - task.started_at).total_seconds()
             task.time_spent = (task.time_spent or 0) + int(elapsed)
         task.status = "pending"
         task.started_at = None  # Important: clear old started_at
@@ -241,7 +241,7 @@ def start_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
         db_task = get_task(db, task_id)
         if db_task:
             db_task.status = "active"
-            db_task.started_at = datetime.utcnow()  # Set fresh started_at
+            db_task.started_at = datetime.now()  # Set fresh started_at
             db_task.is_today = True
     else:
         # Start next available TASK ONLY (not habits)
@@ -249,7 +249,7 @@ def start_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
         db_task = get_next_task(db)
         if db_task:
             db_task.status = "active"
-            db_task.started_at = datetime.utcnow()  # Set fresh started_at
+            db_task.started_at = datetime.now()  # Set fresh started_at
 
     db.commit()
     if db_task:
@@ -262,7 +262,7 @@ def stop_task(db: Session) -> bool:
     if active_task:
         # Calculate elapsed time and add to time_spent
         if active_task.started_at:
-            elapsed = (datetime.utcnow() - active_task.started_at).total_seconds()
+            elapsed = (datetime.now() - active_task.started_at).total_seconds()
             active_task.time_spent = (active_task.time_spent or 0) + int(elapsed)
 
         active_task.status = "pending"
@@ -318,7 +318,7 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
     if db_task.status == "completed":
         return db_task
 
-    completion_date = datetime.utcnow()
+    completion_date = datetime.now()
     db_task.status = "completed"
     db_task.completed_at = completion_date
 
@@ -426,7 +426,7 @@ def can_roll_now(db: Session) -> tuple[bool, str]:
         (can_roll, reason) - tuple of boolean and error message if any
     """
     settings = get_settings(db)
-    now = datetime.utcnow()
+    now = datetime.now()
     today = now.date()
     current_time = now.strftime("%H:%M")
 
@@ -446,7 +446,7 @@ def can_roll_now(db: Session) -> tuple[bool, str]:
 
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:
     """Generate daily task plan (max once per day)"""
-    today = datetime.utcnow().date()
+    today = datetime.now().date()
     settings = get_settings(db)
 
     # Check if roll is available (considering time)
@@ -649,16 +649,16 @@ def calculate_task_points(task: Task, settings: Settings) -> int:
 def calculate_habit_points(task: Task, settings: Settings) -> int:
     """Calculate points for completing a habit"""
     base = settings.points_per_habit_base
-    # Cap streak bonus at 30 days (habit formation period)
-    # With new defaults: 10 + 30*1 = 40 max points per habit
-    capped_streak = min(task.streak, 30)
-    streak_bonus = capped_streak * settings.streak_multiplier
 
-    total = base + streak_bonus
-
-    # Apply routine multiplier if this is a routine habit (not a skill)
-    if task.habit_type == "routine":
-        total = int(total * settings.routine_habit_multiplier)
+    # Only apply streak bonus for skill habits, not routines
+    if task.habit_type == "skill":
+        # Use configurable max streak days instead of hardcoded 30
+        capped_streak = min(task.streak, settings.max_streak_bonus_days)
+        streak_bonus = capped_streak * settings.streak_multiplier
+        total = base + streak_bonus
+    else:
+        # Routine habits get base points only, no streak bonus
+        total = base
 
     return int(total)
 
@@ -723,7 +723,7 @@ def add_task_completion_points(db: Session, task: Task) -> None:
         "description": task.description,
         "is_habit": task.is_habit,
         "points": points,
-        "time": datetime.utcnow().isoformat()
+        "time": datetime.now().isoformat()
     })
     history.details = json.dumps(details)
 

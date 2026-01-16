@@ -11,6 +11,7 @@ function Settings({ onClose }) {
     points_per_task_base: 10,
     points_per_habit_base: 10,
     streak_multiplier: 1.0,
+    max_streak_bonus_days: 30,
     energy_weight: 3.0,
     time_efficiency_weight: 0.5,
     minutes_per_energy_unit: 30,
@@ -24,14 +25,20 @@ function Settings({ onClose }) {
     routine_habit_multiplier: 0.5,
     roll_available_time: "00:00",
     auto_penalties_enabled: true,
+    penalty_time: "00:01",
     auto_roll_enabled: false,
     auto_roll_time: "06:00",
+    auto_backup_enabled: true,
+    backup_time: "03:00",
+    backup_interval_days: 1,
+    backup_keep_local_count: 10,
+    google_drive_enabled: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [restDays, setRestDays] = useState([]);
   const [newRestDay, setNewRestDay] = useState('');
-  const [activeTab, setActiveTab] = useState('points'); // points, penalties, automation, rest
+  const [activeTab, setActiveTab] = useState('points'); // points, penalties, automation, backups, rest
 
   useEffect(() => {
     fetchSettings();
@@ -151,6 +158,13 @@ function Settings({ onClose }) {
         </button>
         <button
           type="button"
+          className={`tab-button ${activeTab === 'backups' ? 'active' : ''}`}
+          onClick={() => setActiveTab('backups')}
+        >
+          Backups
+        </button>
+        <button
+          type="button"
           className={`tab-button ${activeTab === 'rest' ? 'active' : ''}`}
           onClick={() => setActiveTab('rest')}
         >
@@ -179,9 +193,14 @@ function Settings({ onClose }) {
             <div className="settings-section">
               <h3>Bonuses</h3>
               <div className="form-group">
-                <label className="form-label">Streak Multiplier (per day, max 30)</label>
+                <label className="form-label">Streak Multiplier (per day, skill habits only)</label>
                 <input className="form-input" type="number" step="0.1" name="streak_multiplier" value={formData.streak_multiplier} onChange={handleChange} min="0" max="10" />
-                <small>Current with 30-day streak: {formData.points_per_habit_base + 30 * formData.streak_multiplier} points</small>
+                <small>Routine habits do not receive streak bonuses</small>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Max Streak Bonus Days</label>
+                <input className="form-input" type="number" name="max_streak_bonus_days" value={formData.max_streak_bonus_days} onChange={handleChange} min="1" max="365" />
+                <small>Current max with {formData.max_streak_bonus_days}-day streak: {formData.points_per_habit_base + formData.max_streak_bonus_days * formData.streak_multiplier} points</small>
               </div>
               <div className="form-group">
                 <label className="form-label">Energy Weight (tasks only)</label>
@@ -195,10 +214,9 @@ function Settings({ onClose }) {
 
             <div className="settings-section">
               <h3>Habit Types</h3>
-              <div className="form-group">
-                <label className="form-label">Routine Multiplier (easy daily tasks)</label>
-                <input className="form-input" type="number" step="0.1" name="routine_habit_multiplier" value={formData.routine_habit_multiplier} onChange={handleChange} min="0" max="1" />
-                <small>Skills get full points, routines get {(formData.routine_habit_multiplier * 100).toFixed(0)}% points</small>
+              <div className="info-box">
+                <strong>Skill Habits:</strong> Receive base points + streak bonuses (capped at max streak days)<br />
+                <strong>Routine Habits:</strong> Receive only base points (no streak bonuses)
               </div>
             </div>
 
@@ -290,9 +308,15 @@ function Settings({ onClose }) {
               <h3>Auto-Penalties</h3>
               <div className="checkbox-group">
                 <input className="checkbox" type="checkbox" name="auto_penalties_enabled" checked={formData.auto_penalties_enabled} onChange={handleChange} id="auto_penalties" />
-                <label htmlFor="auto_penalties">Enable automatic penalties at midnight</label>
+                <label htmlFor="auto_penalties">Enable automatic penalties</label>
               </div>
-              <small style={{ display: 'block', marginTop: '0.5rem' }}>Automatically calculate and apply penalties for yesterday</small>
+              {formData.auto_penalties_enabled && (
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label">Penalty Calculation Time</label>
+                  <input className="form-input" type="time" name="penalty_time" value={formData.penalty_time} onChange={handleChange} />
+                  <small>Penalties for yesterday are applied at this time</small>
+                </div>
+              )}
             </div>
 
             <div className="settings-section">
@@ -305,6 +329,59 @@ function Settings({ onClose }) {
                 <div className="form-group" style={{ marginTop: '1rem' }}>
                   <label className="form-label">Auto Roll Time</label>
                   <input className="form-input" type="time" name="auto_roll_time" value={formData.auto_roll_time} onChange={handleChange} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Backups Tab */}
+        {activeTab === 'backups' && (
+          <div>
+            <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+              Automatic database backups protect your data. Backups are stored locally and optionally uploaded to Google Drive.
+            </div>
+
+            <div className="settings-section">
+              <h3>Auto-Backup</h3>
+              <div className="checkbox-group">
+                <input className="checkbox" type="checkbox" name="auto_backup_enabled" checked={formData.auto_backup_enabled} onChange={handleChange} id="auto_backup" />
+                <label htmlFor="auto_backup">Enable automatic backups</label>
+              </div>
+
+              {formData.auto_backup_enabled && (
+                <>
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label className="form-label">Backup Time (daily)</label>
+                    <input className="form-input" type="time" name="backup_time" value={formData.backup_time} onChange={handleChange} />
+                    <small>Database will be backed up at this time every day</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Backup Interval (days)</label>
+                    <input className="form-input" type="number" name="backup_interval_days" value={formData.backup_interval_days} onChange={handleChange} min="1" max="30" />
+                    <small>Create backup every N days (1 = daily)</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Keep Local Backups</label>
+                    <input className="form-input" type="number" name="backup_keep_local_count" value={formData.backup_keep_local_count} onChange={handleChange} min="1" max="100" />
+                    <small>Number of backups to keep locally (older ones are deleted)</small>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="settings-section">
+              <h3>Google Drive Integration</h3>
+              <div className="checkbox-group">
+                <input className="checkbox" type="checkbox" name="google_drive_enabled" checked={formData.google_drive_enabled} onChange={handleChange} id="google_drive" />
+                <label htmlFor="google_drive">Upload backups to Google Drive</label>
+              </div>
+              {formData.google_drive_enabled && (
+                <div className="info-box" style={{ marginTop: '1rem', backgroundColor: 'rgba(255, 193, 7, 0.1)' }}>
+                  <strong>Note:</strong> Requires Google Drive API credentials to be configured on the server.
+                  Set GOOGLE_DRIVE_CREDENTIALS environment variable with path to service account JSON file.
                 </div>
               )}
             </div>

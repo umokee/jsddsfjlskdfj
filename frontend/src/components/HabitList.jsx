@@ -69,16 +69,12 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
 
           <div className="task-meta">
             {habit.project && <span>{habit.project}</span>}
-            <span className="task-badge">Habit</span>
+            <span>HABIT</span>
             {habit.time_spent > 0 && (
-              <span className="task-badge" style={{ backgroundColor: '#3b82f6', color: '#fff' }}>
-                ⏱️ {formatTimeSpent(habit.time_spent)}
-              </span>
+              <span>TIME: {formatTimeSpent(habit.time_spent)}</span>
             )}
             {habit.streak > 0 && (
-              <span className="task-badge" style={{ backgroundColor: '#f59e0b', color: '#000' }}>
-                🔥 {habit.streak} day{habit.streak > 1 ? 's' : ''}
-              </span>
+              <span>STREAK: {habit.streak}D</span>
             )}
             {dueDateLabel && (
               <span>{dueDateLabel}</span>

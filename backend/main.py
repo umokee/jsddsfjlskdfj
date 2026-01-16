@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
@@ -13,11 +14,14 @@ from backend.schemas import (
     SettingsUpdate, SettingsResponse,
     PointHistoryResponse,
     PointGoalCreate, PointGoalUpdate, PointGoalResponse,
-    RestDayCreate, RestDayResponse
+    RestDayCreate, RestDayResponse,
+    BackupResponse
 )
 from backend.auth import verify_api_key
 from backend import crud
 from backend.scheduler import start_scheduler, stop_scheduler
+from backend.auto_migrate import auto_migrate
+from backend import backup_service
 from datetime import date
 
 # Configure logging for fail2ban integration
@@ -48,6 +52,13 @@ logger = logging.getLogger("task_manager")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Run automatic schema migrations (add missing columns)
+try:
+    auto_migrate()
+except Exception as e:
+    logger.error(f"Auto-migration failed: {e}")
+    # Don't crash the app - continue with existing schema
 
 app = FastAPI(
     title="Task Manager API",
@@ -308,6 +319,59 @@ async def delete_rest_day_endpoint(rest_day_id: int, db: Session = Depends(get_d
     """Delete a rest day"""
     if not crud.delete_rest_day(db, rest_day_id):
         raise HTTPException(status_code=404, detail="Rest day not found")
+
+
+# ===== BACKUP ENDPOINTS =====
+
+@app.get("/api/backups", response_model=List[BackupResponse], dependencies=[Depends(verify_api_key)])
+async def get_backups_endpoint(limit: int = 50, db: Session = Depends(get_db)):
+    """Get all backups (newest first)"""
+    return backup_service.get_all_backups(db, limit)
+
+
+@app.post("/api/backups/create", response_model=BackupResponse, dependencies=[Depends(verify_api_key)])
+async def create_backup_endpoint(db: Session = Depends(get_db)):
+    """Create a manual backup"""
+    backup = backup_service.create_local_backup(db, backup_type="manual")
+
+    if not backup:
+        raise HTTPException(status_code=500, detail="Failed to create backup")
+
+    # Upload to Google Drive if enabled
+    settings = crud.get_settings(db)
+    if settings.google_drive_enabled:
+        try:
+            backup_service.upload_to_google_drive(backup)
+        except Exception as e:
+            logger.error(f"Google Drive upload failed: {e}")
+            # Continue anyway - local backup exists
+
+    return backup
+
+
+@app.get("/api/backups/{backup_id}/download", dependencies=[Depends(verify_api_key)])
+async def download_backup_endpoint(backup_id: int, db: Session = Depends(get_db)):
+    """Download a backup file"""
+    backup = backup_service.get_backup_by_id(db, backup_id)
+
+    if not backup:
+        raise HTTPException(status_code=404, detail="Backup not found")
+
+    if not os.path.exists(backup.filepath):
+        raise HTTPException(status_code=404, detail="Backup file not found on disk")
+
+    return FileResponse(
+        path=backup.filepath,
+        filename=backup.filename,
+        media_type='application/x-sqlite3'
+    )
+
+
+@app.delete("/api/backups/{backup_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_api_key)])
+async def delete_backup_endpoint(backup_id: int, db: Session = Depends(get_db)):
+    """Delete a backup"""
+    if not backup_service.delete_backup(db, backup_id):
+        raise HTTPException(status_code=404, detail="Backup not found")
 
 
 if __name__ == "__main__":
