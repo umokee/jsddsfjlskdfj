@@ -72,6 +72,7 @@ class SettingsBase(BaseModel):
     points_per_task_base: int = Field(default=10, ge=1, le=1000)
     points_per_habit_base: int = Field(default=10, ge=1, le=1000)
     streak_multiplier: float = Field(default=1.0, ge=0.0, le=10.0)
+    max_streak_bonus_days: int = Field(default=30, ge=1, le=365)
     energy_weight: float = Field(default=3.0, ge=0.0, le=20.0)
     time_efficiency_weight: float = Field(default=0.5, ge=0.0, le=5.0)
     minutes_per_energy_unit: int = Field(default=30, ge=5, le=180)

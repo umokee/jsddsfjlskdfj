@@ -11,6 +11,7 @@ function Settings({ onClose }) {
     points_per_task_base: 10,
     points_per_habit_base: 10,
     streak_multiplier: 1.0,
+    max_streak_bonus_days: 30,
     energy_weight: 3.0,
     time_efficiency_weight: 0.5,
     minutes_per_energy_unit: 30,
@@ -179,9 +180,14 @@ function Settings({ onClose }) {
             <div className="settings-section">
               <h3>Bonuses</h3>
               <div className="form-group">
-                <label className="form-label">Streak Multiplier (per day, max 30)</label>
+                <label className="form-label">Streak Multiplier (per day, skill habits only)</label>
                 <input className="form-input" type="number" step="0.1" name="streak_multiplier" value={formData.streak_multiplier} onChange={handleChange} min="0" max="10" />
-                <small>Current with 30-day streak: {formData.points_per_habit_base + 30 * formData.streak_multiplier} points</small>
+                <small>Routine habits do not receive streak bonuses</small>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Max Streak Bonus Days</label>
+                <input className="form-input" type="number" name="max_streak_bonus_days" value={formData.max_streak_bonus_days} onChange={handleChange} min="1" max="365" />
+                <small>Current max with {formData.max_streak_bonus_days}-day streak: {formData.points_per_habit_base + formData.max_streak_bonus_days * formData.streak_multiplier} points</small>
               </div>
               <div className="form-group">
                 <label className="form-label">Energy Weight (tasks only)</label>
@@ -195,10 +201,9 @@ function Settings({ onClose }) {
 
             <div className="settings-section">
               <h3>Habit Types</h3>
-              <div className="form-group">
-                <label className="form-label">Routine Multiplier (easy daily tasks)</label>
-                <input className="form-input" type="number" step="0.1" name="routine_habit_multiplier" value={formData.routine_habit_multiplier} onChange={handleChange} min="0" max="1" />
-                <small>Skills get full points, routines get {(formData.routine_habit_multiplier * 100).toFixed(0)}% points</small>
+              <div className="info-box">
+                <strong>Skill Habits:</strong> Receive base points + streak bonuses (capped at max streak days)<br />
+                <strong>Routine Habits:</strong> Receive only base points (no streak bonuses)
               </div>
             </div>
 

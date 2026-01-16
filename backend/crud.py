@@ -649,16 +649,16 @@ def calculate_task_points(task: Task, settings: Settings) -> int:
 def calculate_habit_points(task: Task, settings: Settings) -> int:
     """Calculate points for completing a habit"""
     base = settings.points_per_habit_base
-    # Cap streak bonus at 30 days (habit formation period)
-    # With new defaults: 10 + 30*1 = 40 max points per habit
-    capped_streak = min(task.streak, 30)
-    streak_bonus = capped_streak * settings.streak_multiplier
 
-    total = base + streak_bonus
-
-    # Apply routine multiplier if this is a routine habit (not a skill)
-    if task.habit_type == "routine":
-        total = int(total * settings.routine_habit_multiplier)
+    # Only apply streak bonus for skill habits, not routines
+    if task.habit_type == "skill":
+        # Use configurable max streak days instead of hardcoded 30
+        capped_streak = min(task.streak, settings.max_streak_bonus_days)
+        streak_bonus = capped_streak * settings.streak_multiplier
+        total = base + streak_bonus
+    else:
+        # Routine habits get base points only, no streak bonus
+        total = base
 
     return int(total)
 

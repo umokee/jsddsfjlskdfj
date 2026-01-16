@@ -78,6 +78,7 @@ class Settings(Base):
 
     # Multipliers and weights
     streak_multiplier = Column(Float, default=1.0)  # Reduced from 2.0
+    max_streak_bonus_days = Column(Integer, default=30)  # Cap for streak bonus
     energy_weight = Column(Float, default=3.0)
     time_efficiency_weight = Column(Float, default=0.5)
 
