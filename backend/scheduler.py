@@ -121,17 +121,20 @@ def check_auto_backup():
         current_time = now.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
 
-        # Log time check (every 10 minutes for debug)
-        if now.minute % 10 == 0:
-            logger.info(f"Backup check: current={current_time}, target={backup_time}, enabled={settings.auto_backup_enabled}")
-
-        # Check if it's time for backup
-        if current_time == backup_time:
-            logger.info(f"Backup time matched: {current_time} == {backup_time}")
+        # Log at INFO level every 5 minutes, DEBUG level every minute
+        is_log_minute = now.minute % 5 == 0
+        if is_log_minute:
+            logger.info(f"Auto backup status: enabled={settings.auto_backup_enabled}, current_time={current_time}, target_time={backup_time}, interval_days={settings.backup_interval_days}")
+        else:
+            logger.debug(f"Auto backup check: current={current_time}, target={backup_time}")
 
         # Check if it's time for backup
         if current_time != backup_time:
+            if is_log_minute:
+                logger.info(f"Waiting for backup time: current={current_time}, target={backup_time}")
             return
+
+        logger.info(f"⏰ Backup time matched! current={current_time}, target={backup_time}")
 
         # Check if we need to backup based on interval
         # Only check LAST AUTO backup, not manual backups
@@ -141,11 +144,14 @@ def check_auto_backup():
 
         if last_auto_backup:
             days_since_backup = (now - last_auto_backup.created_at).days
+            logger.info(f"Last auto backup: {last_auto_backup.created_at}, days since: {days_since_backup}, interval required: {settings.backup_interval_days}")
             if days_since_backup < settings.backup_interval_days:
-                logger.info(f"Auto backup not needed yet (last auto backup: {days_since_backup} days ago)")
+                logger.info(f"Auto backup not needed yet (last auto backup: {days_since_backup} days ago, need {settings.backup_interval_days} days)")
                 return
+        else:
+            logger.info("No previous auto backup found, will create first backup")
 
-        logger.info(f"Executing automatic backup at {current_time}")
+        logger.info(f"🔄 Executing automatic backup at {current_time}")
 
         # Create backup
         backup = backup_service.create_local_backup(db, backup_type="auto")
