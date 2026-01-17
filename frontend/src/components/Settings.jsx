@@ -7,27 +7,51 @@ import { getApiKey } from '../api';
 function Settings({ onClose }) {
   const [settings, setSettings] = useState(null);
   const [formData, setFormData] = useState({
+    // Base points
     max_tasks_per_day: 10,
     points_per_task_base: 10,
     points_per_habit_base: 10,
-    streak_multiplier: 1.0,
-    max_streak_bonus_days: 30,
-    energy_weight: 3.0,
-    time_efficiency_weight: 0.5,
-    minutes_per_energy_unit: 30,
-    incomplete_day_penalty: 20,
-    incomplete_day_threshold: 0.8,
-    missed_habit_penalty_base: 50,
-    progressive_penalty_factor: 0.5,
-    idle_tasks_penalty: 20,
-    idle_habits_penalty: 20,
-    penalty_streak_reset_days: 3,
-    routine_habit_multiplier: 0.5,
+
+    // === BALANCED PROGRESS v2.0 ===
+
+    // Energy multiplier
+    energy_mult_base: 0.6,
+    energy_mult_step: 0.2,
+
+    // Time quality
+    minutes_per_energy_unit: 20,
+    min_work_time_seconds: 120,
+
+    // Streak settings
+    streak_log_factor: 0.15,
+
+    // Routine habits
+    routine_points_fixed: 6,
+
+    // Daily completion bonus
+    completion_bonus_full: 0.10,
+    completion_bonus_good: 0.05,
+
+    // Penalties
+    idle_penalty: 30,
+    incomplete_penalty_percent: 0.5,
+    missed_habit_penalty_base: 15,
+    progressive_penalty_factor: 0.1,
+    progressive_penalty_max: 1.5,
+    penalty_streak_reset_days: 2,
+
+    // Day boundary settings
+    day_start_enabled: false,
+    day_start_time: "06:00",
+
+    // Time settings
     roll_available_time: "00:00",
     auto_penalties_enabled: true,
     penalty_time: "00:01",
     auto_roll_enabled: false,
     auto_roll_time: "06:00",
+
+    // Backup settings
     auto_backup_enabled: true,
     backup_time: "03:00",
     backup_interval_days: 1,
@@ -38,7 +62,7 @@ function Settings({ onClose }) {
   const [saving, setSaving] = useState(false);
   const [restDays, setRestDays] = useState([]);
   const [newRestDay, setNewRestDay] = useState('');
-  const [activeTab, setActiveTab] = useState('points'); // points, penalties, automation, backups, rest
+  const [activeTab, setActiveTab] = useState('points');
 
   useEffect(() => {
     fetchSettings();
@@ -123,6 +147,10 @@ function Settings({ onClose }) {
     }
   };
 
+  // Calculate example points for display
+  const calcEnergyMult = (energy) => formData.energy_mult_base + (energy * formData.energy_mult_step);
+  const calcStreakBonus = (streak) => 1 + Math.log2(streak + 1) * formData.streak_log_factor;
+
   if (loading) {
     return <div className="settings">Loading settings...</div>;
   }
@@ -176,60 +204,97 @@ function Settings({ onClose }) {
         {/* Points & Rewards Tab */}
         {activeTab === 'points' && (
           <div>
+            <div className="info-box settings-intro">
+              <strong>Balanced Progress v2.0</strong> — Points = Base × EnergyMultiplier × TimeQualityFactor × FocusFactor
+            </div>
+
             <div className="settings-section">
               <h3>Base Points</h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Tasks</label>
-                  <input className="form-input" type="number" name="points_per_task_base" value={formData.points_per_task_base} onChange={handleChange} min="1" max="1000" />
+                  <label className="form-label">Tasks (base)</label>
+                  <input className="form-input" type="number" name="points_per_task_base" value={formData.points_per_task_base} onChange={handleChange} min="1" max="100" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Habits</label>
-                  <input className="form-input" type="number" name="points_per_habit_base" value={formData.points_per_habit_base} onChange={handleChange} min="1" max="1000" />
+                  <label className="form-label">Skill Habits (base)</label>
+                  <input className="form-input" type="number" name="points_per_habit_base" value={formData.points_per_habit_base} onChange={handleChange} min="1" max="100" />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Routine Habits (fixed)</label>
+                <input className="form-input" type="number" name="routine_points_fixed" value={formData.routine_points_fixed} onChange={handleChange} min="1" max="50" />
+                <small>Routines get fixed points, no streak bonus</small>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <h3>Energy Multiplier</h3>
+              <div className="info-box">
+                Formula: {formData.energy_mult_base} + (energy × {formData.energy_mult_step})<br />
+                E0→{calcEnergyMult(0).toFixed(1)}, E1→{calcEnergyMult(1).toFixed(1)}, E2→{calcEnergyMult(2).toFixed(1)}, E3→{calcEnergyMult(3).toFixed(1)}, E4→{calcEnergyMult(4).toFixed(1)}, E5→{calcEnergyMult(5).toFixed(1)}
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Base Multiplier</label>
+                  <input className="form-input" type="number" step="0.1" name="energy_mult_base" value={formData.energy_mult_base} onChange={handleChange} min="0.1" max="2" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Step per Energy Level</label>
+                  <input className="form-input" type="number" step="0.1" name="energy_mult_step" value={formData.energy_mult_step} onChange={handleChange} min="0" max="1" />
                 </div>
               </div>
             </div>
 
             <div className="settings-section">
-              <h3>Bonuses</h3>
-              <div className="form-group">
-                <label className="form-label">Streak Multiplier (per day, skill habits only)</label>
-                <input className="form-input" type="number" step="0.1" name="streak_multiplier" value={formData.streak_multiplier} onChange={handleChange} min="0" max="10" />
-                <small>Routine habits do not receive streak bonuses</small>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Max Streak Bonus Days</label>
-                <input className="form-input" type="number" name="max_streak_bonus_days" value={formData.max_streak_bonus_days} onChange={handleChange} min="1" max="365" />
-                <small>Current max with {formData.max_streak_bonus_days}-day streak: {formData.points_per_habit_base + formData.max_streak_bonus_days * formData.streak_multiplier} points</small>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Energy Weight (tasks only)</label>
-                <input className="form-input" type="number" step="0.1" name="energy_weight" value={formData.energy_weight} onChange={handleChange} min="0" max="20" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Time Efficiency Weight</label>
-                <input className="form-input" type="number" step="0.1" name="time_efficiency_weight" value={formData.time_efficiency_weight} onChange={handleChange} min="0" max="5" />
+              <h3>Time Quality</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Minutes per Energy Unit</label>
+                  <input className="form-input" type="number" name="minutes_per_energy_unit" value={formData.minutes_per_energy_unit} onChange={handleChange} min="5" max="120" />
+                  <small>E3 task = {3 * formData.minutes_per_energy_unit} min expected</small>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Min Work Time (seconds)</label>
+                  <input className="form-input" type="number" name="min_work_time_seconds" value={formData.min_work_time_seconds} onChange={handleChange} min="0" max="600" />
+                  <small>Tasks under this time get reduced points</small>
+                </div>
               </div>
             </div>
 
             <div className="settings-section">
-              <h3>Habit Types</h3>
+              <h3>Streak Bonus (Skill Habits)</h3>
               <div className="info-box">
-                <strong>Skill Habits:</strong> Receive base points + streak bonuses (capped at max streak days)<br />
-                <strong>Routine Habits:</strong> Receive only base points (no streak bonuses)
+                Formula: 1 + log₂(streak + 1) × {formData.streak_log_factor}<br />
+                Streak 0→×{calcStreakBonus(0).toFixed(2)}, 5→×{calcStreakBonus(5).toFixed(2)}, 10→×{calcStreakBonus(10).toFixed(2)}, 30→×{calcStreakBonus(30).toFixed(2)}, 100→×{calcStreakBonus(100).toFixed(2)}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Log Factor</label>
+                <input className="form-input" type="number" step="0.01" name="streak_log_factor" value={formData.streak_log_factor} onChange={handleChange} min="0" max="1" />
+                <small>Higher = more bonus per streak day (log₂ naturally caps growth)</small>
               </div>
             </div>
 
             <div className="settings-section">
-              <h3>Time Settings</h3>
+              <h3>Daily Completion Bonus</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">100% Completion Bonus</label>
+                  <input className="form-input" type="number" step="0.01" name="completion_bonus_full" value={formData.completion_bonus_full} onChange={handleChange} min="0" max="0.5" />
+                  <small>{(formData.completion_bonus_full * 100).toFixed(0)}% of earned points</small>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">80%+ Completion Bonus</label>
+                  <input className="form-input" type="number" step="0.01" name="completion_bonus_good" value={formData.completion_bonus_good} onChange={handleChange} min="0" max="0.3" />
+                  <small>{(formData.completion_bonus_good * 100).toFixed(0)}% of earned points</small>
+                </div>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <h3>Task Limits</h3>
               <div className="form-group">
                 <label className="form-label">Max Tasks Per Day</label>
                 <input className="form-input" type="number" name="max_tasks_per_day" value={formData.max_tasks_per_day} onChange={handleChange} min="1" max="100" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Minutes Per Energy Unit</label>
-                <input className="form-input" type="number" name="minutes_per_energy_unit" value={formData.minutes_per_energy_unit} onChange={handleChange} min="5" max="180" />
-                <small>Energy 3 = {3 * formData.minutes_per_energy_unit} minutes</small>
               </div>
             </div>
           </div>
@@ -238,51 +303,58 @@ function Settings({ onClose }) {
         {/* Penalties Tab */}
         {activeTab === 'penalties' && (
           <div>
-            <div className="info-box" style={{ marginBottom: '1.5rem' }}>
-              Progressive penalties increase based on consecutive days WITH penalties (penalty streak), not habit streak.
+            <div className="info-box settings-intro">
+              Penalties are applied during daily Roll. Progressive multiplier increases with consecutive penalty days.
             </div>
 
             <div className="settings-section">
-              <h3>Incomplete Day</h3>
+              <h3>Idle Day Penalty</h3>
               <div className="form-group">
-                <label className="form-label">Penalty Points</label>
-                <input className="form-input" type="number" name="incomplete_day_penalty" value={formData.incomplete_day_penalty} onChange={handleChange} min="0" max="500" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Threshold</label>
-                <input className="form-input" type="number" step="0.05" name="incomplete_day_threshold" value={formData.incomplete_day_threshold} onChange={handleChange} min="0" max="1" />
-                <small>Need {(formData.incomplete_day_threshold * 100).toFixed(0)}% completion to avoid penalty</small>
+                <label className="form-label">Penalty (0 tasks AND 0 habits)</label>
+                <input className="form-input" type="number" name="idle_penalty" value={formData.idle_penalty} onChange={handleChange} min="0" max="500" />
+                <small>Applied only if both tasks and habits are 0</small>
               </div>
             </div>
 
             <div className="settings-section">
-              <h3>Idle Days</h3>
+              <h3>Incomplete Day Penalty</h3>
+              <div className="info-box">
+                Penalty = missed potential × {(formData.incomplete_penalty_percent * 100).toFixed(0)}%<br />
+                Example: 3 missed E3 tasks (36 potential pts) → {Math.round(36 * formData.incomplete_penalty_percent)} pts penalty
+              </div>
+              <div className="form-group">
+                <label className="form-label">Penalty Percent of Missed Potential</label>
+                <input className="form-input" type="number" step="0.05" name="incomplete_penalty_percent" value={formData.incomplete_penalty_percent} onChange={handleChange} min="0" max="1" />
+                <small>{(formData.incomplete_penalty_percent * 100).toFixed(0)}% of points you would have earned</small>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <h3>Missed Habits Penalty</h3>
+              <div className="form-group">
+                <label className="form-label">Base Penalty per Missed Habit</label>
+                <input className="form-input" type="number" name="missed_habit_penalty_base" value={formData.missed_habit_penalty_base} onChange={handleChange} min="0" max="500" />
+                <small>Skill: {formData.missed_habit_penalty_base} pts, Routine: {Math.floor(formData.missed_habit_penalty_base * 0.5)} pts</small>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <h3>Progressive Penalty</h3>
+              <div className="info-box">
+                Multiplier = 1 + min(penalty_streak × {formData.progressive_penalty_factor}, {(formData.progressive_penalty_max - 1).toFixed(1)})<br />
+                Day 1: ×{(1 + Math.min(1 * formData.progressive_penalty_factor, formData.progressive_penalty_max - 1)).toFixed(1)},
+                Day 3: ×{(1 + Math.min(3 * formData.progressive_penalty_factor, formData.progressive_penalty_max - 1)).toFixed(1)},
+                Day 5+: ×{formData.progressive_penalty_max.toFixed(1)} (max)
+              </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Tasks (0 completed)</label>
-                  <input className="form-input" type="number" name="idle_tasks_penalty" value={formData.idle_tasks_penalty} onChange={handleChange} min="0" max="500" />
+                  <label className="form-label">Factor per Day</label>
+                  <input className="form-input" type="number" step="0.05" name="progressive_penalty_factor" value={formData.progressive_penalty_factor} onChange={handleChange} min="0" max="1" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Habits (0 completed)</label>
-                  <input className="form-input" type="number" name="idle_habits_penalty" value={formData.idle_habits_penalty} onChange={handleChange} min="0" max="500" />
+                  <label className="form-label">Max Multiplier</label>
+                  <input className="form-input" type="number" step="0.1" name="progressive_penalty_max" value={formData.progressive_penalty_max} onChange={handleChange} min="1" max="5" />
                 </div>
-              </div>
-            </div>
-
-            <div className="settings-section">
-              <h3>Missed Habits</h3>
-              <div className="form-group">
-                <label className="form-label">Base Penalty</label>
-                <input className="form-input" type="number" name="missed_habit_penalty_base" value={formData.missed_habit_penalty_base} onChange={handleChange} min="0" max="500" />
-              </div>
-            </div>
-
-            <div className="settings-section">
-              <h3>Progressive Penalties</h3>
-              <div className="form-group">
-                <label className="form-label">Penalty Streak Factor</label>
-                <input className="form-input" type="number" step="0.1" name="progressive_penalty_factor" value={formData.progressive_penalty_factor} onChange={handleChange} min="0" max="5" />
-                <small>Formula: penalty × (1 + factor × penalty_streak)</small>
               </div>
               <div className="form-group">
                 <label className="form-label">Reset After (days without penalties)</label>
@@ -296,11 +368,29 @@ function Settings({ onClose }) {
         {activeTab === 'automation' && (
           <div>
             <div className="settings-section">
+              <h3>Day Boundary</h3>
+              <div className="info-box">
+                For shifted sleep schedules. If enabled, "today" starts at the specified time instead of midnight.
+              </div>
+              <div className="checkbox-group" style={{ marginTop: '1rem' }}>
+                <input className="checkbox" type="checkbox" name="day_start_enabled" checked={formData.day_start_enabled} onChange={handleChange} id="day_start_enabled" />
+                <label htmlFor="day_start_enabled">Enable custom day start time</label>
+              </div>
+              {formData.day_start_enabled && (
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label">Day Start Time</label>
+                  <input className="form-input" type="time" name="day_start_time" value={formData.day_start_time} onChange={handleChange} />
+                  <small>New day starts at this time (e.g., 06:00 means 05:59 is still "yesterday")</small>
+                </div>
+              )}
+            </div>
+
+            <div className="settings-section">
               <h3>Roll Availability</h3>
               <div className="form-group">
                 <label className="form-label">Available From (daily)</label>
                 <input className="form-input" type="time" name="roll_available_time" value={formData.roll_available_time} onChange={handleChange} />
-                <small>Roll button appears at this time each day</small>
+                <small>Roll button appears at this time each day{formData.day_start_enabled ? ' (ignored when Day Boundary is enabled)' : ''}</small>
               </div>
             </div>
 
@@ -338,7 +428,7 @@ function Settings({ onClose }) {
         {/* Backups Tab */}
         {activeTab === 'backups' && (
           <div>
-            <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            <div className="info-box settings-intro">
               Automatic database backups protect your data. Backups are stored locally and optionally uploaded to Google Drive.
             </div>
 
@@ -354,19 +444,16 @@ function Settings({ onClose }) {
                   <div className="form-group" style={{ marginTop: '1rem' }}>
                     <label className="form-label">Backup Time (daily)</label>
                     <input className="form-input" type="time" name="backup_time" value={formData.backup_time} onChange={handleChange} />
-                    <small>Database will be backed up at this time every day</small>
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Backup Interval (days)</label>
                     <input className="form-input" type="number" name="backup_interval_days" value={formData.backup_interval_days} onChange={handleChange} min="1" max="30" />
-                    <small>Create backup every N days (1 = daily)</small>
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Keep Local Backups</label>
                     <input className="form-input" type="number" name="backup_keep_local_count" value={formData.backup_keep_local_count} onChange={handleChange} min="1" max="100" />
-                    <small>Number of backups to keep locally (older ones are deleted)</small>
                   </div>
                 </>
               )}
@@ -381,7 +468,6 @@ function Settings({ onClose }) {
               {formData.google_drive_enabled && (
                 <div className="info-box" style={{ marginTop: '1rem', backgroundColor: 'rgba(255, 193, 7, 0.1)' }}>
                   <strong>Note:</strong> Requires Google Drive API credentials to be configured on the server.
-                  Set GOOGLE_DRIVE_CREDENTIALS environment variable with path to service account JSON file.
                 </div>
               )}
             </div>
@@ -391,7 +477,7 @@ function Settings({ onClose }) {
         {/* Rest Days Tab */}
         {activeTab === 'rest' && (
           <div>
-            <div className="info-box" style={{ marginBottom: '1.5rem' }}>
+            <div className="info-box settings-intro">
               Rest days are penalty-free days regardless of task/habit completion.
             </div>
 
@@ -436,7 +522,6 @@ function Settings({ onClose }) {
                         type="button"
                         onClick={() => deleteRestDay(day.id)}
                         className="btn-small btn-danger"
-                        title="Delete"
                       >
                         ×
                       </button>

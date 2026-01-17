@@ -13,6 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
+from backend.models import Backup
 import backend.crud as crud
 import backend.backup_service as backup_service
 
@@ -22,7 +23,7 @@ logger = logging.getLogger("task_manager.scheduler")
 
 
 def check_auto_roll():
-    """Check if automatic roll should be executed"""
+    """Check if automatic roll should be executed (uses effective date for shifted schedules)"""
     db: Session = SessionLocal()
     try:
         settings = crud.get_settings(db)
@@ -32,12 +33,14 @@ def check_auto_roll():
             return
 
         now = datetime.now()
-        today = now.date()
+        today = crud.get_effective_date(settings)
         current_time = now.strftime("%H:%M")
         auto_roll_time = settings.auto_roll_time or "06:00"
 
         # Check if we haven't rolled today and it's time for auto-roll
-        if settings.last_roll_date != today and current_time >= auto_roll_time:
+        # If day_start is enabled, the effective date change handles the timing
+        should_check_time = not settings.day_start_enabled
+        if settings.last_roll_date != today and (not should_check_time or current_time >= auto_roll_time):
             logger.info(f"Executing automatic roll at {current_time}")
             result = crud.roll_tasks(db)
 
@@ -84,11 +87,11 @@ def check_auto_penalties():
 
 
 def reset_roll_availability():
-    """Reset roll availability at configured time"""
+    """Reset roll availability at configured time (uses effective date for shifted schedules)"""
     db: Session = SessionLocal()
     try:
         settings = crud.get_settings(db)
-        today = date.today()
+        today = crud.get_effective_date(settings)
 
         # If last_roll_date is not today, it's already reset
         # This function ensures the reset happens at the configured time
@@ -111,21 +114,35 @@ def check_auto_backup():
 
         # Only proceed if auto_backup is enabled
         if not settings.auto_backup_enabled:
+            logger.debug("Auto backup disabled, skipping")
             return
 
         now = datetime.now()
         current_time = now.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
 
+        # Log time check (every 10 minutes for debug)
+        if now.minute % 10 == 0:
+            logger.info(f"Backup check: current={current_time}, target={backup_time}, enabled={settings.auto_backup_enabled}")
+
+        # Check if it's time for backup
+        if current_time == backup_time:
+            logger.info(f"Backup time matched: {current_time} == {backup_time}")
+
         # Check if it's time for backup
         if current_time != backup_time:
             return
 
         # Check if we need to backup based on interval
-        if settings.last_backup_date:
-            days_since_backup = (now - settings.last_backup_date).days
+        # Only check LAST AUTO backup, not manual backups
+        last_auto_backup = db.query(Backup).filter(
+            Backup.backup_type == "auto"
+        ).order_by(Backup.created_at.desc()).first()
+
+        if last_auto_backup:
+            days_since_backup = (now - last_auto_backup.created_at).days
             if days_since_backup < settings.backup_interval_days:
-                logger.info(f"Backup not needed yet (last backup: {days_since_backup} days ago)")
+                logger.info(f"Auto backup not needed yet (last auto backup: {days_since_backup} days ago)")
                 return
 
         logger.info(f"Executing automatic backup at {current_time}")
@@ -158,6 +175,7 @@ scheduler = BackgroundScheduler()
 
 def start_scheduler():
     """Start the background scheduler"""
+    print(">>> SCHEDULER: Starting Task Manager background scheduler")  # Direct print for debugging
     logger.info("Starting Task Manager background scheduler")
 
     # Check for auto-roll every minute
@@ -190,6 +208,7 @@ def start_scheduler():
     # Start the scheduler
     scheduler.start()
     logger.info("Background scheduler started successfully")
+    logger.info(f"Scheduled jobs: {[job.id for job in scheduler.get_jobs()]}")
 
 
 def stop_scheduler():

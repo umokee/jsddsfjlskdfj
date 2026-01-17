@@ -72,33 +72,54 @@ class Settings(Base):
     # Task limits
     max_tasks_per_day = Column(Integer, default=10)
 
-    # Base points (rebalanced - lower rewards)
+    # Base points
     points_per_task_base = Column(Integer, default=10)
-    points_per_habit_base = Column(Integer, default=10)  # Reduced from 15
+    points_per_habit_base = Column(Integer, default=10)
 
-    # Multipliers and weights
-    streak_multiplier = Column(Float, default=1.0)  # Reduced from 2.0
-    max_streak_bonus_days = Column(Integer, default=30)  # Cap for streak bonus
-    energy_weight = Column(Float, default=3.0)
-    time_efficiency_weight = Column(Float, default=0.5)
+    # === BALANCED PROGRESS v2.0 ===
 
-    # Time estimation (automatic calculation)
-    minutes_per_energy_unit = Column(Integer, default=30)  # 30 min per energy level
+    # Energy multiplier: EnergyMult = energy_mult_base + (energy * energy_mult_step)
+    # E0 -> 0.6, E1 -> 0.8, E2 -> 1.0, E3 -> 1.2, E4 -> 1.4, E5 -> 1.6
+    energy_mult_base = Column(Float, default=0.6)
+    energy_mult_step = Column(Float, default=0.2)
+
+    # Time quality: expected_time = energy * minutes_per_energy_unit
+    minutes_per_energy_unit = Column(Integer, default=20)  # 20 min per energy level
+    min_work_time_seconds = Column(Integer, default=120)   # Min 2 min for full points
+
+    # Streak bonus for skill habits: 1 + log2(streak+1) * streak_log_factor
+    streak_log_factor = Column(Float, default=0.15)
+
+    # Routine habits: fixed points, no streak
+    routine_points_fixed = Column(Integer, default=6)
+
+    # Daily completion bonus
+    completion_bonus_full = Column(Float, default=0.10)   # 10% bonus for 100% completion
+    completion_bonus_good = Column(Float, default=0.05)   # 5% bonus for 80%+ completion
 
     # Penalties
-    incomplete_day_penalty = Column(Integer, default=20)
-    incomplete_day_threshold = Column(Float, default=0.8)  # 80% completion required (was 50%)
-    missed_habit_penalty_base = Column(Integer, default=50)
-    progressive_penalty_factor = Column(Float, default=0.5)  # Multiplier for penalty streak
-    idle_tasks_penalty = Column(Integer, default=20)  # Penalty for 0 tasks completed
-    idle_habits_penalty = Column(Integer, default=20)  # Penalty for 0 habits completed
-    penalty_streak_reset_days = Column(Integer, default=3)  # Days without penalties to reset streak
+    idle_penalty = Column(Integer, default=30)  # Penalty for 0 tasks AND 0 habits
+    incomplete_penalty_percent = Column(Float, default=0.5)  # 50% of missed potential points
 
-    # Habit types
-    routine_habit_multiplier = Column(Float, default=0.5)  # Points multiplier for routine habits
+    missed_habit_penalty_base = Column(Integer, default=15)  # Base penalty for missed habit
+    progressive_penalty_factor = Column(Float, default=0.1)  # Step per penalty_streak day
+    progressive_penalty_max = Column(Float, default=1.5)     # Max progressive multiplier
+    penalty_streak_reset_days = Column(Integer, default=2)   # Days without penalty to reset
+
+    # Legacy fields (kept for backward compatibility, not used in v2.0)
+    streak_multiplier = Column(Float, default=1.0)
+    energy_weight = Column(Float, default=3.0)
+    time_efficiency_weight = Column(Float, default=0.5)
+    idle_tasks_penalty = Column(Integer, default=20)
+    idle_habits_penalty = Column(Integer, default=20)
+    routine_habit_multiplier = Column(Float, default=0.5)
 
     # Roll limits
     last_roll_date = Column(Date, nullable=True)  # Track last roll to enforce 1/day
+
+    # Day boundary settings
+    day_start_enabled = Column(Boolean, default=False)  # Enable custom day start time
+    day_start_time = Column(String, default="06:00")  # When new day starts (for shifted schedules)
 
     # Time-based settings
     roll_available_time = Column(String, default="00:00")  # Time when Roll becomes available (HH:MM format)

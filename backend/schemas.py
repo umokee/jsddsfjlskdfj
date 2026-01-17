@@ -71,24 +71,56 @@ class SettingsBase(BaseModel):
     max_tasks_per_day: int = Field(default=10, ge=1, le=100)
     points_per_task_base: int = Field(default=10, ge=1, le=1000)
     points_per_habit_base: int = Field(default=10, ge=1, le=1000)
+
+    # === BALANCED PROGRESS v2.0 ===
+
+    # Energy multiplier settings
+    energy_mult_base: float = Field(default=0.6, ge=0.1, le=2.0)
+    energy_mult_step: float = Field(default=0.2, ge=0.0, le=1.0)
+
+    # Time quality settings
+    minutes_per_energy_unit: int = Field(default=20, ge=5, le=120)
+    min_work_time_seconds: int = Field(default=120, ge=0, le=600)
+
+    # Streak settings for skill habits
+    streak_log_factor: float = Field(default=0.15, ge=0.0, le=1.0)
+
+    # Routine habits
+    routine_points_fixed: int = Field(default=6, ge=1, le=50)
+
+    # Daily completion bonus
+    completion_bonus_full: float = Field(default=0.10, ge=0.0, le=0.5)
+    completion_bonus_good: float = Field(default=0.05, ge=0.0, le=0.3)
+
+    # Penalties
+    idle_penalty: int = Field(default=30, ge=0, le=500)
+    incomplete_penalty_percent: float = Field(default=0.5, ge=0.0, le=1.0)  # 50% of missed potential
+
+    missed_habit_penalty_base: int = Field(default=15, ge=0, le=500)
+    progressive_penalty_factor: float = Field(default=0.1, ge=0.0, le=1.0)
+    progressive_penalty_max: float = Field(default=1.5, ge=1.0, le=5.0)
+    penalty_streak_reset_days: int = Field(default=2, ge=1, le=30)
+
+    # Legacy fields (kept for backward compatibility)
     streak_multiplier: float = Field(default=1.0, ge=0.0, le=10.0)
-    max_streak_bonus_days: int = Field(default=30, ge=1, le=365)
     energy_weight: float = Field(default=3.0, ge=0.0, le=20.0)
     time_efficiency_weight: float = Field(default=0.5, ge=0.0, le=5.0)
-    minutes_per_energy_unit: int = Field(default=30, ge=5, le=180)
-    incomplete_day_penalty: int = Field(default=20, ge=0, le=500)
-    incomplete_day_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
-    missed_habit_penalty_base: int = Field(default=50, ge=0, le=500)
-    progressive_penalty_factor: float = Field(default=0.5, ge=0.0, le=5.0)
     idle_tasks_penalty: int = Field(default=20, ge=0, le=500)
     idle_habits_penalty: int = Field(default=20, ge=0, le=500)
-    penalty_streak_reset_days: int = Field(default=3, ge=1, le=30)
     routine_habit_multiplier: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    # Day boundary settings
+    day_start_enabled: bool = Field(default=False)
+    day_start_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+
+    # Time-based settings
     roll_available_time: str = Field(default="00:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     auto_penalties_enabled: bool = Field(default=True)
     penalty_time: str = Field(default="00:01", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     auto_roll_enabled: bool = Field(default=False)
     auto_roll_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+
+    # Backup settings
     auto_backup_enabled: bool = Field(default=True)
     backup_time: str = Field(default="03:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     backup_interval_days: int = Field(default=1, ge=1, le=30)
