@@ -11,11 +11,37 @@
 
 ## Быстрая Установка
 
-### Шаг 1: Скопировать модуль
+### Шаг 1: Скопировать и настроить модуль
 
 ```bash
 # Скопировать модуль в /etc/nixos/
 sudo cp deployment/nixos-docker-module.nix /etc/nixos/task-manager-docker.nix
+
+# Отредактировать настройки в модуле
+sudo nano /etc/nixos/task-manager-docker.nix
+```
+
+В файле `task-manager-docker.nix` измените настройки в секции `let`:
+
+```nix
+let
+  # Включить сервис (true/false)
+  enable = true;
+
+  # API ключ - ОБЯЗАТЕЛЬНО ИЗМЕНИТЕ!
+  apiKey = "ваш-супер-секретный-ключ-измените-меня";
+
+  # Git репозиторий
+  gitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
+  gitBranch = "main";  # или ваша ветка
+
+  # Порты
+  publicPort = 8080;  # 443 занят VPN
+
+  # Автообновление (true/false)
+  autoUpdate = false;  # true для включения
+
+  # Остальные настройки можно не менять
 ```
 
 ### Шаг 2: Добавить в configuration.nix
@@ -30,24 +56,6 @@ sudo cp deployment/nixos-docker-module.nix /etc/nixos/task-manager-docker.nix
     ./hardware-configuration.nix
     ./task-manager-docker.nix  # <-- Добавить эту строку
   ];
-
-  # Включить Task Manager
-  services.task-manager-docker = {
-    enable = true;
-
-    # ОБЯЗАТЕЛЬНО: Измените API ключ!
-    apiKey = "ваш-супер-секретный-ключ-измените-меня";
-
-    # Git настройки
-    gitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
-    gitBranch = "main";  # или ваша ветка
-
-    # Порт (443 занят VPN, используем 8080)
-    publicPort = 8080;
-
-    # Автообновление каждый день в 3:00 (опционально)
-    autoUpdate = false;  # true для включения
-  };
 
   # Остальная конфигурация...
 }
@@ -170,33 +178,33 @@ sudo docker-compose logs frontend
 
 ## 🔧 Настройки
 
-Все настройки в `/etc/nixos/configuration.nix`:
+Все настройки находятся в модуле `/etc/nixos/task-manager-docker.nix` в секции `let`:
 
 ```nix
-services.task-manager-docker = {
+let
+  # Включить сервис (true/false)
   enable = true;
 
-  # API ключ (ОБЯЗАТЕЛЬНО ИЗМЕНИТЕ!)
-  apiKey = "your-secret-key";
+  # API ключ - ОБЯЗАТЕЛЬНО ИЗМЕНИТЕ!
+  apiKey = "your-super-secret-api-key-change-me";
 
   # Git репозиторий
   gitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
   gitBranch = "main";
 
-  # Публичный порт
-  publicPort = 8080;
+  # Порты
+  publicPort = 8080;  # Публичный порт (443 занят VPN)
 
-  # Пути (можно не менять)
+  # Пути
   projectPath = "/var/lib/task-manager-docker";
   secretsDir = "/var/lib/task-manager-secrets";
 
-  # Пользователь (можно не менять)
+  # Пользователь
   user = "task-manager";
   group = "task-manager";
 
-  # Автообновление
+  # Автообновление (true/false)
   autoUpdate = false;  # true для включения
-};
 ```
 
 После изменения настроек:
@@ -215,12 +223,12 @@ sudo nixos-rebuild switch
 openssl rand -hex 32
 ```
 
-2. Обновить в `configuration.nix`:
+2. Обновить в `/etc/nixos/task-manager-docker.nix`:
 
 ```nix
-services.task-manager-docker = {
+let
   apiKey = "новый-ключ-сюда";
-};
+  # ...
 ```
 
 3. Применить:
@@ -445,9 +453,12 @@ sudo -u task-manager git log -1
 
 ### Смена ветки Git
 
+Отредактируйте `/etc/nixos/task-manager-docker.nix`:
+
 ```nix
-# В configuration.nix изменить:
-services.task-manager-docker.gitBranch = "develop";
+let
+  gitBranch = "develop";  # <-- Измените здесь
+  # ...
 ```
 
 ```bash
@@ -459,9 +470,12 @@ sudo nixos-rebuild switch
 
 ### Переключение на другой порт
 
+Отредактируйте `/etc/nixos/task-manager-docker.nix`:
+
 ```nix
-# В configuration.nix:
-services.task-manager-docker.publicPort = 9000;
+let
+  publicPort = 9000;  # <-- Измените здесь
+  # ...
 ```
 
 ```bash

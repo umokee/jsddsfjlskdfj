@@ -815,28 +815,27 @@ python backend/migrate_db.py
 
 ```bash
 # 1. Скопировать модуль
-sudo cp deployment/nixos-docker-module.nix /etc/nixos/
+sudo cp deployment/nixos-docker-module.nix /etc/nixos/task-manager-docker.nix
+
+# 2. Отредактировать настройки в модуле
+sudo nano /etc/nixos/task-manager-docker.nix
+# Измените в секции let:
+#   apiKey = "ваш-секретный-ключ";
+#   gitBranch = "main";
+#   publicPort = 8080;
+#   autoUpdate = false;
 ```
 
 Добавить в `/etc/nixos/configuration.nix`:
 
 ```nix
 {
-  imports = [ ./nixos-docker-module.nix ];
-
-  services.task-manager-docker = {
-    enable = true;
-    apiKey = "ваш-секретный-ключ";  # Обязательно измените!
-    gitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
-    gitBranch = "main";
-    publicPort = 8080;  # 443 занят VPN
-    autoUpdate = false;  # true для автообновления каждый день в 3:00
-  };
+  imports = [ ./task-manager-docker.nix ];
 }
 ```
 
 ```bash
-# 2. Применить
+# 3. Применить
 sudo nixos-rebuild switch
 
 # Готово! Доступ: http://localhost:8080

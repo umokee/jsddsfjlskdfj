@@ -1,35 +1,35 @@
 # NixOS module для Task Manager с Docker
 # Полностью автоматизированный деплой с Git, Docker Compose и автообновлением
 
-{
-  pkgs,
-  lib,
-  config,
-  ...
-}:
+{ pkgs, lib, ... }:
 
 let
-  cfg = config.services.task-manager-docker;
-
   # ==== НАСТРОЙКИ - ИЗМЕНИТЕ ПОД СЕБЯ ====
 
+  # Включить сервис (true/false)
+  enable = true;
+
   # API ключ - ОБЯЗАТЕЛЬНО ИЗМЕНИТЕ!
-  defaultApiKey = "your-super-secret-api-key-change-me";
+  apiKey = "your-super-secret-api-key-change-me";
 
   # Git репозиторий
-  defaultGitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
-  defaultGitBranch = "main";
+  gitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
+  gitBranch = "main";
 
   # Порты
-  defaultPublicPort = 8080;  # Публичный порт (443 занят VPN)
+  publicPort = 8080;  # Публичный порт (443 занят VPN)
 
   # Пути
-  defaultProjectPath = "/var/lib/task-manager-docker";
-  defaultSecretsDir = "/var/lib/task-manager-secrets";
+  projectPath = "/var/lib/task-manager-docker";
+  secretsDir = "/var/lib/task-manager-secrets";
 
   # Пользователь
-  defaultUser = "task-manager";
-  defaultGroup = "task-manager";
+  user = "task-manager";
+  group = "task-manager";
+
+  # Автообновление (true/false)
+  # true = каждый день в 3:00 автоматически обновляется из Git
+  autoUpdate = false;
 
   # ==== КОНЕЦ НАСТРОЕК ====
 
@@ -42,10 +42,10 @@ let
 
     # Git pull
     echo "📥 Получение обновлений из Git..."
-    cd ${cfg.projectPath}
+    cd ${projectPath}
     ${pkgs.git}/bin/git fetch origin
-    ${pkgs.git}/bin/git checkout ${cfg.gitBranch}
-    ${pkgs.git}/bin/git pull origin ${cfg.gitBranch}
+    ${pkgs.git}/bin/git checkout ${gitBranch}
+    ${pkgs.git}/bin/git pull origin ${gitBranch}
 
     # Rebuild и restart через systemd
     echo "🔨 Пересборка Docker контейнеров..."
@@ -57,65 +57,7 @@ let
   '';
 
 in {
-  options.services.task-manager-docker = {
-    enable = lib.mkEnableOption "Task Manager Docker Service";
-
-    apiKey = lib.mkOption {
-      type = lib.types.str;
-      default = defaultApiKey;
-      description = "API ключ для Task Manager";
-    };
-
-    gitRepo = lib.mkOption {
-      type = lib.types.str;
-      default = defaultGitRepo;
-      description = "URL Git репозитория";
-    };
-
-    gitBranch = lib.mkOption {
-      type = lib.types.str;
-      default = defaultGitBranch;
-      description = "Git ветка для деплоя";
-    };
-
-    publicPort = lib.mkOption {
-      type = lib.types.int;
-      default = defaultPublicPort;
-      description = "Публичный порт для доступа";
-    };
-
-    projectPath = lib.mkOption {
-      type = lib.types.str;
-      default = defaultProjectPath;
-      description = "Путь к проекту";
-    };
-
-    secretsDir = lib.mkOption {
-      type = lib.types.str;
-      default = defaultSecretsDir;
-      description = "Путь к секретам";
-    };
-
-    user = lib.mkOption {
-      type = lib.types.str;
-      default = defaultUser;
-      description = "Пользователь для запуска сервиса";
-    };
-
-    group = lib.mkOption {
-      type = lib.types.str;
-      default = defaultGroup;
-      description = "Группа для запуска сервиса";
-    };
-
-    autoUpdate = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Автоматическое обновление из Git (каждый день в 3:00)";
-    };
-  };
-
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf enable {
     # Включить Docker
     virtualisation.docker = {
       enable = true;
@@ -126,28 +68,28 @@ in {
     };
 
     # Создать пользователя и группу
-    users.users.${cfg.user} = {
+    users.users.${user} = {
       isSystemUser = true;
-      group = cfg.group;
+      group = group;
       description = "Task Manager Docker service user";
-      home = cfg.projectPath;
+      home = projectPath;
       extraGroups = [ "docker" ];  # Доступ к Docker
     };
 
-    users.groups.${cfg.group} = {};
+    users.groups.${group} = {};
 
     # Открыть порт
-    networking.firewall.allowedTCPPorts = [ cfg.publicPort ];
+    networking.firewall.allowedTCPPorts = [ publicPort ];
 
     # Создать директории
     systemd.tmpfiles.rules = [
-      "d ${cfg.projectPath} 0755 ${cfg.user} ${cfg.group} -"
-      "d ${cfg.secretsDir} 0700 ${cfg.user} ${cfg.group} -"
-      "d ${cfg.projectPath}/data 0755 ${cfg.user} ${cfg.group} -"
-      "d ${cfg.projectPath}/logs 0755 ${cfg.user} ${cfg.group} -"
+      "d ${projectPath} 0755 ${user} ${group} -"
+      "d ${secretsDir} 0700 ${user} ${group} -"
+      "d ${projectPath}/data 0755 ${user} ${group} -"
+      "d ${projectPath}/logs 0755 ${user} ${group} -"
     ];
 
-    # Установить docker-compose
+    # Установить docker-compose и команду обновления
     environment.systemPackages = with pkgs; [
       docker
       docker-compose
@@ -167,31 +109,31 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        User = cfg.user;
-        Group = cfg.group;
+        User = user;
+        Group = group;
       };
 
       script = ''
         set -e
 
-        mkdir -p ${cfg.projectPath}
-        chmod 755 ${cfg.projectPath}
+        mkdir -p ${projectPath}
+        chmod 755 ${projectPath}
 
-        if [ -d ${cfg.projectPath}/.git ]; then
+        if [ -d ${projectPath}/.git ]; then
           echo "📥 Обновление из Git..."
-          cd ${cfg.projectPath}
+          cd ${projectPath}
           ${pkgs.git}/bin/git fetch origin
-          ${pkgs.git}/bin/git checkout ${cfg.gitBranch}
-          ${pkgs.git}/bin/git reset --hard origin/${cfg.gitBranch}
-          ${pkgs.git}/bin/git pull origin ${cfg.gitBranch}
+          ${pkgs.git}/bin/git checkout ${gitBranch}
+          ${pkgs.git}/bin/git reset --hard origin/${gitBranch}
+          ${pkgs.git}/bin/git pull origin ${gitBranch}
         else
           echo "📦 Клонирование репозитория..."
-          rm -rf ${cfg.projectPath}/*
-          rm -rf ${cfg.projectPath}/.* 2>/dev/null || true
-          ${pkgs.git}/bin/git clone -b ${cfg.gitBranch} ${cfg.gitRepo} ${cfg.projectPath}
+          rm -rf ${projectPath}/*
+          rm -rf ${projectPath}/.* 2>/dev/null || true
+          ${pkgs.git}/bin/git clone -b ${gitBranch} ${gitRepo} ${projectPath}
         fi
 
-        chmod -R u+w ${cfg.projectPath}
+        chmod -R u+w ${projectPath}
         echo "✅ Git sync завершен"
       '';
     };
@@ -207,32 +149,32 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        User = cfg.user;
-        Group = cfg.group;
+        User = user;
+        Group = group;
       };
 
       script = ''
         set -e
 
-        mkdir -p ${cfg.secretsDir}
-        chmod 700 ${cfg.secretsDir}
+        mkdir -p ${secretsDir}
+        chmod 700 ${secretsDir}
 
         # Создать .env файл
-        cat > ${cfg.projectPath}/.env <<EOF
-TASK_MANAGER_API_KEY=${cfg.apiKey}
-PUBLIC_PORT=${toString cfg.publicPort}
+        cat > ${projectPath}/.env <<EOF
+TASK_MANAGER_API_KEY=${apiKey}
+PUBLIC_PORT=${toString publicPort}
 TASK_MANAGER_LOG_DIR=/var/log/task-manager
 DATABASE_URL=sqlite:////app/data/task_manager.db
 EOF
 
-        chmod 600 ${cfg.projectPath}/.env
-        chown ${cfg.user}:${cfg.group} ${cfg.projectPath}/.env
+        chmod 600 ${projectPath}/.env
+        chown ${user}:${group} ${projectPath}/.env
 
         # Создать директории для volumes
-        mkdir -p ${cfg.projectPath}/data
-        mkdir -p ${cfg.projectPath}/logs
-        chmod 755 ${cfg.projectPath}/data
-        chmod 755 ${cfg.projectPath}/logs
+        mkdir -p ${projectPath}/data
+        mkdir -p ${projectPath}/logs
+        chmod 755 ${projectPath}/data
+        chmod 755 ${projectPath}/logs
 
         echo "✅ Environment setup завершен"
       '';
@@ -257,21 +199,21 @@ EOF
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        User = cfg.user;
-        Group = cfg.group;
-        WorkingDirectory = cfg.projectPath;
+        User = user;
+        Group = group;
+        WorkingDirectory = projectPath;
       };
 
       script = ''
         set -e
 
-        if [ ! -f ${cfg.projectPath}/docker-compose.yml ]; then
+        if [ ! -f ${projectPath}/docker-compose.yml ]; then
           echo "❌ Error: docker-compose.yml не найден"
           exit 1
         fi
 
         echo "🔨 Сборка Docker контейнеров..."
-        cd ${cfg.projectPath}
+        cd ${projectPath}
         ${pkgs.docker-compose}/bin/docker-compose build --no-cache
 
         echo "✅ Сборка завершена"
@@ -295,9 +237,9 @@ EOF
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = "yes";
-        WorkingDirectory = cfg.projectPath;
-        User = cfg.user;
-        Group = cfg.group;
+        WorkingDirectory = projectPath;
+        User = user;
+        Group = group;
 
         ExecStart = "${pkgs.docker-compose}/bin/docker-compose up -d";
         ExecStop = "${pkgs.docker-compose}/bin/docker-compose down";
@@ -312,12 +254,12 @@ EOF
       };
 
       preStart = ''
-        if [ ! -f ${cfg.projectPath}/docker-compose.yml ]; then
+        if [ ! -f ${projectPath}/docker-compose.yml ]; then
           echo "❌ Error: docker-compose.yml не найден"
           exit 1
         fi
 
-        if [ ! -f ${cfg.projectPath}/.env ]; then
+        if [ ! -f ${projectPath}/.env ]; then
           echo "❌ Error: .env файл не найден"
           exit 1
         fi
@@ -326,8 +268,8 @@ EOF
       '';
 
       postStart = ''
-        echo "✅ Task Manager запущен на порту ${toString cfg.publicPort}"
-        echo "🌐 Доступ: http://localhost:${toString cfg.publicPort}"
+        echo "✅ Task Manager запущен на порту ${toString publicPort}"
+        echo "🌐 Доступ: http://localhost:${toString publicPort}"
 
         # Показать статус контейнеров
         sleep 5
@@ -335,14 +277,14 @@ EOF
       '';
     };
 
-    # 5. Автоматическое обновление (опционально)
-    systemd.services.task-manager-docker-auto-update = lib.mkIf cfg.autoUpdate {
+    # 5. Автоматическое обновление (если включено)
+    systemd.services.task-manager-docker-auto-update = lib.mkIf autoUpdate {
       description = "Auto-update Task Manager from Git";
       serviceConfig = {
         Type = "oneshot";
-        User = cfg.user;
-        Group = cfg.group;
-        WorkingDirectory = cfg.projectPath;
+        User = user;
+        Group = group;
+        WorkingDirectory = projectPath;
       };
 
       script = ''
@@ -352,7 +294,7 @@ EOF
       '';
     };
 
-    systemd.timers.task-manager-docker-auto-update = lib.mkIf cfg.autoUpdate {
+    systemd.timers.task-manager-docker-auto-update = lib.mkIf autoUpdate {
       description = "Auto-update Task Manager timer";
       wantedBy = [ "timers.target" ];
 
