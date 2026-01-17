@@ -17,8 +17,7 @@ from backend.models import Backup
 import backend.crud as crud
 import backend.backup_service as backup_service
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Get logger (configuration is done in main.py)
 logger = logging.getLogger("task_manager.scheduler")
 
 
@@ -114,27 +113,22 @@ def check_auto_backup():
 
         # Only proceed if auto_backup is enabled
         if not settings.auto_backup_enabled:
-            logger.debug("Auto backup disabled, skipping")
+            logger.info("❌ Auto backup is DISABLED in settings")
             return
 
         now = datetime.now()
         current_time = now.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
 
-        # Log at INFO level every 5 minutes, DEBUG level every minute
-        is_log_minute = now.minute % 5 == 0
-        if is_log_minute:
-            logger.info(f"Auto backup status: enabled={settings.auto_backup_enabled}, current_time={current_time}, target_time={backup_time}, interval_days={settings.backup_interval_days}")
-        else:
-            logger.debug(f"Auto backup check: current={current_time}, target={backup_time}")
+        # ALWAYS log at INFO level for debugging
+        logger.info(f"🔍 Auto backup check: enabled={settings.auto_backup_enabled}, current={current_time}, target={backup_time}, interval={settings.backup_interval_days}d")
 
         # Check if it's time for backup
         if current_time != backup_time:
-            if is_log_minute:
-                logger.info(f"Waiting for backup time: current={current_time}, target={backup_time}")
+            logger.info(f"⏳ Waiting for backup time (current={current_time}, need={backup_time})")
             return
 
-        logger.info(f"⏰ Backup time matched! current={current_time}, target={backup_time}")
+        logger.info(f"⏰ BACKUP TIME MATCHED! current={current_time}, target={backup_time}")
 
         # Check if we need to backup based on interval
         # Only check LAST AUTO backup, not manual backups
@@ -143,13 +137,21 @@ def check_auto_backup():
         ).order_by(Backup.created_at.desc()).first()
 
         if last_auto_backup:
-            days_since_backup = (now - last_auto_backup.created_at).days
-            logger.info(f"Last auto backup: {last_auto_backup.created_at}, days since: {days_since_backup}, interval required: {settings.backup_interval_days}")
-            if days_since_backup < settings.backup_interval_days:
-                logger.info(f"Auto backup not needed yet (last auto backup: {days_since_backup} days ago, need {settings.backup_interval_days} days)")
+            time_since_backup = now - last_auto_backup.created_at
+            days_since = time_since_backup.days
+            hours_since = time_since_backup.total_seconds() / 3600
+
+            logger.info(f"📊 Last auto backup: {last_auto_backup.created_at}")
+            logger.info(f"📊 Time since: {days_since} days ({hours_since:.1f} hours)")
+            logger.info(f"📊 Interval required: {settings.backup_interval_days} days")
+
+            if days_since < settings.backup_interval_days:
+                logger.info(f"⏸️  SKIPPING: Last auto backup was {days_since} days ago ({hours_since:.1f}h), need {settings.backup_interval_days} days interval")
                 return
+            else:
+                logger.info(f"✅ Interval passed: {days_since} days >= {settings.backup_interval_days} days required")
         else:
-            logger.info("No previous auto backup found, will create first backup")
+            logger.info("✨ No previous auto backup found, will create first backup")
 
         logger.info(f"🔄 Executing automatic backup at {current_time}")
 
@@ -213,8 +215,11 @@ def start_scheduler():
 
     # Start the scheduler
     scheduler.start()
+    logger.info("=" * 50)
     logger.info("Background scheduler started successfully")
     logger.info(f"Scheduled jobs: {[job.id for job in scheduler.get_jobs()]}")
+    logger.info("Auto backup job will run every minute")
+    logger.info("=" * 50)
 
 
 def stop_scheduler():
