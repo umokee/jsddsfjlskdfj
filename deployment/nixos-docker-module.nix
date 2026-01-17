@@ -27,9 +27,11 @@ let
   user = "task-manager";
   group = "task-manager";
 
-  # Автообновление (true/false)
-  # true = каждый день в 3:00 автоматически обновляется из Git
-  autoUpdate = false;
+  # Fail2ban для защиты от брутфорса
+  enableFail2ban = true;
+  fail2banMaxRetry = 2;
+  fail2banFindTime = "1d";
+  fail2banBanTime = "52w";
 
   # ==== КОНЕЦ НАСТРОЕК ====
 
@@ -277,31 +279,29 @@ EOF
       '';
     };
 
-    # 5. Автоматическое обновление (если включено)
-    systemd.services.task-manager-docker-auto-update = lib.mkIf autoUpdate {
-      description = "Auto-update Task Manager from Git";
-      serviceConfig = {
-        Type = "oneshot";
-        User = user;
-        Group = group;
-        WorkingDirectory = projectPath;
-      };
-
-      script = ''
-        set -e
-        echo "🔄 Автоматическое обновление Task Manager..."
-        ${updateScript}/bin/task-manager-update
+    # 5. Fail2ban для защиты от брутфорса API ключа
+    environment.etc."fail2ban/filter.d/task-manager-api.conf" = lib.mkIf enableFail2ban {
+      text = ''
+        [Definition]
+        failregex = ^.*Invalid API key attempt from <HOST>.*$
+        ignoreregex =
       '';
     };
 
-    systemd.timers.task-manager-docker-auto-update = lib.mkIf autoUpdate {
-      description = "Auto-update Task Manager timer";
-      wantedBy = [ "timers.target" ];
+    services.fail2ban = lib.mkIf enableFail2ban {
+      enable = true;
 
-      timerConfig = {
-        OnCalendar = "daily";
-        OnCalendar = "03:00";  # Каждый день в 3:00
-        Persistent = true;
+      jails.task-manager-api = {
+        settings = {
+          enabled = true;
+          filter = "task-manager-api";
+          logpath = "${projectPath}/logs/app.log";
+          backend = "auto";
+          action = "iptables-allports";
+          maxretry = fail2banMaxRetry;
+          findtime = fail2banFindTime;
+          bantime = fail2banBanTime;
+        };
       };
     };
 

@@ -809,7 +809,7 @@ python backend/migrate_db.py
 - ✅ Автоматическая сборка Docker контейнеров
 - ✅ Автозапуск при загрузке
 - ✅ Обновление одной командой: `task-manager-update`
-- ✅ Опциональное автообновление по расписанию
+- ✅ Защита от брутфорса API ключа (Fail2ban)
 
 **Установка:**
 
@@ -823,7 +823,7 @@ sudo nano /etc/nixos/task-manager-docker.nix
 #   apiKey = "ваш-секретный-ключ";
 #   gitBranch = "main";
 #   publicPort = 8080;
-#   autoUpdate = false;
+#   enableFail2ban = true;  # Защита от брутфорса
 ```
 
 Добавить в `/etc/nixos/configuration.nix`:

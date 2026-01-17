@@ -6,8 +6,8 @@
 - ✅ Клонирование из Git
 - ✅ Сборка Docker контейнеров
 - ✅ Автозапуск при загрузке системы
-- ✅ Обновление одной командой
-- ✅ Автоматическое обновление по расписанию (опционально)
+- ✅ Обновление одной командой: `task-manager-update`
+- ✅ Защита от брутфорса API ключа (Fail2ban)
 
 ## Быстрая Установка
 
@@ -38,8 +38,11 @@ let
   # Порты
   publicPort = 8080;  # 443 занят VPN
 
-  # Автообновление (true/false)
-  autoUpdate = false;  # true для включения
+  # Fail2ban для защиты от брутфорса
+  enableFail2ban = true;
+  fail2banMaxRetry = 2;      # Попыток до бана
+  fail2banFindTime = "1d";   # Период отслеживания
+  fail2banBanTime = "52w";   # Время бана
 
   # Остальные настройки можно не менять
 ```
@@ -203,8 +206,11 @@ let
   user = "task-manager";
   group = "task-manager";
 
-  # Автообновление (true/false)
-  autoUpdate = false;  # true для включения
+  # Fail2ban для защиты от брутфорса
+  enableFail2ban = true;
+  fail2banMaxRetry = 2;
+  fail2banFindTime = "1d";
+  fail2banBanTime = "52w";
 ```
 
 После изменения настроек:
@@ -237,32 +243,36 @@ let
 sudo nixos-rebuild switch
 ```
 
-### Fail2ban (опционально)
+### Fail2ban
 
-Добавьте в `configuration.nix`:
+**Включен по умолчанию!** Защищает от брутфорса API ключа.
+
+Настройки в `/etc/nixos/task-manager-docker.nix` (секция `let`):
 
 ```nix
-services.fail2ban = {
-  enable = true;
+let
+  # Fail2ban для защиты от брутфорса
+  enableFail2ban = true;         # Включить/выключить
+  fail2banMaxRetry = 2;          # Попыток до бана (рекомендуется 2)
+  fail2banFindTime = "1d";       # Период отслеживания (1 день)
+  fail2banBanTime = "52w";       # Время бана (52 недели = 1 год)
+```
 
-  jails.task-manager-api = {
-    settings = {
-      enabled = true;
-      filter = "task-manager-api";
-      logpath = "/var/lib/task-manager-docker/logs/app.log";
-      maxretry = 2;
-      findtime = "1d";
-      bantime = "52w";
-      action = "iptables-allports";
-    };
-  };
-};
+**Что делает:**
+- Отслеживает попытки входа с неверным API ключом
+- После 2 неудачных попыток за день - бан IP на 1 год
+- Автоматически добавляет правила iptables
 
-environment.etc."fail2ban/filter.d/task-manager-api.conf".text = ''
-  [Definition]
-  failregex = ^.*Invalid API key attempt from <HOST>.*$
-  ignoreregex =
-'';
+**Проверить забаненные IP:**
+
+```bash
+sudo fail2ban-client status task-manager-api
+```
+
+**Разбанить IP:**
+
+```bash
+sudo fail2ban-client set task-manager-api unbanip 1.2.3.4
 ```
 
 ## 🌐 Внешний Доступ
