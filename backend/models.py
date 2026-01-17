@@ -89,7 +89,6 @@ class Settings(Base):
 
     # Streak bonus for skill habits: 1 + log2(streak+1) * streak_log_factor
     streak_log_factor = Column(Float, default=0.15)
-    max_streak_bonus_days = Column(Integer, default=100)  # Practical max for log curve
 
     # Routine habits: fixed points, no streak
     routine_points_fixed = Column(Integer, default=6)

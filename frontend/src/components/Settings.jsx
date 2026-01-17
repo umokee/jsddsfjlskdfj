@@ -24,7 +24,6 @@ function Settings({ onClose }) {
 
     // Streak settings
     streak_log_factor: 0.15,
-    max_streak_bonus_days: 100,
 
     // Routine habits
     routine_points_fixed: 6,
@@ -205,7 +204,7 @@ function Settings({ onClose }) {
         {/* Points & Rewards Tab */}
         {activeTab === 'points' && (
           <div>
-            <div className="info-box" style={{ margin: '0 2rem', marginTop: '1.5rem' }}>
+            <div className="info-box settings-intro">
               <strong>Balanced Progress v2.0</strong> — Points = Base × EnergyMultiplier × TimeQualityFactor × FocusFactor
             </div>
 
@@ -268,15 +267,10 @@ function Settings({ onClose }) {
                 Formula: 1 + log₂(streak + 1) × {formData.streak_log_factor}<br />
                 Streak 0→×{calcStreakBonus(0).toFixed(2)}, 5→×{calcStreakBonus(5).toFixed(2)}, 10→×{calcStreakBonus(10).toFixed(2)}, 30→×{calcStreakBonus(30).toFixed(2)}, 100→×{calcStreakBonus(100).toFixed(2)}
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Log Factor</label>
-                  <input className="form-input" type="number" step="0.01" name="streak_log_factor" value={formData.streak_log_factor} onChange={handleChange} min="0" max="1" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Max Streak Days</label>
-                  <input className="form-input" type="number" name="max_streak_bonus_days" value={formData.max_streak_bonus_days} onChange={handleChange} min="1" max="365" />
-                </div>
+              <div className="form-group">
+                <label className="form-label">Log Factor</label>
+                <input className="form-input" type="number" step="0.01" name="streak_log_factor" value={formData.streak_log_factor} onChange={handleChange} min="0" max="1" />
+                <small>Higher = more bonus per streak day (log₂ naturally caps growth)</small>
               </div>
             </div>
 
@@ -309,7 +303,7 @@ function Settings({ onClose }) {
         {/* Penalties Tab */}
         {activeTab === 'penalties' && (
           <div>
-            <div className="info-box" style={{ margin: '0 2rem', marginTop: '1.5rem' }}>
+            <div className="info-box settings-intro">
               Penalties are applied during daily Roll. Progressive multiplier increases with consecutive penalty days.
             </div>
 
@@ -434,7 +428,7 @@ function Settings({ onClose }) {
         {/* Backups Tab */}
         {activeTab === 'backups' && (
           <div>
-            <div className="info-box" style={{ margin: '0 2rem', marginTop: '1.5rem' }}>
+            <div className="info-box settings-intro">
               Automatic database backups protect your data. Backups are stored locally and optionally uploaded to Google Drive.
             </div>
 
@@ -483,7 +477,7 @@ function Settings({ onClose }) {
         {/* Rest Days Tab */}
         {activeTab === 'rest' && (
           <div>
-            <div className="info-box" style={{ margin: '0 2rem', marginTop: '1.5rem' }}>
+            <div className="info-box settings-intro">
               Rest days are penalty-free days regardless of task/habit completion.
             </div>
 

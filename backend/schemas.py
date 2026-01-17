@@ -84,7 +84,6 @@ class SettingsBase(BaseModel):
 
     # Streak settings for skill habits
     streak_log_factor: float = Field(default=0.15, ge=0.0, le=1.0)
-    max_streak_bonus_days: int = Field(default=100, ge=1, le=365)
 
     # Routine habits
     routine_points_fixed: int = Field(default=6, ge=1, le=50)

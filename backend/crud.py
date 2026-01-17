@@ -746,12 +746,9 @@ def calculate_habit_points(task: Task, settings: Settings) -> int:
     base = settings.points_per_habit_base
     streak = task.streak if task.streak else 0
 
-    # Cap streak for calculation
-    capped_streak = min(streak, settings.max_streak_bonus_days)
-
-    # Calculate streak bonus using log₂
+    # Calculate streak bonus using log₂ (naturally caps growth)
     # StreakBonus = 1 + log₂(streak + 1) × factor
-    streak_bonus = 1 + math.log2(capped_streak + 1) * settings.streak_log_factor
+    streak_bonus = 1 + math.log2(streak + 1) * settings.streak_log_factor
 
     total = base * streak_bonus
     return max(1, int(total))
