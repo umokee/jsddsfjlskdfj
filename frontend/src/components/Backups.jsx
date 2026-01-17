@@ -149,108 +149,95 @@ function Backups() {
   };
 
   if (loading) {
-    return <div className="settings">Loading backups...</div>;
+    return <div className="loading">LOADING_BACKUPS...</div>;
   }
 
   const backupStatus = getBackupStatus();
 
   return (
-    <div className="settings">
-      <div className="settings-header">
-        <h2>Database Backups</h2>
+    <div>
+      {/* Action Bar */}
+      <div className="action-bar">
+        <button
+          className="btn btn-primary"
+          onClick={createBackup}
+          disabled={creating}
+        >
+          {creating ? '[ CREATING... ]' : '[ + CREATE_BACKUP ]'}
+        </button>
       </div>
 
-      <div style={{ padding: '2rem' }}>
-        {/* Last Backup Status */}
-        <div className="settings-section">
-          <h3>Backup Status</h3>
-          <div className={`backup-status backup-status-${backupStatus}`}>
-            <div className="status-indicator"></div>
-            <div className="status-info">
-              <strong>Last Backup:</strong> {getTimeSinceLastBackup()}
-              {settings && settings.last_backup_date && (
-                <span className="status-date"> ({formatDate(settings.last_backup_date)})</span>
-              )}
-            </div>
-          </div>
-
-          {settings && (
-            <div className="info-box">
-              <strong>Auto-Backup:</strong> {settings.auto_backup_enabled ? 'ENABLED' : 'DISABLED'}
-              {settings.auto_backup_enabled && (
-                <>
-                  {' | '}
-                  <strong>Schedule:</strong> Every {settings.backup_interval_days} day(s) at {settings.backup_time}
-                  {' | '}
-                  <strong>Keep:</strong> Last {settings.backup_keep_local_count} backups
-                  {settings.google_drive_enabled && ' | Google Drive: ENABLED'}
-                </>
-              )}
-            </div>
-          )}
-
-          <button
-            className="btn btn-primary"
-            onClick={createBackup}
-            disabled={creating}
-            style={{ marginTop: '1rem' }}
-          >
-            {creating ? 'Creating...' : '[+] Create Backup Now'}
-          </button>
+      {/* Status Widget */}
+      <div className="widget">
+        <div className="widget-header">
+          <span className="widget-title">[STATUS]</span>
+          <span className={`widget-status ${backupStatus === 'ok' ? 'status-ok' : backupStatus === 'warning' ? 'status-warning' : 'status-error'}`}>
+            {backupStatus === 'ok' ? 'OK' : backupStatus === 'warning' ? 'WARNING' : 'OUTDATED'}
+          </span>
         </div>
+        <div className="widget-body">
+          <div className="backup-info">
+            <div className="backup-info-row">
+              <span className="backup-label">LAST_BACKUP:</span>
+              <span className="backup-value">{getTimeSinceLastBackup()}</span>
+              {settings && settings.last_backup_date && (
+                <span className="backup-date">({formatDate(settings.last_backup_date)})</span>
+              )}
+            </div>
+            {settings && (
+              <div className="backup-info-row">
+                <span className="backup-label">AUTO_BACKUP:</span>
+                <span className="backup-value">{settings.auto_backup_enabled ? 'ENABLED' : 'DISABLED'}</span>
+                {settings.auto_backup_enabled && (
+                  <>
+                    <span className="backup-meta">| Every {settings.backup_interval_days}d at {settings.backup_time}</span>
+                    <span className="backup-meta">| Keep: {settings.backup_keep_local_count}</span>
+                    {settings.google_drive_enabled && <span className="backup-meta">| GDrive: ON</span>}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-        {/* Backups List */}
-        <div className="settings-section">
-          <h3>Backup History ({backups.length})</h3>
-
+      {/* Backup History Widget */}
+      <div className="widget">
+        <div className="widget-header">
+          <span className="widget-title">[BACKUP_HISTORY]</span>
+          <span className="widget-count">{backups.length}</span>
+        </div>
+        <div className="widget-body">
           {backups.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', textAlign: 'center', padding: '2rem' }}>
-              No backups found. Create your first backup above.
-            </p>
+            <div className="empty-state">
+              No backups found. Create your first backup.
+            </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="task-list">
               {backups.map((backup) => (
-                <div key={backup.id} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '1rem',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border)',
-                  transition: 'all 0.15s'
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{backup.filename}</div>
-                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <span>{formatDate(backup.created_at)}</span>
-                      <span>{formatFileSize(backup.size_bytes)}</span>
-                      <span style={{
-                        textTransform: 'uppercase',
-                        padding: '0.1rem 0.5rem',
-                        background: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border)',
-                        color: backup.backup_type === 'auto' ? 'var(--accent)' : 'var(--success)'
-                      }}>
-                        {backup.backup_type}
-                      </span>
-                      {backup.uploaded_to_drive && (
-                        <span style={{ color: '#2196f3' }}>☁ Google Drive</span>
-                      )}
+                <div key={backup.id} className="task-item">
+                  <div className="task-header">
+                    <div className="task-title">{backup.filename}</div>
+                    <div className="task-actions">
+                      <button
+                        className="btn btn-small btn-primary"
+                        onClick={() => downloadBackup(backup.id, backup.filename)}
+                      >
+                        Download
+                      </button>
+                      <button
+                        className="btn btn-small btn-danger"
+                        onClick={() => deleteBackup(backup.id)}
+                      >
+                        ×
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      className="btn-small btn-primary"
-                      onClick={() => downloadBackup(backup.id, backup.filename)}
-                    >
-                      ↓ Download
-                    </button>
-                    <button
-                      className="btn-small btn-danger"
-                      onClick={() => deleteBackup(backup.id)}
-                    >
-                      × Delete
-                    </button>
+                  <div className="task-meta">
+                    <span>{formatDate(backup.created_at)}</span>
+                    <span>{formatFileSize(backup.size_bytes)}</span>
+                    <span>{backup.backup_type.toUpperCase()}</span>
+                    {backup.uploaded_to_drive && <span>GDRIVE</span>}
                   </div>
                 </div>
               ))}
