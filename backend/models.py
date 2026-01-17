@@ -121,6 +121,10 @@ class Settings(Base):
     # Roll limits
     last_roll_date = Column(Date, nullable=True)  # Track last roll to enforce 1/day
 
+    # Day boundary settings
+    day_start_enabled = Column(Boolean, default=False)  # Enable custom day start time
+    day_start_time = Column(String, default="06:00")  # When new day starts (for shifted schedules)
+
     # Time-based settings
     roll_available_time = Column(String, default="00:00")  # Time when Roll becomes available (HH:MM format)
     auto_penalties_enabled = Column(Boolean, default=True)  # Auto-apply penalties at midnight

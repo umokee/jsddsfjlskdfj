@@ -22,7 +22,7 @@ logger = logging.getLogger("task_manager.scheduler")
 
 
 def check_auto_roll():
-    """Check if automatic roll should be executed"""
+    """Check if automatic roll should be executed (uses effective date for shifted schedules)"""
     db: Session = SessionLocal()
     try:
         settings = crud.get_settings(db)
@@ -32,12 +32,14 @@ def check_auto_roll():
             return
 
         now = datetime.now()
-        today = now.date()
+        today = crud.get_effective_date(settings)
         current_time = now.strftime("%H:%M")
         auto_roll_time = settings.auto_roll_time or "06:00"
 
         # Check if we haven't rolled today and it's time for auto-roll
-        if settings.last_roll_date != today and current_time >= auto_roll_time:
+        # If day_start is enabled, the effective date change handles the timing
+        should_check_time = not settings.day_start_enabled
+        if settings.last_roll_date != today and (not should_check_time or current_time >= auto_roll_time):
             logger.info(f"Executing automatic roll at {current_time}")
             result = crud.roll_tasks(db)
 
@@ -84,11 +86,11 @@ def check_auto_penalties():
 
 
 def reset_roll_availability():
-    """Reset roll availability at configured time"""
+    """Reset roll availability at configured time (uses effective date for shifted schedules)"""
     db: Session = SessionLocal()
     try:
         settings = crud.get_settings(db)
-        today = date.today()
+        today = crud.get_effective_date(settings)
 
         # If last_roll_date is not today, it's already reset
         # This function ensures the reset happens at the configured time

@@ -10,6 +10,49 @@ from backend.models import Task, Settings, PointHistory, PointGoal, RestDay
 from backend.schemas import TaskCreate, TaskUpdate, SettingsUpdate, PointGoalCreate, PointGoalUpdate, RestDayCreate
 
 
+def get_effective_date(settings: Settings) -> date:
+    """
+    Get the effective current date based on day_start_time setting.
+
+    If day_start_enabled is True and current time is before day_start_time,
+    returns yesterday's date. Otherwise returns today's date.
+
+    Example: If day_start_time = "06:00" and current time is 03:00,
+    the effective date is still yesterday because the user hasn't
+    started their "new day" yet.
+    """
+    now = datetime.now()
+    today = now.date()
+
+    if not settings.day_start_enabled:
+        return today
+
+    # Parse day_start_time
+    try:
+        parts = settings.day_start_time.split(":")
+        day_start_hour = int(parts[0])
+        day_start_minute = int(parts[1])
+    except (ValueError, IndexError):
+        return today
+
+    # If current time is before day_start_time, we're still in "yesterday"
+    current_minutes = now.hour * 60 + now.minute
+    start_minutes = day_start_hour * 60 + day_start_minute
+
+    if current_minutes < start_minutes:
+        return today - timedelta(days=1)
+
+    return today
+
+
+def get_effective_today(db: Session) -> date:
+    """Convenience function: get settings and return effective date"""
+    settings = db.query(Settings).first()
+    if not settings:
+        return date.today()
+    return get_effective_date(settings)
+
+
 def calculate_next_occurrence(start_date: datetime, recurrence_type: str, recurrence_interval: int = 1) -> datetime:
     """
     Calculate next occurrence date for recurring habits.
@@ -91,8 +134,8 @@ def get_next_task(db: Session) -> Optional[Task]:
     ).order_by(Task.urgency.desc()).first()
 
 def get_next_habit(db: Session) -> Optional[Task]:
-    """Get next habit for today"""
-    today = datetime.now().date()
+    """Get next habit for today (using effective date for shifted schedules)"""
+    today = get_effective_today(db)
     return db.query(Task).filter(
         and_(
             Task.status == "pending",
@@ -112,8 +155,8 @@ def get_all_habits(db: Session) -> List[Task]:
     ).order_by(Task.due_date).all()
 
 def get_today_habits(db: Session) -> List[Task]:
-    """Get all habits for today"""
-    today = datetime.now().date()
+    """Get all habits for today (using effective date for shifted schedules)"""
+    today = get_effective_today(db)
     return db.query(Task).filter(
         and_(
             Task.status == "pending",
@@ -134,8 +177,8 @@ def get_today_tasks(db: Session) -> List[Task]:
     ).order_by(Task.urgency.desc()).all()
 
 def get_stats(db: Session) -> dict:
-    """Get daily statistics"""
-    today = datetime.now().date()
+    """Get daily statistics (using effective date for shifted schedules)"""
+    today = get_effective_today(db)
     today_start = datetime.combine(today, datetime.min.time())
     today_end = datetime.combine(today + timedelta(days=1), datetime.min.time())
 
@@ -330,7 +373,8 @@ def complete_task(db: Session, task_id: Optional[int] = None) -> Optional[Task]:
 
     # Handle habits: update streak and create next occurrence
     if db_task.is_habit and db_task.recurrence_type != "none":
-        today = date.today()
+        settings = get_settings(db)
+        today = get_effective_date(settings)
 
         # Use habit's due_date as reference, or today if no due_date
         habit_due = db_task.due_date.date() if db_task.due_date else today
@@ -423,21 +467,23 @@ def task_dependency_in_today_plan(db: Session, task: Task) -> bool:
 def can_roll_now(db: Session) -> tuple[bool, str]:
     """Check if roll is available right now (considering both date and time)
 
+    Uses effective date for users with shifted schedules.
+
     Returns:
         (can_roll, reason) - tuple of boolean and error message if any
     """
     settings = get_settings(db)
     now = datetime.now()
-    today = now.date()
+    effective_today = get_effective_date(settings)
     current_time = now.strftime("%H:%M")
 
-    # Check if already rolled today
-    if settings.last_roll_date == today:
+    # Check if already rolled today (using effective date)
+    if settings.last_roll_date == effective_today:
         return False, "Roll already done today"
 
     # Check if current time is after roll_available_time
-    # If it's a new day (last_roll was yesterday or earlier), check the time
-    if settings.last_roll_date != today:
+    # Only check time if day_start is disabled (otherwise effective_date handles it)
+    if not settings.day_start_enabled and settings.last_roll_date != effective_today:
         roll_time = settings.roll_available_time or "00:00"
         if current_time < roll_time:
             return False, f"Roll will be available at {roll_time}"
@@ -446,9 +492,9 @@ def can_roll_now(db: Session) -> tuple[bool, str]:
 
 
 def roll_tasks(db: Session, mood: Optional[str] = None, daily_limit: int = 5, critical_days: int = 2) -> dict:
-    """Generate daily task plan (max once per day)"""
-    today = datetime.now().date()
+    """Generate daily task plan (max once per day, using effective date for shifted schedules)"""
     settings = get_settings(db)
+    today = get_effective_date(settings)
 
     # Check if roll is available (considering time)
     can_roll, error_msg = can_roll_now(db)
@@ -712,8 +758,8 @@ def calculate_habit_points(task: Task, settings: Settings) -> int:
 
 
 def get_or_create_today_history(db: Session) -> PointHistory:
-    """Get or create point history for today"""
-    today = date.today()
+    """Get or create point history for today (using effective date for shifted schedules)"""
+    today = get_effective_today(db)
     history = db.query(PointHistory).filter(PointHistory.date == today).first()
 
     if not history:
@@ -978,14 +1024,16 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
 
 
 def calculate_daily_penalties(db: Session) -> dict:
-    """Calculate penalties for YESTERDAY (called during Roll for new day)"""
-    yesterday = date.today() - timedelta(days=1)
+    """Calculate penalties for YESTERDAY (called during Roll for new day, uses effective date)"""
+    today = get_effective_today(db)
+    yesterday = today - timedelta(days=1)
     return _finalize_day_penalties(db, yesterday)
 
 
 def get_point_history(db: Session, days: int = 30) -> List[PointHistory]:
-    """Get point history for last N days"""
-    start_date = date.today() - timedelta(days=days)
+    """Get point history for last N days (uses effective date)"""
+    today = get_effective_today(db)
+    start_date = today - timedelta(days=days)
     return db.query(PointHistory).filter(
         PointHistory.date >= start_date
     ).order_by(PointHistory.date.desc()).all()
@@ -998,7 +1046,7 @@ def get_current_points(db: Session) -> int:
 
 
 def calculate_projection(db: Session, target_date: date) -> dict:
-    """Calculate point projections until target date"""
+    """Calculate point projections until target date (uses effective date)"""
     # Get last 30 days average
     history = get_point_history(db, 30)
 
@@ -1009,7 +1057,8 @@ def calculate_projection(db: Session, target_date: date) -> dict:
         avg_per_day = total_daily / len(history)
 
     current_total = get_current_points(db)
-    days_until = (target_date - date.today()).days
+    today = get_effective_today(db)
+    days_until = (target_date - today).days
 
     if days_until <= 0:
         return {

@@ -44,6 +44,10 @@ function Settings({ onClose }) {
     progressive_penalty_max: 1.5,
     penalty_streak_reset_days: 2,
 
+    // Day boundary settings
+    day_start_enabled: false,
+    day_start_time: "06:00",
+
     // Time settings
     roll_available_time: "00:00",
     auto_penalties_enabled: true,
@@ -387,11 +391,29 @@ function Settings({ onClose }) {
         {activeTab === 'automation' && (
           <div>
             <div className="settings-section">
+              <h3>Day Boundary</h3>
+              <div className="info-box">
+                For shifted sleep schedules. If enabled, "today" starts at the specified time instead of midnight.
+              </div>
+              <div className="checkbox-group" style={{ marginTop: '1rem' }}>
+                <input className="checkbox" type="checkbox" name="day_start_enabled" checked={formData.day_start_enabled} onChange={handleChange} id="day_start_enabled" />
+                <label htmlFor="day_start_enabled">Enable custom day start time</label>
+              </div>
+              {formData.day_start_enabled && (
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label className="form-label">Day Start Time</label>
+                  <input className="form-input" type="time" name="day_start_time" value={formData.day_start_time} onChange={handleChange} />
+                  <small>New day starts at this time (e.g., 06:00 means 05:59 is still "yesterday")</small>
+                </div>
+              )}
+            </div>
+
+            <div className="settings-section">
               <h3>Roll Availability</h3>
               <div className="form-group">
                 <label className="form-label">Available From (daily)</label>
                 <input className="form-input" type="time" name="roll_available_time" value={formData.roll_available_time} onChange={handleChange} />
-                <small>Roll button appears at this time each day</small>
+                <small>Roll button appears at this time each day{formData.day_start_enabled ? ' (ignored when Day Boundary is enabled)' : ''}</small>
               </div>
             </div>
 

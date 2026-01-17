@@ -115,6 +115,15 @@ def migrate():
             cursor.execute('ALTER TABLE settings ADD COLUMN progressive_penalty_max FLOAT DEFAULT 1.5')
             migrations_applied.append('Added progressive_penalty_max column to Settings table')
 
+        # Day boundary settings for shifted schedules
+        if not column_exists(cursor, 'settings', 'day_start_enabled'):
+            cursor.execute('ALTER TABLE settings ADD COLUMN day_start_enabled BOOLEAN DEFAULT 0')
+            migrations_applied.append('Added day_start_enabled column to Settings table')
+
+        if not column_exists(cursor, 'settings', 'day_start_time'):
+            cursor.execute('ALTER TABLE settings ADD COLUMN day_start_time VARCHAR DEFAULT "06:00"')
+            migrations_applied.append('Added day_start_time column to Settings table')
+
         # Update existing settings to v2.0 defaults
         # Update minutes_per_energy_unit from 30 to 20
         cursor.execute('UPDATE settings SET minutes_per_energy_unit = 20 WHERE minutes_per_energy_unit = 30')
