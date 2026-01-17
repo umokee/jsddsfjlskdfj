@@ -114,13 +114,18 @@ def check_auto_backup():
 
         # Only proceed if auto_backup is enabled
         if not settings.auto_backup_enabled:
+            logger.debug("Auto backup disabled, skipping")
             return
 
         now = datetime.now()
         current_time = now.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
 
-        # Debug: log every minute check (can be removed later)
+        # Log time check (every 10 minutes for debug)
+        if now.minute % 10 == 0:
+            logger.info(f"Backup check: current={current_time}, target={backup_time}, enabled={settings.auto_backup_enabled}")
+
+        # Check if it's time for backup
         if current_time == backup_time:
             logger.info(f"Backup time matched: {current_time} == {backup_time}")
 
@@ -170,6 +175,7 @@ scheduler = BackgroundScheduler()
 
 def start_scheduler():
     """Start the background scheduler"""
+    print(">>> SCHEDULER: Starting Task Manager background scheduler")  # Direct print for debugging
     logger.info("Starting Task Manager background scheduler")
 
     # Check for auto-roll every minute
@@ -202,6 +208,7 @@ def start_scheduler():
     # Start the scheduler
     scheduler.start()
     logger.info("Background scheduler started successfully")
+    logger.info(f"Scheduled jobs: {[job.id for job in scheduler.get_jobs()]}")
 
 
 def stop_scheduler():
