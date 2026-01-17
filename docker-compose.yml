@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: task-manager-backend
+    restart: unless-stopped
+    environment:
+      # API Key (change this!)
+      - TASK_MANAGER_API_KEY=${TASK_MANAGER_API_KEY:-your-secret-key-change-me}
+      # Data directories
+      - TASK_MANAGER_DB_DIR=/data/db
+      - TASK_MANAGER_BACKUP_DIR=/data/backups
+      - TASK_MANAGER_LOG_DIR=/data/logs
+      - TASK_MANAGER_LOG_FILE=app.log
+    volumes:
+      # Persist database
+      - task-manager-db:/data/db
+      # Persist backups
+      - task-manager-backups:/data/backups
+      # Persist logs
+      - task-manager-logs:/data/logs
+    ports:
+      # Only expose internally to frontend (or expose to host if needed)
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - task-manager-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: task-manager-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - task-manager-network
+
+volumes:
+  task-manager-db:
+    driver: local
+  task-manager-backups:
+    driver: local
+  task-manager-logs:
+    driver: local
+
+networks:
+  task-manager-network:
+    driver: bridge
