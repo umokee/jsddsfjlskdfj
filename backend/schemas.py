@@ -95,10 +95,7 @@ class SettingsBase(BaseModel):
 
     # Penalties
     idle_penalty: int = Field(default=30, ge=0, le=500)
-    incomplete_day_penalty: int = Field(default=10, ge=0, le=500)
-    incomplete_day_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
-    incomplete_threshold_severe: float = Field(default=0.4, ge=0.0, le=1.0)
-    incomplete_penalty_severe: int = Field(default=15, ge=0, le=500)
+    incomplete_penalty_percent: float = Field(default=0.5, ge=0.0, le=1.0)  # 50% of missed potential
 
     missed_habit_penalty_base: int = Field(default=15, ge=0, le=500)
     progressive_penalty_factor: float = Field(default=0.1, ge=0.0, le=1.0)

@@ -35,10 +35,7 @@ function Settings({ onClose }) {
 
     // Penalties
     idle_penalty: 30,
-    incomplete_day_penalty: 10,
-    incomplete_day_threshold: 0.6,
-    incomplete_threshold_severe: 0.4,
-    incomplete_penalty_severe: 15,
+    incomplete_penalty_percent: 0.5,
     missed_habit_penalty_base: 15,
     progressive_penalty_factor: 0.1,
     progressive_penalty_max: 1.5,
@@ -327,28 +324,14 @@ function Settings({ onClose }) {
 
             <div className="settings-section">
               <h3>Incomplete Day Penalty</h3>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Threshold (normal)</label>
-                  <input className="form-input" type="number" step="0.05" name="incomplete_day_threshold" value={formData.incomplete_day_threshold} onChange={handleChange} min="0" max="1" />
-                  <small>Below {(formData.incomplete_day_threshold * 100).toFixed(0)}% = scaled penalty</small>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Penalty (scaled)</label>
-                  <input className="form-input" type="number" name="incomplete_day_penalty" value={formData.incomplete_day_penalty} onChange={handleChange} min="0" max="500" />
-                  <small>penalty × (1 - completion_rate)</small>
-                </div>
+              <div className="info-box">
+                Penalty = missed potential × {(formData.incomplete_penalty_percent * 100).toFixed(0)}%<br />
+                Example: 3 missed E3 tasks (36 potential pts) → {Math.round(36 * formData.incomplete_penalty_percent)} pts penalty
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Threshold (severe)</label>
-                  <input className="form-input" type="number" step="0.05" name="incomplete_threshold_severe" value={formData.incomplete_threshold_severe} onChange={handleChange} min="0" max="1" />
-                  <small>Below {(formData.incomplete_threshold_severe * 100).toFixed(0)}% = fixed penalty</small>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Penalty (severe)</label>
-                  <input className="form-input" type="number" name="incomplete_penalty_severe" value={formData.incomplete_penalty_severe} onChange={handleChange} min="0" max="500" />
-                </div>
+              <div className="form-group">
+                <label className="form-label">Penalty Percent of Missed Potential</label>
+                <input className="form-input" type="number" step="0.05" name="incomplete_penalty_percent" value={formData.incomplete_penalty_percent} onChange={handleChange} min="0" max="1" />
+                <small>{(formData.incomplete_penalty_percent * 100).toFixed(0)}% of points you would have earned</small>
               </div>
             </div>
 

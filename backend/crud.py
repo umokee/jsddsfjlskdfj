@@ -830,13 +830,12 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
 
     Penalty types:
     1. Idle Penalty: 30 points for 0 tasks AND 0 habits completed
-    2. Incomplete Day Penalty:
-       - < 40% completion: 15 points (severe)
-       - 40-60% completion: 10 × (1 - rate) points (scaled)
-       - 60%+ completion: 0 points
+    2. Incomplete Day Penalty: % of missed task potential
+       - For each incomplete task: potential = Base × EnergyMultiplier
+       - Penalty = total_missed_potential × incomplete_penalty_percent (50%)
     3. Missed Habit Penalty:
        - Skill: 15 points
-       - Routine: 8 points (about half)
+       - Routine: ~8 points (about half)
 
     Progressive multiplier:
     - Formula: 1 + min(penalty_streak × 0.1, 0.5)
@@ -919,19 +918,34 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
     if day_history.tasks_completed == 0 and day_history.habits_completed == 0:
         penalty += settings.idle_penalty
 
-    # === PENALTY 2: INCOMPLETE DAY PENALTY ===
+    # === PENALTY 2: INCOMPLETE DAY PENALTY (% of missed potential) ===
     completion_rate = 0.0
+    missed_task_potential = 0
+
     if day_history.tasks_planned > 0:
         completion_rate = min(day_history.tasks_completed / day_history.tasks_planned, 1.0)
         day_history.completion_rate = completion_rate
 
-        if completion_rate < settings.incomplete_threshold_severe:
-            # Severe penalty for < 40% completion
-            penalty += settings.incomplete_penalty_severe
-        elif completion_rate < settings.incomplete_day_threshold:
-            # Scaled penalty for 40-60% completion
-            penalty += int(settings.incomplete_day_penalty * (1 - completion_rate))
-        # 60%+ completion: no penalty
+        # Find incomplete tasks that were scheduled for that day
+        # (tasks that had is_today=True but weren't completed)
+        incomplete_tasks = db.query(Task).filter(
+            and_(
+                Task.is_habit == False,
+                Task.is_today == True,
+                Task.status != "completed"
+            )
+        ).all()
+
+        # Calculate potential points for each missed task
+        for task in incomplete_tasks:
+            # Potential = Base × EnergyMultiplier (assume perfect time/focus)
+            energy_mult = settings.energy_mult_base + (task.energy * settings.energy_mult_step)
+            potential = settings.points_per_task_base * energy_mult
+            missed_task_potential += potential
+
+        # Penalty = missed potential × penalty percent
+        if missed_task_potential > 0:
+            penalty += int(missed_task_potential * settings.incomplete_penalty_percent)
 
     # === DAILY CONSISTENCY BONUS ===
     # Only apply bonus if there's something earned and good completion
@@ -1019,7 +1033,8 @@ def _finalize_day_penalties(db: Session, target_date: date) -> dict:
         "completion_rate": day_history.completion_rate,
         "tasks_completed": day_history.tasks_completed,
         "tasks_planned": day_history.tasks_planned,
-        "missed_habits": missed_habits
+        "missed_habits": missed_habits,
+        "missed_task_potential": missed_task_potential
     }
 
 

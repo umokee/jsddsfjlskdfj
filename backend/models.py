@@ -100,10 +100,7 @@ class Settings(Base):
 
     # Penalties
     idle_penalty = Column(Integer, default=30)  # Penalty for 0 tasks AND 0 habits
-    incomplete_day_penalty = Column(Integer, default=10)
-    incomplete_day_threshold = Column(Float, default=0.6)  # 60% threshold for normal penalty
-    incomplete_threshold_severe = Column(Float, default=0.4)  # 40% threshold for severe penalty
-    incomplete_penalty_severe = Column(Integer, default=15)   # Fixed penalty for <40%
+    incomplete_penalty_percent = Column(Float, default=0.5)  # 50% of missed potential points
 
     missed_habit_penalty_base = Column(Integer, default=15)  # Base penalty for missed habit
     progressive_penalty_factor = Column(Float, default=0.1)  # Step per penalty_streak day
