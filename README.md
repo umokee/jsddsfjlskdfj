@@ -802,22 +802,61 @@ python backend/migrate_db.py
 
 ### NixOS (Рекомендуется)
 
-Полностью автоматизированный деплой с:
-- Git clone
-- Сборка фронтенда
-- Сервис backend
-- Reverse proxy (Caddy)
-- Интеграция Fail2ban
-- Автоматическая генерация API ключа
+#### Вариант 1: Docker (Самый простой) ⭐
 
-**Минимальная конфигурация:**
+Полностью автоматический деплой с Docker:
+- ✅ Автоматическое клонирование из Git
+- ✅ Автоматическая сборка Docker контейнеров
+- ✅ Автозапуск при загрузке
+- ✅ Обновление одной командой: `task-manager-update`
+- ✅ Опциональное автообновление по расписанию
+
+**Установка:**
+
+```bash
+# 1. Скопировать модуль
+sudo cp deployment/nixos-docker-module.nix /etc/nixos/
+```
+
+Добавить в `/etc/nixos/configuration.nix`:
 
 ```nix
-{ config, pkgs, ... }:
 {
-  imports = [
-    /path/to/umtask/deployment/nixos-module.nix
-  ];
+  imports = [ ./nixos-docker-module.nix ];
+
+  services.task-manager-docker = {
+    enable = true;
+    apiKey = "ваш-секретный-ключ";  # Обязательно измените!
+    gitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
+    gitBranch = "main";
+    publicPort = 8080;  # 443 занят VPN
+    autoUpdate = false;  # true для автообновления каждый день в 3:00
+  };
+}
+```
+
+```bash
+# 2. Применить
+sudo nixos-rebuild switch
+
+# Готово! Доступ: http://localhost:8080
+```
+
+**Обновление:**
+
+```bash
+sudo task-manager-update
+```
+
+Смотрите `NIXOS-DOCKER-INSTALL.md` для подробной документации.
+
+#### Вариант 2: Native (Без Docker)
+
+Для деплоя без Docker с нативной сборкой:
+
+```nix
+{
+  imports = [ /path/to/umtask/deployment/nixos-module.nix ];
 
   services.task-manager = {
     enable = true;
