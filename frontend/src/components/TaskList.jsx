@@ -2,25 +2,6 @@ import { formatTimeSpent } from '../utils/timeFormat';
 import { formatDueDate, sortByDueDate } from '../utils/dateFormat';
 
 function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll }) {
-  const getPriorityClass = (priority) => {
-    if (priority >= 7) return 'priority-high';
-    if (priority >= 4) return 'priority-medium';
-    return 'priority-low';
-  };
-
-  const renderEnergyDots = (energy) => {
-    return (
-      <div className="energy-badge">
-        {[...Array(5)].map((_, i) => (
-          <div
-            key={i}
-            className={`energy-dot ${i < energy ? 'filled' : ''}`}
-          />
-        ))}
-      </div>
-    );
-  };
-
   if (!tasks || tasks.length === 0) {
     return (
       <div className="empty-state">
@@ -81,26 +62,17 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll }) {
             </div>
 
           <div className="task-meta">
-            {task.project && <span>Project: {task.project}</span>}
-            <span className={`task-badge ${getPriorityClass(task.priority)}`}>
-              P: {task.priority}
-            </span>
-            <span className="task-badge">
-              E: {task.energy}
-            </span>
-            {renderEnergyDots(task.energy)}
+            {task.project && <span>{task.project}</span>}
+            <span>P:{task.priority}</span>
+            <span>E:{task.energy}</span>
             {task.time_spent > 0 && (
-              <span className="task-badge" style={{ backgroundColor: '#3b82f6', color: '#fff' }}>
-                ⏱️ {formatTimeSpent(task.time_spent)}
-              </span>
+              <span>TIME: {formatTimeSpent(task.time_spent)}</span>
             )}
             {task.is_habit && task.streak > 0 && (
-              <span className="task-badge" style={{ backgroundColor: '#f59e0b', color: '#000' }}>
-                🔥 {task.streak} day{task.streak > 1 ? 's' : ''}
-              </span>
+              <span>STREAK: {task.streak}D</span>
             )}
             {task.is_habit && (
-              <span className="task-badge">Habit</span>
+              <span>HABIT</span>
             )}
             {dueDateLabel && (
               <span>{dueDateLabel}</span>

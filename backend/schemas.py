@@ -72,6 +72,7 @@ class SettingsBase(BaseModel):
     points_per_task_base: int = Field(default=10, ge=1, le=1000)
     points_per_habit_base: int = Field(default=10, ge=1, le=1000)
     streak_multiplier: float = Field(default=1.0, ge=0.0, le=10.0)
+    max_streak_bonus_days: int = Field(default=30, ge=1, le=365)
     energy_weight: float = Field(default=3.0, ge=0.0, le=20.0)
     time_efficiency_weight: float = Field(default=0.5, ge=0.0, le=5.0)
     minutes_per_energy_unit: int = Field(default=30, ge=5, le=180)
@@ -85,8 +86,14 @@ class SettingsBase(BaseModel):
     routine_habit_multiplier: float = Field(default=0.5, ge=0.0, le=1.0)
     roll_available_time: str = Field(default="00:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     auto_penalties_enabled: bool = Field(default=True)
+    penalty_time: str = Field(default="00:01", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     auto_roll_enabled: bool = Field(default=False)
     auto_roll_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    auto_backup_enabled: bool = Field(default=True)
+    backup_time: str = Field(default="03:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    backup_interval_days: int = Field(default=1, ge=1, le=30)
+    backup_keep_local_count: int = Field(default=10, ge=1, le=100)
+    google_drive_enabled: bool = Field(default=False)
 
 
 class SettingsUpdate(SettingsBase):
@@ -96,6 +103,7 @@ class SettingsUpdate(SettingsBase):
 class SettingsResponse(SettingsBase):
     id: int
     updated_at: datetime
+    last_backup_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -166,6 +174,26 @@ class RestDayCreate(RestDayBase):
 class RestDayResponse(RestDayBase):
     id: int
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Backup schemas
+class BackupBase(BaseModel):
+    filename: str
+    size_bytes: int
+    backup_type: str = "auto"
+
+
+class BackupResponse(BackupBase):
+    id: int
+    filepath: str
+    created_at: datetime
+    uploaded_to_drive: bool = False
+    google_drive_id: Optional[str] = None
+    status: str = "completed"
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True

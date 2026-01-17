@@ -14,7 +14,7 @@ class Task(Base):
     is_habit = Column(Boolean, default=False)
     is_today = Column(Boolean, default=False)
     due_date = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     urgency = Column(Float, default=0.0)
@@ -45,7 +45,7 @@ class Task(Base):
         if self.due_date:
             # Handle both timezone-aware and timezone-naive datetimes
             due_date_naive = self.due_date.replace(tzinfo=None) if self.due_date.tzinfo else self.due_date
-            now_naive = datetime.utcnow()
+            now_naive = datetime.now()
 
             days_until = (due_date_naive - now_naive).days
             if days_until <= 0:
@@ -78,6 +78,7 @@ class Settings(Base):
 
     # Multipliers and weights
     streak_multiplier = Column(Float, default=1.0)  # Reduced from 2.0
+    max_streak_bonus_days = Column(Integer, default=30)  # Cap for streak bonus
     energy_weight = Column(Float, default=3.0)
     time_efficiency_weight = Column(Float, default=0.5)
 
@@ -102,11 +103,20 @@ class Settings(Base):
     # Time-based settings
     roll_available_time = Column(String, default="00:00")  # Time when Roll becomes available (HH:MM format)
     auto_penalties_enabled = Column(Boolean, default=True)  # Auto-apply penalties at midnight
+    penalty_time = Column(String, default="00:01")  # Time when penalties are calculated (HH:MM format)
     auto_roll_enabled = Column(Boolean, default=False)  # Enable automatic roll
     auto_roll_time = Column(String, default="06:00")  # Time for automatic roll (HH:MM format)
 
+    # Backup settings
+    auto_backup_enabled = Column(Boolean, default=True)  # Enable automatic backups
+    backup_time = Column(String, default="03:00")  # Time for automatic backup (HH:MM format)
+    backup_interval_days = Column(Integer, default=1)  # Backup every N days
+    backup_keep_local_count = Column(Integer, default=10)  # Keep last N local backups
+    google_drive_enabled = Column(Boolean, default=False)  # Upload to Google Drive
+    last_backup_date = Column(DateTime, nullable=True)  # Last successful backup timestamp
+
     # Updated timestamp
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class PointHistory(Base):
@@ -134,7 +144,7 @@ class PointHistory(Base):
     # Detailed breakdown (JSON)
     details = Column(String, nullable=True)  # JSON with per-task breakdown
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class PointGoal(Base):
@@ -146,7 +156,7 @@ class PointGoal(Base):
     deadline = Column(Date, nullable=True)
     achieved = Column(Boolean, default=False)
     achieved_date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class RestDay(Base):
@@ -155,4 +165,25 @@ class RestDay(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False, unique=True, index=True)
     description = Column(String, nullable=True)  # Optional reason (e.g., "New Year", "Rest day")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class Backup(Base):
+    __tablename__ = "backups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False)  # e.g., "backup_2024-01-15_14-30-00.db"
+    filepath = Column(String, nullable=False)  # Local path
+    size_bytes = Column(Integer, nullable=False)  # File size in bytes
+    created_at = Column(DateTime, default=datetime.now, index=True)
+
+    # Google Drive info
+    google_drive_id = Column(String, nullable=True)  # Google Drive file ID
+    uploaded_to_drive = Column(Boolean, default=False)
+
+    # Backup type
+    backup_type = Column(String, default="auto")  # "auto" or "manual"
+
+    # Status
+    status = Column(String, default="completed")  # "completed", "failed", "uploading"
+    error_message = Column(String, nullable=True)
