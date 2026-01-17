@@ -13,6 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
+from backend.models import Backup
 import backend.crud as crud
 import backend.backup_service as backup_service
 
@@ -119,15 +120,24 @@ def check_auto_backup():
         current_time = now.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
 
+        # Debug: log every minute check (can be removed later)
+        if current_time == backup_time:
+            logger.info(f"Backup time matched: {current_time} == {backup_time}")
+
         # Check if it's time for backup
         if current_time != backup_time:
             return
 
         # Check if we need to backup based on interval
-        if settings.last_backup_date:
-            days_since_backup = (now - settings.last_backup_date).days
+        # Only check LAST AUTO backup, not manual backups
+        last_auto_backup = db.query(Backup).filter(
+            Backup.backup_type == "auto"
+        ).order_by(Backup.created_at.desc()).first()
+
+        if last_auto_backup:
+            days_since_backup = (now - last_auto_backup.created_at).days
             if days_since_backup < settings.backup_interval_days:
-                logger.info(f"Backup not needed yet (last backup: {days_since_backup} days ago)")
+                logger.info(f"Auto backup not needed yet (last auto backup: {days_since_backup} days ago)")
                 return
 
         logger.info(f"Executing automatic backup at {current_time}")
