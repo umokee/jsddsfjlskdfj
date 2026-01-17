@@ -12,10 +12,10 @@ from datetime import datetime, date, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
-from backend.database import SessionLocal
+from backend.infrastructure.database import SessionLocal
 from backend.models import Backup
 import backend.crud as crud
-import backend.backup_service as backup_service
+from backend.services import backup_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

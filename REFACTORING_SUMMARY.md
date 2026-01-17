@@ -180,11 +180,72 @@ The new architecture makes it easy to:
 5. Write unit tests for individual components
 6. Scale the application horizontally
 
+## Project Structure Reorganization (Phase 2)
+
+After the initial refactoring, the project structure was further improved with proper directory organization:
+
+### New Directory Structure:
+
+```
+backend/
+├── infrastructure/          # Core infrastructure
+│   ├── database.py         # Database connection (moved from root)
+│   └── migrations.py       # Auto migrations (moved from auto_migrate.py)
+│
+├── middleware/             # Request/response processing
+│   └── auth.py            # Authentication (moved from root)
+│
+├── services/              # Business logic layer
+│   ├── task_service.py
+│   ├── points_service.py
+│   ├── penalty_service.py
+│   ├── goal_service.py
+│   ├── date_service.py
+│   ├── backup_service.py      # Moved from root
+│   └── scheduler_service.py   # Moved from scheduler.py
+│
+├── repositories/          # Data access layer
+│   ├── task_repository.py
+│   ├── settings_repository.py
+│   └── points_repository.py
+│
+├── scripts/              # Utility scripts
+│   ├── init_db.py        # Moved from root
+│   ├── migrate_db.py     # Moved from root
+│   └── migrate_time_settings.py  # Moved from root
+│
+├── constants.py
+├── exceptions.py
+├── models.py
+├── schemas.py
+├── crud.py
+└── main.py
+```
+
+### Files Moved:
+- `backup_service.py` → `services/backup_service.py`
+- `scheduler.py` → `services/scheduler_service.py`
+- `auth.py` → `middleware/auth.py`
+- `database.py` → `infrastructure/database.py`
+- `auto_migrate.py` → `infrastructure/migrations.py`
+- `init_db.py`, `migrate_db.py`, `migrate_time_settings.py` → `scripts/`
+
+### Benefits of New Structure:
+
+1. **Clear Layer Separation**: Each directory represents a distinct architectural layer
+2. **Easy Navigation**: Developers can quickly find files based on their purpose
+3. **Scalability**: Easy to add new services, repositories, or middleware
+4. **Professional Organization**: Follows industry-standard project structure
+5. **Better Imports**: Import paths now indicate file purpose (`from backend.services import...`)
+
 ## Conclusion
 
 The codebase is now:
-- **Understandable**: Clear naming and organization
-- **Maintainable**: Changes localized to appropriate modules
-- **Extensible**: Easy to add new features
+- **Understandable**: Clear naming and organization with proper directory structure
+- **Maintainable**: Changes localized to appropriate modules and layers
+- **Extensible**: Easy to add new features without modifying existing code
 - **Testable**: Isolated components for unit testing
-- **Professional**: Follows SOLID principles and best practices
+- **Professional**: Follows SOLID principles and industry best practices
+- **Well-Organized**: Clean directory structure that scales
+
+See `ARCHITECTURE.md` for detailed architecture documentation.

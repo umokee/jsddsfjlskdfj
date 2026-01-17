@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-from backend.database import engine, get_db, Base
+from backend.infrastructure.database import engine, get_db, Base
 from backend import models  # Import all models to register them with Base
 from backend.schemas import (
     TaskCreate, TaskUpdate, TaskResponse, StatsResponse,
@@ -17,11 +17,11 @@ from backend.schemas import (
     RestDayCreate, RestDayResponse,
     BackupResponse
 )
-from backend.auth import verify_api_key
+from backend.middleware.auth import verify_api_key
 from backend import crud
-from backend.scheduler import start_scheduler, stop_scheduler
-from backend.auto_migrate import auto_migrate
-from backend import backup_service
+from backend.services.scheduler_service import start_scheduler, stop_scheduler
+from backend.infrastructure.migrations import auto_migrate
+from backend.services import backup_service
 from datetime import date
 
 # Configure logging for fail2ban integration

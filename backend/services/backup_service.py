@@ -11,7 +11,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from backend.models import Backup, Settings
-from backend.database import SessionLocal
+from backend.infrastructure.database import SessionLocal
 
 logger = logging.getLogger("task_manager.backup")
 

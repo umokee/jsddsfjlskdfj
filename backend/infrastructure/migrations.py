@@ -6,7 +6,7 @@ import sqlite3
 import logging
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
-from backend.database import engine, Base
+from backend.infrastructure.database import engine, Base
 from backend import models  # Import to register all models
 
 logger = logging.getLogger("task_manager.migrations")
