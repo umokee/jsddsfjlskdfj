@@ -8,7 +8,7 @@
 let
   enable = helpers.hasIn "services" "task-manager";
 
-  apiKey = "662a8fd07c07e64ddcae78a7d869603f";
+  apiKey = "e";
 
   gitRepo = "https://github.com/umokee/jsddsfjlskdfj.git";
   gitBranch = "claude/debug-task-habit-api-X194g";
