@@ -377,6 +377,8 @@ async def delete_backup_endpoint(backup_id: int, db: Session = Depends(get_db)):
     if not backup_service.delete_backup(db, backup_id):
         raise HTTPException(status_code=404, detail="Backup not found")
 
+if os.path.exists("frontend/dist"):
+    app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
