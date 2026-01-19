@@ -10,7 +10,7 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.database import engine, SessionLocal, Base
+from backend.infrastructure.database import engine, SessionLocal, Base
 from backend import models  # Import all models to register them with Base
 from backend import crud
 

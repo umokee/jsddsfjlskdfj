@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-from backend.database import engine, get_db, Base
+from backend.infrastructure.database import engine, get_db, Base
 from backend import models  # Import all models to register them with Base
 from backend.schemas import (
     TaskCreate, TaskUpdate, TaskResponse, StatsResponse,
@@ -17,15 +17,17 @@ from backend.schemas import (
     RestDayCreate, RestDayResponse,
     BackupResponse
 )
-from backend.auth import verify_api_key
+from backend.middleware.auth import verify_api_key
 from backend import crud
-from backend.scheduler import start_scheduler, stop_scheduler
-from backend.auto_migrate import auto_migrate
-from backend import backup_service
+from backend.services.scheduler_service import start_scheduler, stop_scheduler
+from backend.infrastructure.migrations import auto_migrate
+from backend.services import backup_service
 from datetime import date
 
 # Configure logging for fail2ban integration
-LOG_DIR = os.getenv("TASK_MANAGER_LOG_DIR", "/var/log/task-manager")
+from backend.constants import DEFAULT_LOG_DIRECTORY_PROD, DEFAULT_LOG_DIRECTORY_DEV
+
+LOG_DIR = os.getenv("TASK_MANAGER_LOG_DIR", DEFAULT_LOG_DIRECTORY_PROD)
 LOG_FILE = os.getenv("TASK_MANAGER_LOG_FILE", "app.log")
 
 # Create log directory if it doesn't exist (for development)
@@ -34,7 +36,7 @@ try:
     log_path = Path(LOG_DIR) / LOG_FILE
 except PermissionError:
     # Fallback to local directory if no permissions for /var/log
-    LOG_DIR = "./logs"
+    LOG_DIR = DEFAULT_LOG_DIRECTORY_DEV
     Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
     log_path = Path(LOG_DIR) / LOG_FILE
 
@@ -67,9 +69,11 @@ app = FastAPI(
 )
 
 # CORS settings for React frontend
+from backend.constants import CORS_ALLOWED_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
