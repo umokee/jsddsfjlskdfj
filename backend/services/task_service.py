@@ -362,7 +362,7 @@ class TaskService:
         deleted_count = self._delete_overdue_habits(today_start)
 
         # 2. Clear today tag from regular tasks
-        self.task_repo.clear_today_flag()
+        self.task_repo.clear_today_flag(self.db)
 
         # 3. Add critical tasks (due soon)
         critical_tasks = self._schedule_critical_tasks(today_start, critical_days)
