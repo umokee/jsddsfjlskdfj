@@ -8,7 +8,7 @@ Handles:
 """
 
 import logging
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
@@ -52,7 +52,6 @@ scheduler_stats = {
 
 def check_auto_roll():
     """Check if automatic roll should be executed (uses effective date for shifted schedules)"""
-    from datetime import timezone
     db: Session = SessionLocal()
     stats = scheduler_stats['jobs']['check_auto_roll']
     stats['checks'] += 1
@@ -65,9 +64,10 @@ def check_auto_roll():
         if not settings.auto_roll_enabled:
             return
 
-        now = datetime.now()
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc.astimezone()  # Convert to local timezone for time comparison
         today = crud.get_effective_date(settings)
-        current_time = now.strftime("%H:%M")
+        current_time = now_local.strftime("%H:%M")
         auto_roll_time = settings.auto_roll_time or "06:00"
 
         # Check if we haven't rolled today and it's time for auto-roll
@@ -94,7 +94,6 @@ def check_auto_roll():
 
 def check_auto_penalties():
     """Check if automatic penalties should be applied"""
-    from datetime import timezone
     db: Session = SessionLocal()
     stats = scheduler_stats['jobs']['check_auto_penalties']
     stats['checks'] += 1
@@ -107,11 +106,12 @@ def check_auto_penalties():
         if not settings.auto_penalties_enabled:
             return
 
-        now = datetime.now()
-        current_time = now.strftime("%H:%M")
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc.astimezone()  # Convert to local timezone for time comparison
+        current_time = now_local.strftime("%H:%M")
         penalty_time = settings.penalty_time or "00:01"
 
-        # Check if it's time for penalties
+        # Check if it's time for penalties (check for exact minute match)
         if current_time != penalty_time:
             return
 
@@ -153,7 +153,6 @@ def reset_roll_availability():
 
 def check_auto_backup():
     """Check if automatic backup should be executed"""
-    from datetime import timezone
     db: Session = SessionLocal()
     stats = scheduler_stats['jobs']['check_auto_backup']
     stats['checks'] += 1
@@ -166,11 +165,12 @@ def check_auto_backup():
         if not settings.auto_backup_enabled:
             return
 
-        now = datetime.now()
-        current_time = now.strftime("%H:%M")
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc.astimezone()  # Convert to local timezone for time comparison
+        current_time = now_local.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
 
-        # Check if it's time for backup
+        # Check if it's time for backup (check for exact minute match)
         if current_time != backup_time:
             return
 
@@ -181,7 +181,7 @@ def check_auto_backup():
         ).order_by(Backup.created_at.desc()).first()
 
         if last_auto_backup:
-            days_since_backup = (now - last_auto_backup.created_at).days
+            days_since_backup = (now_utc - last_auto_backup.created_at).days
             if days_since_backup < settings.backup_interval_days:
                 logger.info(f"Auto backup not needed yet (last auto backup: {days_since_backup} days ago)")
                 return
@@ -221,7 +221,6 @@ scheduler = BackgroundScheduler()
 
 def start_scheduler():
     """Start the background scheduler"""
-    from datetime import timezone
     print(">>> SCHEDULER: Starting Task Manager background scheduler")  # Direct print for debugging
     logger.info("Starting Task Manager background scheduler")
 
@@ -270,7 +269,6 @@ def stop_scheduler():
 
 def get_scheduler_status():
     """Get detailed scheduler status and statistics"""
-    from datetime import timezone
     now = datetime.now(timezone.utc)
 
     # Get current settings
