@@ -292,7 +292,7 @@ def get_scheduler_status():
         next_run_time = job.next_run_time
         seconds_until_next = None
         if next_run_time:
-            seconds_until_next = (next_run_time - now).total_seconds()
+            seconds_until_next = (next_run_time.replace(tzinfo=None) - now).total_seconds()
 
         last_check = job_stats.get('last_check')
         last_execution = job_stats.get('last_execution')
