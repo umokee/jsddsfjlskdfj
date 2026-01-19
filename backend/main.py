@@ -206,13 +206,12 @@ async def can_roll_today(db: Session = Depends(get_db)):
     """Check if roll is available right now (considering time)"""
     can_roll, error_msg = crud.can_roll_now(db)
     settings = crud.get_settings(db)
-    
-    return CanRollResponse(
-        can_roll=can_roll,
-        error_message=error_msg if not can_roll else None,
-        roll_available_time=settings.roll_available_time,
-        last_roll_date=settings.last_roll_date
-    )
+    return {
+        "can_roll": can_roll,
+        "error_message": error_msg if not can_roll else None,
+        "roll_available_time": settings.roll_available_time,
+        "last_roll_date": settings.last_roll_date.isoformat() if settings.last_roll_date else None
+    }
 
 @app.post("/api/tasks/roll", dependencies=[Depends(verify_api_key)])
 async def roll_tasks(mood: Optional[str] = None, db: Session = Depends(get_db)):
