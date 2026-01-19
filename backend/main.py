@@ -15,8 +15,7 @@ from backend.schemas import (
     PointHistoryResponse,
     PointGoalCreate, PointGoalUpdate, PointGoalResponse,
     RestDayCreate, RestDayResponse,
-    BackupResponse,
-    CanRollResponse
+    BackupResponse
 )
 from backend.middleware.auth import verify_api_key
 from backend import crud
@@ -207,15 +206,6 @@ async def can_roll_today(db: Session = Depends(get_db)):
     """Check if roll is available right now (considering time)"""
     can_roll, error_msg = crud.can_roll_now(db)
     settings = crud.get_settings(db)
-
-    final_error = str(error_msg) if (not can_roll and error_msg) else None
-    
-    final_date = settings.last_roll_date
-    if isinstance(final_date, str):
-        try:
-            final_date = date.fromisoformat(final_date)
-        except ValueError:
-            final_date = None
     
     return CanRollResponse(
         can_roll=can_roll,
