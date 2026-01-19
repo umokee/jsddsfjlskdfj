@@ -312,17 +312,23 @@ class TaskService:
         settings = self.settings_repo.get(self.db)
         now = datetime.now()
         effective_today = self.date_service.get_effective_date(settings)
-        current_time = now.strftime("%H:%M")
+        current_hhmm = now.strftime("%H%M")
 
         # Check if already rolled today
         if settings.last_roll_date == effective_today:
             return False, "Roll already done today"
 
+        if settings.day_start_enabled:
+             return True, ""
+
         # Check if current time is after roll_available_time
-        if not settings.day_start_enabled and settings.last_roll_date != effective_today:
-            roll_time = settings.roll_available_time or "00:00"
-            if current_time < roll_time:
-                return False, f"Roll will be available at {roll_time}"
+        if not settings.day_start_enabled:
+            roll_time_str = settings.roll_available_time or "0000"
+            target_hhmm = roll_time_str.replace(":", "")
+            
+            if int(current_hhmm) < int(target_hhmm):
+                formatted_time = f"{target_hhmm[:2]}:{target_hhmm[2:]}"
+                return False, f"Roll will be available at {formatted_time}"
 
         return True, ""
 
