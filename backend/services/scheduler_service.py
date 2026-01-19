@@ -8,9 +8,10 @@ Handles:
 """
 
 import logging
-from datetime import datetime, date, timedelta
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+import asyncio
+from datetime import datetime
+from rocketry import Rocketry
+from rocketry.conds import every
 from sqlalchemy.orm import Session
 from backend.infrastructure.database import SessionLocal
 from backend.models import Backup
@@ -21,198 +22,142 @@ from backend.services import backup_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("task_manager.scheduler")
 
+# Create Rocketry app with async execution
+app = Rocketry(config={"task_execution": "async"})
 
-def check_auto_roll():
-    """Check if automatic roll should be executed (uses effective date for shifted schedules)"""
-    db: Session = SessionLocal()
+# --- Helper Functions ---
+
+def get_settings_sync():
+    """Get settings from DB in a fresh session"""
+    db = SessionLocal()
     try:
-        settings = crud.get_settings(db)
-
-        # Only proceed if auto_roll is enabled
-        if not settings.auto_roll_enabled:
-            return
-
-        now = datetime.now()
-        today = crud.get_effective_date(settings)
-        current_time = now.strftime("%H:%M")
-        auto_roll_time = settings.auto_roll_time or "06:00"
-
-        # Check if we haven't rolled today and it's time for auto-roll
-        # If day_start is enabled, the effective date change handles the timing
-        should_check_time = not settings.day_start_enabled
-        if settings.last_roll_date != today and (not should_check_time or current_time >= auto_roll_time):
-            logger.info(f"Executing automatic roll at {current_time}")
-            result = crud.roll_tasks(db)
-
-            if "error" not in result:
-                logger.info(f"Auto-roll successful: {len(result['tasks'])} tasks, {len(result['habits'])} habits")
-            else:
-                logger.warning(f"Auto-roll failed: {result['error']}")
-
-    except Exception as e:
-        logger.error(f"Error in check_auto_roll: {e}")
+        return crud.get_settings(db)
     finally:
         db.close()
 
+# --- Conditions ---
+# These run every cycle (default is often) to check if a task should start
 
-def check_auto_penalties():
-    """Check if automatic penalties should be applied"""
-    db: Session = SessionLocal()
-    try:
-        settings = crud.get_settings(db)
+@app.cond()
+def is_roll_time():
+    """Check if it matches the configured roll time"""
+    settings = get_settings_sync()
+    if not settings.auto_roll_enabled:
+        return False
+    
+    current_time = datetime.now().strftime("%H:%M")
+    target_time = settings.auto_roll_time or "06:00"
+    return current_time == target_time
 
-        # Only proceed if auto_penalties is enabled
-        if not settings.auto_penalties_enabled:
-            return
+@app.cond()
+def is_penalty_time():
+    """Check if it matches the configured penalty time"""
+    settings = get_settings_sync()
+    if not settings.auto_penalties_enabled:
+        return False
+        
+    current_time = datetime.now().strftime("%H:%M")
+    target_time = settings.penalty_time or "00:01"
+    return current_time == target_time
 
-        now = datetime.now()
-        current_time = now.strftime("%H:%M")
-        penalty_time = settings.penalty_time or "00:01"
+@app.cond()
+def is_backup_time():
+    """Check if it matches the configured backup time"""
+    settings = get_settings_sync()
+    if not settings.auto_backup_enabled:
+        return False
+        
+    current_time = datetime.now().strftime("%H:%M")
+    target_time = settings.backup_time or "03:00"
+    return current_time == target_time
 
-        # Check if it's time for penalties
-        if current_time != penalty_time:
-            return
+# --- Tasks ---
 
-        logger.info(f"Applying penalties for yesterday at {current_time}")
+@app.task(every("1 minute") & is_roll_time)
+async def task_auto_roll():
+    """Execute auto-roll"""
+    logger.info("Starting auto-roll task...")
+    
+    # Run synchronous DB operations in a thread executor
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _run_sync_roll)
 
-        # Apply penalties for yesterday
-        penalty_info = crud.calculate_daily_penalties(db)
-
-        logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
-
-    except Exception as e:
-        logger.error(f"Error in check_auto_penalties: {e}")
-    finally:
-        db.close()
-
-
-def reset_roll_availability():
-    """Reset roll availability at configured time (uses effective date for shifted schedules)"""
-    db: Session = SessionLocal()
+def _run_sync_roll():
+    db = SessionLocal()
     try:
         settings = crud.get_settings(db)
         today = crud.get_effective_date(settings)
-
-        # If last_roll_date is not today, it's already reset
-        # This function ensures the reset happens at the configured time
-        if settings.last_roll_date == today:
-            logger.info(f"Roll availability already set for today")
+        
+        # Double-check logic from original service
+        if settings.last_roll_date != today:
+             logger.info(f"Executing automatic roll")
+             result = crud.roll_tasks(db)
+             if "error" not in result:
+                 logger.info(f"Auto-roll successful: {len(result.get('tasks', []))} tasks")
+             else:
+                 logger.warning(f"Auto-roll failed: {result['error']}")
         else:
-            logger.info(f"Roll is available for {today}")
-
+            logger.info("Auto-roll already done for today")
     except Exception as e:
-        logger.error(f"Error in reset_roll_availability: {e}")
+        logger.error(f"Error in auto-roll: {e}")
     finally:
         db.close()
 
+@app.task(every("1 minute") & is_penalty_time)
+async def task_auto_penalties():
+    """Execute auto-penalties"""
+    logger.info("Starting auto-penalties task...")
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _run_sync_penalties)
 
-def check_auto_backup():
-    """Check if automatic backup should be executed"""
-    db: Session = SessionLocal()
+def _run_sync_penalties():
+    db = SessionLocal()
+    try:
+        penalty_info = crud.calculate_daily_penalties(db)
+        logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
+    except Exception as e:
+        logger.error(f"Error in auto-penalties: {e}")
+    finally:
+        db.close()
+
+@app.task(every("1 minute") & is_backup_time)
+async def task_auto_backup():
+    """Execute auto-backup"""
+    logger.info("Starting auto-backup task...")
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _run_sync_backup)
+
+def _run_sync_backup():
+    db = SessionLocal()
     try:
         settings = crud.get_settings(db)
-
-        # Only proceed if auto_backup is enabled
-        if not settings.auto_backup_enabled:
-            logger.debug("Auto backup disabled, skipping")
-            return
-
-        now = datetime.now()
-        current_time = now.strftime("%H:%M")
-        backup_time = settings.backup_time or "03:00"
-
-        # Log time check (every 10 minutes for debug)
-        if now.minute % 10 == 0:
-            logger.info(f"Backup check: current={current_time}, target={backup_time}, enabled={settings.auto_backup_enabled}")
-
-        # Check if it's time for backup
-        if current_time == backup_time:
-            logger.info(f"Backup time matched: {current_time} == {backup_time}")
-
-        # Check if it's time for backup
-        if current_time != backup_time:
-            return
-
-        # Check if we need to backup based on interval
-        # Only check LAST AUTO backup, not manual backups
+        
+        # Check interval logic
         last_auto_backup = db.query(Backup).filter(
             Backup.backup_type == "auto"
         ).order_by(Backup.created_at.desc()).first()
-
+        
+        should_run = True
         if last_auto_backup:
-            days_since_backup = (now - last_auto_backup.created_at).days
-            if days_since_backup < settings.backup_interval_days:
-                logger.info(f"Auto backup not needed yet (last auto backup: {days_since_backup} days ago)")
-                return
-
-        logger.info(f"Executing automatic backup at {current_time}")
-
-        # Create backup
-        backup = backup_service.create_local_backup(db, backup_type="auto")
-
-        if backup:
-            logger.info(f"Auto-backup successful: {backup.filename}")
-
-            # Upload to Google Drive if enabled
-            if settings.google_drive_enabled:
-                try:
-                    backup_service.upload_to_google_drive(backup)
-                    logger.info(f"Auto-backup uploaded to Google Drive")
-                except Exception as e:
-                    logger.error(f"Google Drive upload failed: {e}")
-        else:
-            logger.error("Auto-backup failed")
-
+            days_since = (datetime.now() - last_auto_backup.created_at).days
+            if days_since < settings.backup_interval_days:
+                should_run = False
+                logger.info(f"Auto backup skipped (last was {days_since} days ago)")
+        
+        if should_run:
+            backup = backup_service.create_local_backup(db, backup_type="auto")
+            if backup:
+                logger.info(f"Auto-backup successful: {backup.filename}")
+                if settings.google_drive_enabled:
+                    try:
+                        backup_service.upload_to_google_drive(backup)
+                        logger.info("Auto-backup uploaded to Google Drive")
+                    except Exception as e:
+                        logger.error(f"GDrive upload failed: {e}")
     except Exception as e:
-        logger.error(f"Error in check_auto_backup: {e}")
+        logger.error(f"Error in auto-backup: {e}")
     finally:
         db.close()
 
-
-# Create scheduler instance
-scheduler = BackgroundScheduler()
-
-
-def start_scheduler():
-    """Start the background scheduler"""
-    print(">>> SCHEDULER: Starting Task Manager background scheduler")  # Direct print for debugging
-    logger.info("Starting Task Manager background scheduler")
-
-    # Check for auto-roll every minute
-    # (the function itself checks if it's time to roll)
-    scheduler.add_job(
-        check_auto_roll,
-        CronTrigger(minute='*'),  # Every minute
-        id='check_auto_roll',
-        replace_existing=True
-    )
-
-    # Check for auto-penalties every minute
-    # (the function itself checks if it's time to apply penalties)
-    scheduler.add_job(
-        check_auto_penalties,
-        CronTrigger(minute='*'),  # Every minute
-        id='check_auto_penalties',
-        replace_existing=True
-    )
-
-    # Check for auto-backup every minute
-    # (the function itself checks if it's time to backup)
-    scheduler.add_job(
-        check_auto_backup,
-        CronTrigger(minute='*'),  # Every minute
-        id='check_auto_backup',
-        replace_existing=True
-    )
-
-    # Start the scheduler
-    scheduler.start()
-    logger.info("Background scheduler started successfully")
-    logger.info(f"Scheduled jobs: {[job.id for job in scheduler.get_jobs()]}")
-
-
-def stop_scheduler():
-    """Stop the background scheduler"""
-    if scheduler.running:
-        scheduler.shutdown()
-        logger.info("Background scheduler stopped")
+# Export 'app' so main.py can import it
+scheduler_app = app
