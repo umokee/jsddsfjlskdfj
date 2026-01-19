@@ -41,10 +41,12 @@ class DateService:
 
         # Parse day_start_time
         try:
-            parts = settings.day_start_time.split(":")
-            day_start_hour = int(parts[0])
-            day_start_minute = int(parts[1])
-        except (ValueError, IndexError):
+            t_str = settings.day_start_time or "06:00"
+            t_str = t_str.replace(":", "")
+            t_str = t_str.zfill(4)
+            day_start_hour = int(t_str[:2])
+            day_start_minute = int(t_str[2:])
+        except (ValueError, IndexError, AttributeError):
             return today
 
         # If current time is before day_start_time, we're still in "yesterday"
