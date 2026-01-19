@@ -229,3 +229,10 @@ class BackupResponse(BackupBase):
 
     class Config:
         from_attributes = True
+
+
+class CanRollResponse(BaseModel):
+    can_roll: bool
+    error_message: Optional[str] = None
+    roll_available_time: Optional[str] = None
+    last_roll_date: Optional[date] = None
