@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
@@ -377,9 +376,6 @@ async def delete_backup_endpoint(backup_id: int, db: Session = Depends(get_db)):
     """Delete a backup"""
     if not backup_service.delete_backup(db, backup_id):
         raise HTTPException(status_code=404, detail="Backup not found")
-
-if os.path.exists("frontend/dist"):
-    app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
 
 # ===== SCHEDULER ENDPOINTS =====
 
