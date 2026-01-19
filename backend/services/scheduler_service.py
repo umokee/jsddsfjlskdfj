@@ -55,7 +55,7 @@ def check_auto_roll():
     db: Session = SessionLocal()
     stats = scheduler_stats['jobs']['check_auto_roll']
     stats['checks'] += 1
-    stats['last_check'] = datetime.now(timezone.utc)
+    stats['last_check'] = datetime.now()
 
     try:
         settings = crud.get_settings(db)
@@ -64,7 +64,7 @@ def check_auto_roll():
         if not settings.auto_roll_enabled:
             return
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now()
         now_local = now_utc.astimezone()  # Convert to local timezone for time comparison
         today = crud.get_effective_date(settings)
         current_time = now_local.strftime("%H:%M")
@@ -79,7 +79,7 @@ def check_auto_roll():
 
             if "error" not in result:
                 stats['executions'] += 1
-                stats['last_execution'] = datetime.now(timezone.utc)
+                stats['last_execution'] = datetime.now()
                 logger.info(f"Auto-roll successful: {len(result['tasks'])} tasks, {len(result['habits'])} habits")
             else:
                 logger.warning(f"Auto-roll failed: {result['error']}")
@@ -97,7 +97,7 @@ def check_auto_penalties():
     db: Session = SessionLocal()
     stats = scheduler_stats['jobs']['check_auto_penalties']
     stats['checks'] += 1
-    stats['last_check'] = datetime.now(timezone.utc)
+    stats['last_check'] = datetime.now()
 
     try:
         settings = crud.get_settings(db)
@@ -106,7 +106,7 @@ def check_auto_penalties():
         if not settings.auto_penalties_enabled:
             return
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now()
         now_local = now_utc.astimezone()  # Convert to local timezone for time comparison
         current_time = now_local.strftime("%H:%M")
         penalty_time = settings.penalty_time or "00:01"
@@ -121,7 +121,7 @@ def check_auto_penalties():
         penalty_info = crud.calculate_daily_penalties(db)
 
         stats['executions'] += 1
-        stats['last_execution'] = datetime.now(timezone.utc)
+        stats['last_execution'] = datetime.now()
         logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
 
     except Exception as e:
@@ -156,7 +156,7 @@ def check_auto_backup():
     db: Session = SessionLocal()
     stats = scheduler_stats['jobs']['check_auto_backup']
     stats['checks'] += 1
-    stats['last_check'] = datetime.now(timezone.utc)
+    stats['last_check'] = datetime.now()
 
     try:
         settings = crud.get_settings(db)
@@ -165,7 +165,7 @@ def check_auto_backup():
         if not settings.auto_backup_enabled:
             return
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now()
         now_local = now_utc.astimezone()  # Convert to local timezone for time comparison
         current_time = now_local.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
@@ -193,7 +193,7 @@ def check_auto_backup():
 
         if backup:
             stats['executions'] += 1
-            stats['last_execution'] = datetime.now(timezone.utc)
+            stats['last_execution'] = datetime.now()
             logger.info(f"Auto-backup successful: {backup.filename}")
 
             # Upload to Google Drive if enabled
@@ -225,7 +225,7 @@ def start_scheduler():
     logger.info("Starting Task Manager background scheduler")
 
     # Record start time
-    scheduler_stats['started_at'] = datetime.now(timezone.utc)
+    scheduler_stats['started_at'] = datetime.now()
 
     # Check for auto-roll every minute
     # (the function itself checks if it's time to roll)
@@ -269,7 +269,7 @@ def stop_scheduler():
 
 def get_scheduler_status():
     """Get detailed scheduler status and statistics"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
 
     # Get current settings
     db: Session = SessionLocal()
