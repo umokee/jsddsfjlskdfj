@@ -201,7 +201,7 @@ async def complete_task(task_id: Optional[int] = None, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="No task to complete")
     return task
 
-@app.get("/api/tasks/can-roll", response_model=CanRollResponse, dependencies=[Depends(verify_api_key)])
+@app.get("/api/tasks/can-roll", dependencies=[Depends(verify_api_key)])
 async def can_roll_today(db: Session = Depends(get_db)):
     """Check if roll is available right now (considering time)"""
     can_roll, error_msg = crud.can_roll_now(db)
