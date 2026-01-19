@@ -4,7 +4,4 @@ sqlalchemy==2.0.25
 pydantic==2.5.3
 python-multipart==0.0.6
 apscheduler==3.10.4
-rocketry==2.5.0
-redbird==0.7.1
-croniter==2.0.1
 python-dateutil==2.8.2

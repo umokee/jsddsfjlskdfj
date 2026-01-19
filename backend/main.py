@@ -19,7 +19,7 @@ from backend.schemas import (
 )
 from backend.middleware.auth import verify_api_key
 from backend import crud
-from backend.services.scheduler_service import scheduler_app
+from backend.services.scheduler_service import start_scheduler, stop_scheduler
 from backend.infrastructure.migrations import auto_migrate
 from backend.services import backup_service
 from datetime import date
@@ -83,11 +83,13 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Task Manager API started. Logging to: {log_path}")
+    start_scheduler()
 
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down Task Manager API")
+    stop_scheduler()
 
 # Health check (no auth required)
 @app.get("/")
@@ -375,15 +377,4 @@ async def delete_backup_endpoint(backup_id: int, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    config = uvicorn.Config(app, host="0.0.0.0", port=8000, loop="asyncio")
-    server = uvicorn.Server(config)
-
-    async def main():
-        print(">>> Starting Task Manager (FastAPI + Rocketry)...")
-        # Run both FastAPI and Rocketry in the same event loop
-        await asyncio.gather(
-            server.serve(),
-            scheduler_app.serve()
-        )
-
-    asyncio.run(main())
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=False)
