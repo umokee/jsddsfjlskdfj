@@ -294,6 +294,9 @@ def get_scheduler_status():
         if next_run_time:
             seconds_until_next = (next_run_time - now).total_seconds()
 
+        last_check = job_stats.get('last_check')
+        last_execution = job_stats.get('last_execution')
+
         jobs_info.append({
             'id': job.id,
             'name': job.name or job.id,
@@ -301,8 +304,8 @@ def get_scheduler_status():
             'seconds_until_next': int(seconds_until_next) if seconds_until_next else None,
             'checks': job_stats.get('checks', 0),
             'executions': job_stats.get('executions', 0),
-            'last_check': job_stats.get('last_check').isoformat() if job_stats.get('last_check') else None,
-            'last_execution': job_stats.get('last_execution').isoformat() if job_stats.get('last_execution') else None,
+            'last_check': last_check.isoformat() if last_check else None,
+            'last_execution': last_execution.isoformat() if last_execution else None,
             'last_error': job_stats.get('last_error'),
         })
 
