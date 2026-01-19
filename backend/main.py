@@ -20,7 +20,7 @@ from backend.schemas import (
 )
 from backend.middleware.auth import verify_api_key
 from backend import crud
-from backend.services.scheduler_service import start_scheduler, stop_scheduler
+from backend.services.scheduler_service import start_scheduler, stop_scheduler, get_scheduler_status
 from backend.infrastructure.migrations import auto_migrate
 from backend.services import backup_service
 from datetime import date
@@ -380,6 +380,14 @@ async def delete_backup_endpoint(backup_id: int, db: Session = Depends(get_db)):
 
 if os.path.exists("frontend/dist"):
     app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
+
+# ===== SCHEDULER ENDPOINTS =====
+
+@app.get("/api/scheduler/status", dependencies=[Depends(verify_api_key)])
+async def get_scheduler_status_endpoint():
+    """Get scheduler status and statistics"""
+    return get_scheduler_status()
+
 
 if __name__ == "__main__":
     import uvicorn

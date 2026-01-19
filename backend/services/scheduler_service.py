@@ -21,10 +21,42 @@ from backend.services import backup_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("task_manager.scheduler")
 
+# Statistics tracking
+scheduler_stats = {
+    'started_at': None,
+    'jobs': {
+        'check_auto_roll': {
+            'checks': 0,
+            'executions': 0,
+            'last_check': None,
+            'last_execution': None,
+            'last_error': None
+        },
+        'check_auto_penalties': {
+            'checks': 0,
+            'executions': 0,
+            'last_check': None,
+            'last_execution': None,
+            'last_error': None
+        },
+        'check_auto_backup': {
+            'checks': 0,
+            'executions': 0,
+            'last_check': None,
+            'last_execution': None,
+            'last_error': None
+        }
+    }
+}
+
 
 def check_auto_roll():
     """Check if automatic roll should be executed (uses effective date for shifted schedules)"""
     db: Session = SessionLocal()
+    stats = scheduler_stats['jobs']['check_auto_roll']
+    stats['checks'] += 1
+    stats['last_check'] = datetime.now()
+
     try:
         settings = crud.get_settings(db)
 
@@ -45,12 +77,16 @@ def check_auto_roll():
             result = crud.roll_tasks(db)
 
             if "error" not in result:
+                stats['executions'] += 1
+                stats['last_execution'] = datetime.now()
                 logger.info(f"Auto-roll successful: {len(result['tasks'])} tasks, {len(result['habits'])} habits")
             else:
                 logger.warning(f"Auto-roll failed: {result['error']}")
+                stats['last_error'] = str(result['error'])
 
     except Exception as e:
         logger.error(f"Error in check_auto_roll: {e}")
+        stats['last_error'] = str(e)
     finally:
         db.close()
 
@@ -58,6 +94,10 @@ def check_auto_roll():
 def check_auto_penalties():
     """Check if automatic penalties should be applied"""
     db: Session = SessionLocal()
+    stats = scheduler_stats['jobs']['check_auto_penalties']
+    stats['checks'] += 1
+    stats['last_check'] = datetime.now()
+
     try:
         settings = crud.get_settings(db)
 
@@ -78,10 +118,13 @@ def check_auto_penalties():
         # Apply penalties for yesterday
         penalty_info = crud.calculate_daily_penalties(db)
 
+        stats['executions'] += 1
+        stats['last_execution'] = datetime.now()
         logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
 
     except Exception as e:
         logger.error(f"Error in check_auto_penalties: {e}")
+        stats['last_error'] = str(e)
     finally:
         db.close()
 
@@ -109,25 +152,20 @@ def reset_roll_availability():
 def check_auto_backup():
     """Check if automatic backup should be executed"""
     db: Session = SessionLocal()
+    stats = scheduler_stats['jobs']['check_auto_backup']
+    stats['checks'] += 1
+    stats['last_check'] = datetime.now()
+
     try:
         settings = crud.get_settings(db)
 
         # Only proceed if auto_backup is enabled
         if not settings.auto_backup_enabled:
-            logger.debug("Auto backup disabled, skipping")
             return
 
         now = datetime.now()
         current_time = now.strftime("%H:%M")
         backup_time = settings.backup_time or "03:00"
-
-        # Log time check (every 10 minutes for debug)
-        if now.minute % 10 == 0:
-            logger.info(f"Backup check: current={current_time}, target={backup_time}, enabled={settings.auto_backup_enabled}")
-
-        # Check if it's time for backup
-        if current_time == backup_time:
-            logger.info(f"Backup time matched: {current_time} == {backup_time}")
 
         # Check if it's time for backup
         if current_time != backup_time:
@@ -151,6 +189,8 @@ def check_auto_backup():
         backup = backup_service.create_local_backup(db, backup_type="auto")
 
         if backup:
+            stats['executions'] += 1
+            stats['last_execution'] = datetime.now()
             logger.info(f"Auto-backup successful: {backup.filename}")
 
             # Upload to Google Drive if enabled
@@ -160,11 +200,14 @@ def check_auto_backup():
                     logger.info(f"Auto-backup uploaded to Google Drive")
                 except Exception as e:
                     logger.error(f"Google Drive upload failed: {e}")
+                    stats['last_error'] = f"Google Drive upload: {str(e)}"
         else:
             logger.error("Auto-backup failed")
+            stats['last_error'] = "Backup creation failed"
 
     except Exception as e:
         logger.error(f"Error in check_auto_backup: {e}")
+        stats['last_error'] = str(e)
     finally:
         db.close()
 
@@ -177,6 +220,9 @@ def start_scheduler():
     """Start the background scheduler"""
     print(">>> SCHEDULER: Starting Task Manager background scheduler")  # Direct print for debugging
     logger.info("Starting Task Manager background scheduler")
+
+    # Record start time
+    scheduler_stats['started_at'] = datetime.now()
 
     # Check for auto-roll every minute
     # (the function itself checks if it's time to roll)
@@ -216,3 +262,84 @@ def stop_scheduler():
     if scheduler.running:
         scheduler.shutdown()
         logger.info("Background scheduler stopped")
+
+
+def get_scheduler_status():
+    """Get detailed scheduler status and statistics"""
+    now = datetime.now()
+
+    # Get current settings
+    db: Session = SessionLocal()
+    try:
+        settings = crud.get_settings(db)
+    finally:
+        db.close()
+
+    # Calculate uptime
+    uptime_seconds = None
+    if scheduler_stats['started_at']:
+        uptime_seconds = (now - scheduler_stats['started_at']).total_seconds()
+
+    # Get jobs info
+    jobs_info = []
+    for job in scheduler.get_jobs():
+        job_stats = scheduler_stats['jobs'].get(job.id, {})
+
+        # Get next run time
+        next_run_time = job.next_run_time
+        seconds_until_next = None
+        if next_run_time:
+            seconds_until_next = (next_run_time - now).total_seconds()
+
+        jobs_info.append({
+            'id': job.id,
+            'name': job.name or job.id,
+            'next_run_time': next_run_time.isoformat() if next_run_time else None,
+            'seconds_until_next': int(seconds_until_next) if seconds_until_next else None,
+            'checks': job_stats.get('checks', 0),
+            'executions': job_stats.get('executions', 0),
+            'last_check': job_stats.get('last_check').isoformat() if job_stats.get('last_check') else None,
+            'last_execution': job_stats.get('last_execution').isoformat() if job_stats.get('last_execution') else None,
+            'last_error': job_stats.get('last_error'),
+        })
+
+    return {
+        'running': scheduler.running,
+        'started_at': scheduler_stats['started_at'].isoformat() if scheduler_stats['started_at'] else None,
+        'uptime_seconds': int(uptime_seconds) if uptime_seconds else None,
+        'uptime_human': _format_uptime(uptime_seconds) if uptime_seconds else None,
+        'current_time': now.isoformat(),
+        'jobs': jobs_info,
+        'settings': {
+            'auto_roll_enabled': settings.auto_roll_enabled,
+            'auto_roll_time': settings.auto_roll_time,
+            'auto_penalties_enabled': settings.auto_penalties_enabled,
+            'penalty_time': settings.penalty_time,
+            'auto_backup_enabled': settings.auto_backup_enabled,
+            'backup_time': settings.backup_time,
+            'backup_interval_days': settings.backup_interval_days,
+        }
+    }
+
+
+def _format_uptime(seconds):
+    """Format uptime in human-readable format"""
+    if not seconds:
+        return "0s"
+
+    days = int(seconds // 86400)
+    hours = int((seconds % 86400) // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    if secs > 0 or not parts:
+        parts.append(f"{secs}s")
+
+    return " ".join(parts)

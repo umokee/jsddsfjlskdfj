@@ -28,6 +28,7 @@ import PointsDisplay from './components/PointsDisplay';
 import PointsGoals from './components/PointsGoals';
 import PointsCalculator from './components/PointsCalculator';
 import Backups from './components/Backups';
+import SchedulerStatus from './components/SchedulerStatus';
 
 function App() {
   const [apiKey, setApiKey] = useState(getApiKey());
@@ -242,6 +243,7 @@ function App() {
     { id: 'goals', label: '[>] GOALS' },
     { id: 'calculator', label: '[=] CALC' },
     { id: 'backups', label: '[#] BACKUPS' },
+    { id: 'scheduler', label: '[🤖] SCHEDULER' },
     { id: 'settings', label: '[~] CONFIG' },
   ];
 
@@ -291,6 +293,7 @@ function App() {
         {currentView === 'goals' && <PointsGoals currentPoints={currentPoints} />}
         {currentView === 'calculator' && <PointsCalculator />}
         {currentView === 'backups' && <Backups />}
+        {currentView === 'scheduler' && <SchedulerStatus />}
         {currentView === 'settings' && <Settings />}
 
         {currentView === 'tasks' && (

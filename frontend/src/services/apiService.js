@@ -147,6 +147,13 @@ export const backupsApi = {
   delete: (filename) => api.delete(`/backups/${filename}`)
 };
 
+/**
+ * Scheduler API
+ */
+export const schedulerApi = {
+  getStatus: () => api.get('/scheduler/status')
+};
+
 // Backward compatibility - export old API
 export const getTasks = taskApi.getAll;
 export const getPendingTasks = taskApi.getPending;
