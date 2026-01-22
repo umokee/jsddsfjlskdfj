@@ -383,11 +383,27 @@ class TaskService:
             mood, daily_limit, len(critical_tasks)
         )
 
-        # 6. Save tasks_planned count for today to track completion rate later
-        today_tasks_count = len(self.task_repo.get_today_tasks(self.db))
-        if today_tasks_count > 0:
+        # 6. Save tasks_planned count and task details for today to track completion rate later
+        today_tasks = self.task_repo.get_today_tasks(self.db)
+        if today_tasks:
+            import json
             today_history = self.points_service.get_or_create_today_history()
-            today_history.tasks_planned = today_tasks_count
+            today_history.tasks_planned = len(today_tasks)
+
+            # Save task details for penalty calculation later
+            planned_tasks_info = []
+            for task in today_tasks:
+                planned_tasks_info.append({
+                    "task_id": task.id,
+                    "energy": task.energy,
+                    "description": task.description[:50]  # Truncate for storage
+                })
+
+            # Store in details field (will be used for penalty calculation tomorrow)
+            existing_details = json.loads(today_history.details) if today_history.details else {}
+            existing_details["planned_tasks"] = planned_tasks_info
+            today_history.details = json.dumps(existing_details)
+
             self.db.commit()
 
         # 7. Update last roll date
