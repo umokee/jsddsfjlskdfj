@@ -249,7 +249,7 @@ class TaskService:
         elif habit.recurrence_type == RECURRENCE_EVERY_N_DAYS:
             expected_diff = max(1, habit.recurrence_interval or 1)
         elif habit.recurrence_type == RECURRENCE_WEEKLY:
-            expected_diff = 14  # Within 2 weeks is acceptable
+            expected_diff = 8  # Within 1 week + 1 day tolerance
         else:
             expected_diff = 1
 
