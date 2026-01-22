@@ -259,11 +259,16 @@ class TaskService:
             # On time or early - increment streak
             habit.streak = (habit.streak or 0) + 1
         else:
-            # Missed expected completion - reset streak
+            # Missed expected completion - this is first completion of new series
             habit.streak = 1
 
     def _create_next_habit_occurrence(self, habit: Task, next_due: date) -> None:
         """Create next occurrence of a recurring habit"""
+        # Determine if this is after a missed occurrence
+        # If habit was not completed (being created during roll cleanup), streak should reset to 0
+        # If habit was completed (being created after completion), keep streak from parent
+        is_missed = habit.status != TASK_STATUS_COMPLETED
+
         next_habit = Task(
             description=habit.description,
             project=habit.project,
@@ -276,7 +281,7 @@ class TaskService:
             recurrence_interval=habit.recurrence_interval,
             recurrence_days=habit.recurrence_days,
             habit_type=habit.habit_type,
-            streak=habit.streak,
+            streak=0 if is_missed else habit.streak,  # Reset to 0 if missed
             last_completed_date=habit.last_completed_date
         )
         next_habit.calculate_urgency()
