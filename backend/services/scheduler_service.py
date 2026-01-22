@@ -8,7 +8,7 @@ Handles:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from backend.infrastructure.database import SessionLocal
