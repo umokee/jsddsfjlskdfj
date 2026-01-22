@@ -181,25 +181,22 @@ class PenaltyService:
         )
         day_history.completion_rate = completion_rate
 
-        # Get incomplete tasks
-        incomplete_tasks = self.task_repo.get_incomplete_today_tasks(self.db)
+        # Calculate number of incomplete tasks
+        incomplete_count = day_history.tasks_planned - day_history.tasks_completed
 
-        # Calculate missed potential
-        missed_task_potential = 0
-        for task in incomplete_tasks:
-            # Potential = Base × EnergyMultiplier
-            energy_mult = settings.energy_mult_base + (
-                task.energy * settings.energy_mult_step
-            )
-            potential = settings.points_per_task_base * energy_mult
-            missed_task_potential += potential
+        if incomplete_count <= 0:
+            return 0, 0
+
+        # Calculate missed potential using average energy level (3)
+        # Since we can't access the actual tasks after roll, we use average
+        AVERAGE_ENERGY = 3
+        energy_mult = settings.energy_mult_base + (AVERAGE_ENERGY * settings.energy_mult_step)
+        potential_per_task = settings.points_per_task_base * energy_mult
+        missed_task_potential = int(incomplete_count * potential_per_task)
 
         # Calculate penalty
-        if missed_task_potential > 0:
-            penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
-            return penalty, int(missed_task_potential)
-
-        return 0, 0
+        penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
+        return penalty, missed_task_potential
 
     def _apply_consistency_bonus(
         self,
@@ -348,6 +345,8 @@ class PenaltyService:
         )
 
         # Update cumulative total (never goes below 0)
+        # NOTE: points_earned were already added to cumulative_total when tasks were completed
+        # So we only add the bonus and subtract penalties here
         net_change = day_history.points_bonus - penalty
         day_history.cumulative_total = max(
             0, day_history.cumulative_total + net_change

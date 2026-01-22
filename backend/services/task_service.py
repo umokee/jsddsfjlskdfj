@@ -190,7 +190,9 @@ class TaskService:
         if not task:
             return None
 
-        # Prevent duplicate completions
+        # Prevent duplicate completions (race condition protection)
+        # Refresh task from DB to get latest status
+        self.db.refresh(task)
         if task.status == TASK_STATUS_COMPLETED:
             return task
 
@@ -247,7 +249,8 @@ class TaskService:
         elif habit.recurrence_type == RECURRENCE_EVERY_N_DAYS:
             expected_diff = max(1, habit.recurrence_interval or 1)
         elif habit.recurrence_type == RECURRENCE_WEEKLY:
-            expected_diff = 14  # Within 2 weeks is acceptable
+            # For weekly habits, allow up to 7 days + 1 day grace period
+            expected_diff = 8
         else:
             expected_diff = 1
 
@@ -399,32 +402,27 @@ class TaskService:
         }
 
     def _delete_overdue_habits(self, today_start: datetime) -> int:
-        """Reschedule or delete overdue habits"""
+        """Delete overdue habits and create new instances if recurring"""
         overdue_habits = self.task_repo.get_overdue_habits(self.db, today_start)
-        rescheduled_count = 0
+        deleted_count = 0
         today = today_start.date()
 
         for habit in overdue_habits:
-            # For recurring habits, reschedule to next occurrence from today
+            # For recurring habits, create new instance at next occurrence
             if habit.recurrence_type != RECURRENCE_NONE:
-                # Calculate next due date from yesterday (so it doesn't include today if daily)
-                yesterday = today - timedelta(days=1)
-                next_due = self.date_service.calculate_next_due_date(habit, yesterday)
+                # Calculate next due date from current due date
+                current_due = habit.due_date.date() if habit.due_date else today
+                next_due = self.date_service.calculate_next_due_date(habit, current_due)
 
-                if next_due and next_due >= today:
-                    # Update the habit to the next occurrence
-                    habit.due_date = datetime.combine(next_due, datetime.min.time())
-                    habit.calculate_urgency()
-                    self.task_repo.update(self.db, habit)
-                    rescheduled_count += 1
-                else:
-                    # No valid next occurrence, delete the habit
-                    self.task_repo.delete(self.db, habit)
-            else:
-                # Non-recurring habit, delete it
-                self.task_repo.delete(self.db, habit)
+                # Create new instance if next occurrence exists
+                if next_due:
+                    self._create_next_habit_occurrence(habit, next_due)
 
-        return rescheduled_count
+            # Delete the overdue habit
+            self.task_repo.delete(self.db, habit)
+            deleted_count += 1
+
+        return deleted_count
 
     def _schedule_critical_tasks(
         self,

@@ -80,21 +80,29 @@ async def run_auto_penalties():
 
         # Получаем эффективную дату
         today = crud.get_effective_date(settings)
+        yesterday = today - timedelta(days=1)
 
-        # Выполняем штрафы если время уже наступило и еще не применяли сегодня
+        # Выполняем штрафы если время уже наступило и еще не применяли
         if int(current_time) >= int(target_time):
-            # Проверяем, не применяли ли уже штрафы сегодня
-            # Штрафы применяются за вчерашний день, поэтому проверяем историю за сегодня
+            # Проверяем, не применяли ли уже штрафы за вчера
+            # Штрафы применяются за вчерашний день
             from backend.models import PointHistory
-            today_history = db.query(PointHistory).filter(
-                PointHistory.date == today
+            yesterday_history = db.query(PointHistory).filter(
+                PointHistory.date == yesterday
             ).first()
 
-            # Если история за сегодня уже существует, значит штрафы уже применены
-            if today_history and today_history.points_penalty != 0:
+            # Если истории за вчера нет, или пенальти уже установлены - пропускаем
+            if not yesterday_history:
+                logger.info(f"No history for {yesterday}, skipping penalties")
                 return
 
-            logger.info(f"Applying penalties at {current_time}")
+            # Проверяем флаг финализации через completion_rate
+            # Если completion_rate уже рассчитан, значит день финализирован
+            if yesterday_history.completion_rate > 0 or yesterday_history.points_penalty > 0:
+                logger.info(f"Penalties already applied for {yesterday}")
+                return
+
+            logger.info(f"Applying penalties at {current_time} for {yesterday}")
             penalty_info = crud.calculate_daily_penalties(db)
             logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
 
