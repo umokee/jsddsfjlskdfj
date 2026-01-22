@@ -129,15 +129,15 @@ async def run_auto_backup():
 
         # Выполняем бэкап если время уже наступило (или прошло)
         if int(current_time) >= int(target_time):
-            # Проверяем, не делали ли уже бэкап сегодня
-            today = datetime.now().date()
+            # Проверяем, не делали ли уже бэкап сегодня (используем effective date)
+            today = crud.get_effective_date(settings)
             last_auto_backup = db.query(Backup).filter(
                 Backup.backup_type == "auto"
             ).order_by(Backup.created_at.desc()).first()
 
             if last_auto_backup:
                 last_backup_date = last_auto_backup.created_at.date()
-                logger.info(f"[AUTO_BACKUP] Last backup: {last_backup_date}, today: {today}")
+                logger.info(f"[AUTO_BACKUP] Last backup: {last_backup_date}, today (effective): {today}")
 
                 # Если уже делали бэкап сегодня, пропускаем
                 if last_backup_date == today:
