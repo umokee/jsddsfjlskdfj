@@ -9,6 +9,9 @@ function PointsDisplay() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [days, setDays] = useState(7);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [dayDetails, setDayDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     fetchCurrentPoints();
@@ -35,6 +38,27 @@ function PointsDisplay() {
     } catch (error) {
       console.error('Failed to fetch points history:', error);
     }
+  };
+
+  const fetchDayDetails = async (date) => {
+    setLoadingDetails(true);
+    try {
+      const response = await axios.get(`${API_URL}/api/points/history/${date}`, {
+        headers: { 'X-API-Key': getApiKey() }
+      });
+      setDayDetails(response.data);
+      setSelectedDay(date);
+    } catch (error) {
+      console.error('Failed to fetch day details:', error);
+      setDayDetails(null);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const closeDayDetails = () => {
+    setSelectedDay(null);
+    setDayDetails(null);
   };
 
   const getTodayStats = () => {
@@ -81,7 +105,12 @@ function PointsDisplay() {
 
           <div className="history-list">
             {history.map((entry) => (
-              <div key={entry.id} className="history-entry">
+              <div
+                key={entry.id}
+                className="history-entry clickable"
+                onClick={() => fetchDayDetails(entry.date)}
+                title="Click for details"
+              >
                 <div className="history-date">
                   {new Date(entry.date).toLocaleDateString()}
                 </div>
@@ -110,6 +139,110 @@ function PointsDisplay() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Day Details Modal */}
+      {selectedDay && (
+        <div className="modal-overlay" onClick={closeDayDetails}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Details for {new Date(selectedDay).toLocaleDateString()}</h3>
+              <button className="modal-close" onClick={closeDayDetails}>×</button>
+            </div>
+
+            {loadingDetails ? (
+              <div className="modal-loading">Loading...</div>
+            ) : dayDetails && !dayDetails.error ? (
+              <div className="modal-body">
+                {/* Summary */}
+                <div className="day-summary">
+                  <div className="summary-stat">
+                    <span className="earned">+{dayDetails.summary.points_earned}</span>
+                    {dayDetails.summary.points_penalty > 0 && (
+                      <span className="penalty">-{dayDetails.summary.points_penalty}</span>
+                    )}
+                    <span className={`total ${dayDetails.summary.points_earned - dayDetails.summary.points_penalty < 0 ? 'negative' : ''}`}>
+                      = {dayDetails.summary.points_earned - dayDetails.summary.points_penalty}
+                    </span>
+                  </div>
+                  <div className="summary-completion">
+                    Tasks: {dayDetails.summary.tasks_completed}/{dayDetails.summary.tasks_planned}
+                    {' '}({(dayDetails.summary.completion_rate * 100).toFixed(0)}%)
+                  </div>
+                </div>
+
+                {/* Completed Tasks */}
+                {dayDetails.completed_tasks && dayDetails.completed_tasks.length > 0 && (
+                  <div className="details-section">
+                    <h4>Completed Tasks ({dayDetails.completed_tasks.length})</h4>
+                    <div className="details-list">
+                      {dayDetails.completed_tasks.map((task) => (
+                        <div key={task.id} className="detail-item">
+                          <span className="item-desc">{task.description}</span>
+                          {task.project && <span className="item-project">{task.project}</span>}
+                          <span className="item-energy">E:{task.energy}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Completed Habits */}
+                {dayDetails.completed_habits && dayDetails.completed_habits.length > 0 && (
+                  <div className="details-section">
+                    <h4>Completed Habits ({dayDetails.completed_habits.length})</h4>
+                    <div className="details-list">
+                      {dayDetails.completed_habits.map((habit) => (
+                        <div key={habit.id} className="detail-item">
+                          <span className="item-desc">{habit.description}</span>
+                          <span className="item-type">{habit.habit_type}</span>
+                          {habit.streak > 0 && <span className="item-streak">Streak: {habit.streak}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Penalties */}
+                {dayDetails.penalties && dayDetails.penalties.total > 0 && (
+                  <div className="details-section">
+                    <h4>Penalties (-{dayDetails.penalties.total})</h4>
+                    <div className="details-list">
+                      {dayDetails.penalties.idle_penalty > 0 && (
+                        <div className="detail-item penalty">
+                          <span className="item-desc">Idle Penalty</span>
+                          <span className="item-value">-{dayDetails.penalties.idle_penalty}</span>
+                        </div>
+                      )}
+                      {dayDetails.penalties.incomplete_penalty > 0 && (
+                        <div className="detail-item penalty">
+                          <span className="item-desc">Incomplete Tasks</span>
+                          <span className="item-value">-{dayDetails.penalties.incomplete_penalty}</span>
+                        </div>
+                      )}
+                      {dayDetails.penalties.missed_habits_penalty > 0 && (
+                        <div className="detail-item penalty">
+                          <span className="item-desc">Missed Habits</span>
+                          <span className="item-value">-{dayDetails.penalties.missed_habits_penalty}</span>
+                        </div>
+                      )}
+                      {dayDetails.penalties.progressive_multiplier > 1 && (
+                        <div className="detail-item">
+                          <span className="item-desc">Progressive Multiplier</span>
+                          <span className="item-value">×{dayDetails.penalties.progressive_multiplier.toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="modal-error">
+                {dayDetails?.error || 'Failed to load details'}
+              </div>
+            )}
           </div>
         </div>
       )}
