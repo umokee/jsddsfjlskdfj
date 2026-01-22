@@ -300,10 +300,13 @@ class PointsService:
         goals = goal_repo.get_all(self.db, include_achieved=False)
 
         achieved_goals = []
+        settings = self.settings_repo.get(self.db)
+        today = self.date_service.get_effective_date(settings)
+
         for goal in goals:
             if current_total >= goal.target_points:
                 goal.achieved = True
-                goal.achieved_date = date.today()
+                goal.achieved_date = today
                 goal_repo.update(self.db, goal)
                 achieved_goals.append(goal)
 

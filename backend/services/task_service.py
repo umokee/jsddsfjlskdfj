@@ -62,9 +62,11 @@ class TaskService:
         # Convert TaskCreate to Task model
         task = Task(**task_data.model_dump())
 
-        # For recurring habits without due_date, set it to today
+        # For recurring habits without due_date, set it to today (effective date)
         if task.is_habit and task.recurrence_type != RECURRENCE_NONE and not task.due_date:
-            task.due_date = datetime.combine(date.today(), datetime.min.time())
+            settings = self.settings_repo.get(self.db)
+            today = self.date_service.get_effective_date(settings)
+            task.due_date = datetime.combine(today, datetime.min.time())
 
         # Normalize due_date to midnight
         if task.due_date:
