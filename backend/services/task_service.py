@@ -62,18 +62,29 @@ class TaskService:
         # Convert TaskCreate to Task model
         task = Task(**task_data.model_dump())
 
-        # For recurring habits without due_date, set it to today (effective date)
+        # For recurring habits without due_date, set it to next available day (after roll)
         if task.is_habit and task.recurrence_type != RECURRENCE_NONE and not task.due_date:
             settings = self.settings_repo.get(self.db)
-            today = self.date_service.get_effective_date(settings)
-            task.due_date = datetime.combine(today, datetime.min.time())
+            effective_today = self.date_service.get_effective_date(settings)
+
+            # If roll already happened today, create habit for tomorrow
+            # Otherwise create for today (will show up after roll)
+            if settings.last_roll_date == effective_today:
+                # Roll already done for this effective day, create for next day
+                task.due_date = datetime.combine(effective_today + timedelta(days=1), datetime.min.time())
+            else:
+                # Roll not done yet, create for current effective day (will show after roll)
+                task.due_date = datetime.combine(effective_today, datetime.min.time())
 
         # Normalize due_date to midnight
         if task.due_date:
             task.due_date = self.date_service.normalize_to_midnight(task.due_date)
 
-        # For recurring habits, calculate next occurrence if due_date is in the past
-        if task.is_habit and task.recurrence_type != RECURRENCE_NONE and task.due_date:
+        # For recurring habits with explicit due_date (provided by user),
+        # calculate next occurrence if due_date is in the past.
+        # Skip this for habits we just auto-set above (they're already correct)
+        if (task.is_habit and task.recurrence_type != RECURRENCE_NONE and
+            task.due_date and task_data.due_date is not None):
             task.due_date = self.date_service.calculate_next_occurrence(
                 task.due_date,
                 task.recurrence_type,

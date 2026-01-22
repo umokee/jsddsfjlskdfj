@@ -231,6 +231,12 @@ def get_current_points(db: Session) -> int:
     return service.get_current_points()
 
 
+def get_day_details(db: Session, target_date: date) -> dict:
+    """Get detailed breakdown for a specific day"""
+    service = PointsService(db)
+    return service.get_day_details(target_date)
+
+
 def calculate_projection(db: Session, target_date: date) -> dict:
     """Calculate point projections until target date"""
     service = PointsService(db)

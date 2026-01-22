@@ -238,6 +238,95 @@ class PointsService:
         today = self.date_service.get_effective_date(settings)
         return self.history_repo.get_history(self.db, days, today)
 
+    def get_day_details(self, target_date: date) -> dict:
+        """Get detailed breakdown for a specific day"""
+        import json
+        from sqlalchemy import and_
+        from backend.models import Task
+        from backend.constants import TASK_STATUS_COMPLETED
+
+        # Get history for target date
+        history = self.history_repo.get_by_date(self.db, target_date)
+        if not history:
+            return {
+                "date": target_date.isoformat(),
+                "error": "No history found for this date"
+            }
+
+        # Parse details JSON
+        details = {}
+        if history.details:
+            try:
+                details = json.loads(history.details)
+            except json.JSONDecodeError:
+                details = {}
+
+        # Get completed tasks/habits for this day
+        day_start = datetime.combine(target_date, datetime.min.time())
+        day_end = day_start + timedelta(days=1)
+
+        completed_tasks = self.db.query(Task).filter(
+            and_(
+                Task.status == TASK_STATUS_COMPLETED,
+                Task.completed_at >= day_start,
+                Task.completed_at < day_end,
+                Task.is_habit == False
+            )
+        ).all()
+
+        completed_habits = self.db.query(Task).filter(
+            and_(
+                Task.status == TASK_STATUS_COMPLETED,
+                Task.completed_at >= day_start,
+                Task.completed_at < day_end,
+                Task.is_habit == True
+            )
+        ).all()
+
+        # Build response
+        return {
+            "date": target_date.isoformat(),
+            "summary": {
+                "points_earned": history.points_earned,
+                "points_penalty": history.points_penalty,
+                "cumulative_total": history.cumulative_total,
+                "tasks_completed": history.tasks_completed,
+                "tasks_planned": history.tasks_planned,
+                "completion_rate": history.completion_rate
+            },
+            "completed_tasks": [
+                {
+                    "id": task.id,
+                    "description": task.description,
+                    "project": task.project,
+                    "energy": task.energy
+                }
+                for task in completed_tasks
+            ],
+            "completed_habits": [
+                {
+                    "id": habit.id,
+                    "description": habit.description,
+                    "habit_type": habit.habit_type,
+                    "streak": habit.streak
+                }
+                for habit in completed_habits
+            ],
+            "penalties": self._parse_penalty_details(details),
+            "planned_tasks": details.get("planned_tasks", [])
+        }
+
+    def _parse_penalty_details(self, details: dict) -> dict:
+        """Parse penalty details from JSON"""
+        penalty_breakdown = details.get("penalty_breakdown", {})
+        return {
+            "idle_penalty": penalty_breakdown.get("idle_penalty", 0),
+            "incomplete_penalty": penalty_breakdown.get("incomplete_penalty", 0),
+            "missed_habits_penalty": penalty_breakdown.get("missed_habits_penalty", 0),
+            "progressive_multiplier": penalty_breakdown.get("progressive_multiplier", 1.0),
+            "total": penalty_breakdown.get("total_penalty", 0)
+        }
+
     def calculate_projection(self, target_date: date) -> dict:
         """
         Calculate point projections until target date.

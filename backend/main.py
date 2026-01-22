@@ -261,6 +261,16 @@ async def get_points_history_endpoint(days: int = 30, db: Session = Depends(get_
     return crud.get_point_history(db, days)
 
 
+@app.get("/api/points/history/{target_date}", dependencies=[Depends(verify_api_key)])
+async def get_day_details_endpoint(target_date: str, db: Session = Depends(get_db)):
+    """Get detailed breakdown for a specific day (format: YYYY-MM-DD)"""
+    try:
+        target = date.fromisoformat(target_date)
+        return crud.get_day_details(db, target)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+
 @app.get("/api/points/projection", dependencies=[Depends(verify_api_key)])
 async def get_points_projection_endpoint(target_date: str, db: Session = Depends(get_db)):
     """Calculate point projection until target date (format: YYYY-MM-DD)"""
