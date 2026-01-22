@@ -163,14 +163,18 @@ class DateService:
                 weeks_passed = days_diff // 7
                 return start_date + timedelta(days=(weeks_passed + 1) * 7)
 
-            # Find next occurrence
-            from_date = start_date.date()
-            for offset in range(1, 8):
-                next_date = from_date + timedelta(days=offset)
-                if next_date.weekday() in days:
-                    return datetime.combine(next_date, start_date.time())
+            # Find next occurrence starting from today
+            current_date = now.date()
+            # Check next 14 days to find the next matching weekday
+            for offset in range(0, 14):
+                check_date = current_date + timedelta(days=offset)
+                if check_date.weekday() in days:
+                    # If it's today, only accept if we haven't passed the time yet
+                    if offset == 0 and now >= start_date.replace(tzinfo=None):
+                        continue
+                    return datetime.combine(check_date, start_date.time())
 
-            # Fallback to next week
+            # Fallback: just add 7 days
             return start_date + timedelta(days=7)
         except (json.JSONDecodeError, ValueError):
             # Fallback to weekly

@@ -78,12 +78,26 @@ async def run_auto_penalties():
         current_time = datetime.now().strftime("%H%M")
         target_time = _normalize_time(settings.penalty_time or "0001")
 
-        # Выполняем штрафы строго в заданное время (точное совпадение)
-        if current_time == target_time:
+        # Получаем эффективную дату
+        today = crud.get_effective_date(settings)
+
+        # Выполняем штрафы если время уже наступило и еще не применяли сегодня
+        if int(current_time) >= int(target_time):
+            # Проверяем, не применяли ли уже штрафы сегодня
+            # Штрафы применяются за вчерашний день, поэтому проверяем историю за сегодня
+            from backend.models import PointHistory
+            today_history = db.query(PointHistory).filter(
+                PointHistory.date == today
+            ).first()
+
+            # Если история за сегодня уже существует, значит штрафы уже применены
+            if today_history and today_history.points_penalty != 0:
+                return
+
             logger.info(f"Applying penalties at {current_time}")
             penalty_info = crud.calculate_daily_penalties(db)
             logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
-            
+
     except Exception as e:
         logger.error(f"Scheduler Error (Penalties): {e}")
     finally:
@@ -101,25 +115,33 @@ async def run_auto_backup():
         current_time = datetime.now().strftime("%H%M")
         target_time = _normalize_time(settings.backup_time or "0300")
 
-        # Выполняем бэкап строго в заданное время
-        if current_time == target_time:
-            # Проверяем, не делали ли бэкап недавно (интервал)
+        # Выполняем бэкап если время уже наступило (или прошло)
+        if int(current_time) >= int(target_time):
+            # Проверяем, не делали ли уже бэкап сегодня
+            today = datetime.now().date()
             last_auto_backup = db.query(Backup).filter(
                 Backup.backup_type == "auto"
             ).order_by(Backup.created_at.desc()).first()
-            
+
             if last_auto_backup:
-                days_since = (datetime.now() - last_auto_backup.created_at).days
+                last_backup_date = last_auto_backup.created_at.date()
+
+                # Если уже делали бэкап сегодня, пропускаем
+                if last_backup_date == today:
+                    return
+
+                # Проверяем интервал в днях
+                days_since = (today - last_backup_date).days
                 if days_since < settings.backup_interval_days:
-                    logger.info(f"Auto backup skipped (last was {days_since} days ago)")
+                    logger.info(f"Auto backup skipped (last was {days_since} days ago, interval: {settings.backup_interval_days})")
                     return
 
             logger.info(f"Creating auto-backup at {current_time}")
             backup = backup_service.create_local_backup(db, backup_type="auto")
-            
+
             if backup:
                 logger.info(f"Auto-backup successful: {backup.filename}")
-                
+
                 # Загрузка в Google Drive (если включено)
                 if settings.google_drive_enabled:
                     try:
@@ -129,7 +151,7 @@ async def run_auto_backup():
                         logger.error(f"Google Drive upload failed: {e}")
             else:
                 logger.error("Auto-backup failed")
-                
+
     except Exception as e:
         logger.error(f"Scheduler Error (Backup): {e}")
     finally:
