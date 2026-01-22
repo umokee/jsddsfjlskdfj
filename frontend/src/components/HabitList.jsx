@@ -76,6 +76,9 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
             {habit.streak > 0 && (
               <span>STREAK: {habit.streak}D</span>
             )}
+            {(habit.daily_target || 1) > 1 && (
+              <span>PROGRESS: {habit.daily_completed || 0}/{habit.daily_target}</span>
+            )}
             {dueDateLabel && (
               <span>{dueDateLabel}</span>
             )}

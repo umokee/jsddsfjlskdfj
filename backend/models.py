@@ -33,6 +33,8 @@ class Task(Base):
     habit_type = Column(String, default="skill")  # skill (new habit) or routine (daily routine)
     streak = Column(Integer, default=0)                # Current streak count
     last_completed_date = Column(Date, nullable=True)  # Last completion date for streak tracking
+    daily_target = Column(Integer, default=1)          # How many times per day habit should be completed
+    daily_completed = Column(Integer, default=0)       # How many times completed today
 
     def calculate_urgency(self):
         """Calculate task urgency based on priority, due date, and energy"""

@@ -196,8 +196,43 @@ class TaskService:
         if task.status == TASK_STATUS_COMPLETED:
             return task
 
-        # Mark as completed
         completion_date = datetime.now()
+
+        # For habits with daily_target > 1, track progress
+        if task.is_habit and (task.daily_target or 1) > 1:
+            task.daily_completed = (task.daily_completed or 0) + 1
+
+            # Check if daily target is reached
+            if task.daily_completed >= task.daily_target:
+                # Target reached - complete the habit
+                task.status = TASK_STATUS_COMPLETED
+                task.completed_at = completion_date
+
+                # Handle habit recurrence
+                if task.recurrence_type != RECURRENCE_NONE:
+                    self._handle_habit_completion(task)
+
+                self.task_repo.update(self.db, task)
+
+                # Award points
+                self.points_service.add_task_completion_points(task)
+
+                # Check goal achievements
+                self.points_service.check_goal_achievements()
+            else:
+                # Not yet reached - just update counter
+                # Stop the task but don't complete it
+                if task.started_at:
+                    elapsed = (completion_date - task.started_at).total_seconds()
+                    task.time_spent = (task.time_spent or 0) + int(elapsed)
+
+                task.status = TASK_STATUS_PENDING
+                task.started_at = None
+                self.task_repo.update(self.db, task)
+
+            return task
+
+        # Regular task or habit with daily_target=1
         task.status = TASK_STATUS_COMPLETED
         task.completed_at = completion_date
 
@@ -282,7 +317,9 @@ class TaskService:
             recurrence_days=habit.recurrence_days,
             habit_type=habit.habit_type,
             streak=0 if is_missed else habit.streak,  # Reset to 0 if missed
-            last_completed_date=habit.last_completed_date
+            last_completed_date=habit.last_completed_date,
+            daily_target=habit.daily_target or 1,  # Copy target from parent
+            daily_completed=0  # Reset counter for new day
         )
         next_habit.calculate_urgency()
         self.task_repo.create(self.db, next_habit)

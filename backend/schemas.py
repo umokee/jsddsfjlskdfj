@@ -18,6 +18,7 @@ class TaskBase(BaseModel):
     recurrence_interval: int = Field(default=1, ge=1, le=30)
     recurrence_days: Optional[str] = None  # JSON array for weekly: "[0,2,4]"
     habit_type: str = Field(default="skill")  # skill or routine
+    daily_target: int = Field(default=1, ge=1, le=20)  # How many times per day
 
 class TaskCreate(TaskBase):
     pass
@@ -39,6 +40,8 @@ class TaskUpdate(BaseModel):
     recurrence_interval: Optional[int] = Field(None, ge=1, le=30)
     recurrence_days: Optional[str] = None
     habit_type: Optional[str] = None
+    daily_target: Optional[int] = Field(None, ge=1, le=20)
+    daily_completed: Optional[int] = Field(None, ge=0, le=20)
 
 class TaskResponse(TaskBase):
     id: int
@@ -55,6 +58,8 @@ class TaskResponse(TaskBase):
     # Habit-specific fields
     streak: int = 0
     last_completed_date: Optional[date] = None
+    daily_target: int = 1
+    daily_completed: int = 0
 
     class Config:
         from_attributes = True
