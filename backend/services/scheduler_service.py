@@ -117,11 +117,14 @@ async def run_auto_backup():
     db = SessionLocal()
     try:
         settings = crud.get_settings(db)
+        logger.debug(f"[AUTO_BACKUP] Checking... enabled={settings.auto_backup_enabled}")
+
         if not settings.auto_backup_enabled:
             return
 
         current_time = datetime.now().strftime("%H%M")
         target_time = _normalize_time(settings.backup_time or "0300")
+        logger.debug(f"[AUTO_BACKUP] Time check: current={current_time}, target={target_time}")
 
         # Выполняем бэкап если время уже наступило (или прошло)
         if int(current_time) >= int(target_time):
@@ -133,13 +136,17 @@ async def run_auto_backup():
 
             if last_auto_backup:
                 last_backup_date = last_auto_backup.created_at.date()
+                logger.debug(f"[AUTO_BACKUP] Last backup: {last_backup_date}, today: {today}")
 
                 # Если уже делали бэкап сегодня, пропускаем
                 if last_backup_date == today:
+                    logger.debug(f"[AUTO_BACKUP] Already done today, skipping")
                     return
 
                 # Проверяем интервал в днях
                 days_since = (today - last_backup_date).days
+                logger.debug(f"[AUTO_BACKUP] Days since last: {days_since}, interval: {settings.backup_interval_days}")
+
                 if days_since < settings.backup_interval_days:
                     logger.info(f"Auto backup skipped (last was {days_since} days ago, interval: {settings.backup_interval_days})")
                     return
