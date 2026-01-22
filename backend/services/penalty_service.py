@@ -181,22 +181,47 @@ class PenaltyService:
         )
         day_history.completion_rate = completion_rate
 
-        # Calculate number of incomplete tasks
+        # Get incomplete tasks from target date
+        # Note: This will work if called during roll before is_today is cleared
+        day_start, day_end = self.date_service.get_day_range(target_date)
+
+        # Get tasks that were scheduled for target_date and not completed
+        # We can't use is_today because it's cleared, so we need to use a different approach
+        # For now, calculate based on the difference between planned and completed
         incomplete_count = day_history.tasks_planned - day_history.tasks_completed
 
         if incomplete_count <= 0:
             return 0, 0
 
-        # Calculate missed potential using average energy level (3)
-        # Since we can't access the actual tasks after roll, we use average
-        AVERAGE_ENERGY = 3
-        energy_mult = settings.energy_mult_base + (AVERAGE_ENERGY * settings.energy_mult_step)
-        potential_per_task = settings.points_per_task_base * energy_mult
-        missed_task_potential = int(incomplete_count * potential_per_task)
+        # Calculate missed potential
+        # Since we can't access individual incomplete tasks after roll,
+        # we use tasks_planned - tasks_completed and estimate with average values
+        # This is a limitation of the current architecture
+        missed_task_potential = 0
+
+        # Try to get incomplete tasks if available (during roll)
+        incomplete_tasks = self.task_repo.get_incomplete_today_tasks(self.db)
+
+        if incomplete_tasks:
+            # We have actual tasks - calculate their real potential
+            for task in incomplete_tasks:
+                energy_mult = settings.energy_mult_base + (
+                    task.energy * settings.energy_mult_step
+                )
+                potential = settings.points_per_task_base * energy_mult
+                missed_task_potential += potential
+        else:
+            # Fallback: use average energy (3) for estimation
+            energy_mult = settings.energy_mult_base + (3 * settings.energy_mult_step)
+            potential_per_task = settings.points_per_task_base * energy_mult
+            missed_task_potential = int(incomplete_count * potential_per_task)
 
         # Calculate penalty
-        penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
-        return penalty, missed_task_potential
+        if missed_task_potential > 0:
+            penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
+            return penalty, int(missed_task_potential)
+
+        return 0, 0
 
     def _apply_consistency_bonus(
         self,

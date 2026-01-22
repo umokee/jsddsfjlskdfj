@@ -249,8 +249,7 @@ class TaskService:
         elif habit.recurrence_type == RECURRENCE_EVERY_N_DAYS:
             expected_diff = max(1, habit.recurrence_interval or 1)
         elif habit.recurrence_type == RECURRENCE_WEEKLY:
-            # For weekly habits, allow up to 7 days + 1 day grace period
-            expected_diff = 8
+            expected_diff = 14  # Within 2 weeks is acceptable
         else:
             expected_diff = 1
 
@@ -361,24 +360,32 @@ class TaskService:
         today = self.date_service.get_effective_date(settings)
         today_start = datetime.combine(today, datetime.min.time())
 
-        # 1. Clean up overdue habits
+        # 1. Calculate penalties for yesterday BEFORE clearing flags
+        # This allows penalty calculation to see yesterday's incomplete tasks
+        penalty_info = self.penalty_service.calculate_daily_penalties()
+
+        # 2. Clean up overdue habits
         deleted_count = self._delete_overdue_habits(today_start)
 
-        # 2. Clear today tag from regular tasks
+        # 3. Clear today tag from regular tasks
         self.task_repo.clear_today_flag(self.db)
 
-        # 3. Add critical tasks (due soon)
+        # 4. Add critical tasks (due soon)
         critical_tasks = self._schedule_critical_tasks(today_start, critical_days)
 
-        # 4. Fill remaining slots with random tasks
+        # 5. Fill remaining slots with random tasks
         self._schedule_random_tasks(
             mood, daily_limit, len(critical_tasks)
         )
 
-        # 5. Calculate penalties for yesterday
-        penalty_info = self.penalty_service.calculate_daily_penalties()
+        # 6. Save tasks_planned count for today to track completion rate later
+        today_tasks_count = len(self.task_repo.get_today_tasks(self.db))
+        if today_tasks_count > 0:
+            today_history = self.points_service.get_or_create_today_history()
+            today_history.tasks_planned = today_tasks_count
+            self.db.commit()
 
-        # 6. Update last roll date
+        # 7. Update last roll date
         settings.last_roll_date = today
         self.settings_repo.update(self.db, settings)
 
