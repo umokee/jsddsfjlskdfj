@@ -46,6 +46,7 @@ function App() {
   const [currentPoints, setCurrentPoints] = useState(0);
   const [canRollToday, setCanRollToday] = useState(true);
   const [rollMessage, setRollMessage] = useState('');
+  const [rollMood, setRollMood] = useState('');
 
   useEffect(() => {
     if (apiKey) {
@@ -153,9 +154,12 @@ function App() {
 
   const handleRoll = async () => {
     try {
-      await rollTasks();
+      // Pass mood to rollTasks (null if not set)
+      const mood = rollMood || null;
+      await rollTasks(mood);
       await loadData();
       await checkCanRoll();
+      setRollMood(''); // Reset mood after roll
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to roll tasks');
     }
@@ -335,9 +339,25 @@ function App() {
                 {showTaskForm ? '[ CANCEL ]' : '[ + NEW_TASK ]'}
               </button>
               {canRollToday ? (
-                <button className="btn btn-secondary" onClick={handleRoll}>
-                  [ ROLL_DAILY_PLAN ]
-                </button>
+                <div className="roll-controls">
+                  <select
+                    value={rollMood}
+                    onChange={(e) => setRollMood(e.target.value)}
+                    className="mood-select"
+                    title="Filter tasks by energy level"
+                  >
+                    <option value="">All Energy</option>
+                    <option value="0">E:0 Only</option>
+                    <option value="1">E:0-1</option>
+                    <option value="2">E:0-2</option>
+                    <option value="3">E:0-3</option>
+                    <option value="4">E:0-4</option>
+                    <option value="5">E:0-5 (All)</option>
+                  </select>
+                  <button className="btn btn-secondary" onClick={handleRoll}>
+                    [ ROLL_DAILY_PLAN ]
+                  </button>
+                </div>
               ) : (
                 rollMessage && <span className="roll-message">{rollMessage}</span>
               )}
