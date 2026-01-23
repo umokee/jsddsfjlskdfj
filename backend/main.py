@@ -20,7 +20,7 @@ from backend.schemas import (
 from backend.middleware.auth import verify_api_key
 from backend import crud
 from backend.services.scheduler_service import start_scheduler, stop_scheduler
-from backend.infrastructure.migrations import auto_migrate
+from backend.infrastructure.migrations import auto_migrate, fix_target_points_nullable
 from backend.services import backup_service
 from datetime import date
 
@@ -58,6 +58,7 @@ Base.metadata.create_all(bind=engine)
 # Run automatic schema migrations (add missing columns)
 try:
     auto_migrate()
+    fix_target_points_nullable()
 except Exception as e:
     logger.error(f"Auto-migration failed: {e}")
     # Don't crash the app - continue with existing schema
