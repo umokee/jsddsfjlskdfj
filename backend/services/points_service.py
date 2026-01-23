@@ -214,9 +214,23 @@ class PointsService:
         )
         history.cumulative_total += points
 
-        # Store completion details
-        details = json.loads(history.details) if history.details else []
-        details.append({
+        # Store completion details (preserve dict format)
+        details = {}
+        if history.details:
+            try:
+                details = json.loads(history.details)
+                # Handle legacy format where details was a list
+                if isinstance(details, list):
+                    details = {"task_completions": details}
+            except json.JSONDecodeError:
+                details = {}
+
+        # Ensure task_completions is a list
+        if "task_completions" not in details:
+            details["task_completions"] = []
+
+        # Add task completion
+        details["task_completions"].append({
             "task_id": task.id,
             "description": task.description,
             "is_habit": task.is_habit,
@@ -258,6 +272,9 @@ class PointsService:
         if history.details:
             try:
                 details = json.loads(history.details)
+                # Handle legacy format where details was a list
+                if isinstance(details, list):
+                    details = {"task_completions": details}
             except json.JSONDecodeError:
                 details = {}
 

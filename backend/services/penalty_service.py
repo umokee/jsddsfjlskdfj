@@ -61,7 +61,8 @@ class PenaltyService:
         missed_task_potential = 0
 
         # 1. Idle Penalty
-        penalty += self._calculate_idle_penalty(day_history, settings)
+        idle_penalty = self._calculate_idle_penalty(day_history, settings)
+        penalty += idle_penalty
 
         # 2. Incomplete Day Penalty
         incomplete_penalty, missed_task_potential = self._calculate_incomplete_penalty(
@@ -78,13 +79,29 @@ class PenaltyService:
         )
         penalty += habits_penalty
 
+        # Store pre-multiplier penalty for breakdown
+        base_penalty = penalty
+
         # 5. Progressive Penalty Multiplier
         penalty = self._apply_progressive_multiplier(
             penalty, target_date, day_history, settings
         )
 
+        # Calculate progressive multiplier
+        progressive_multiplier = penalty / base_penalty if base_penalty > 0 else 1.0
+
         # Apply final penalties and bonuses
         self._apply_final_penalties(day_history, penalty)
+
+        # Save penalty breakdown to history details
+        self._save_penalty_breakdown(
+            day_history,
+            idle_penalty,
+            incomplete_penalty,
+            habits_penalty,
+            progressive_multiplier,
+            penalty
+        )
 
         return {
             "penalty": penalty,
@@ -385,6 +402,42 @@ class PenaltyService:
             0, day_history.cumulative_total + net_change
         )
 
+        self.history_repo.update(self.db, day_history)
+
+    def _save_penalty_breakdown(
+        self,
+        day_history: PointHistory,
+        idle_penalty: int,
+        incomplete_penalty: int,
+        habits_penalty: int,
+        progressive_multiplier: float,
+        total_penalty: int
+    ) -> None:
+        """Save detailed penalty breakdown to history details"""
+        import json
+
+        # Load existing details (as dict)
+        details = {}
+        if day_history.details:
+            try:
+                details = json.loads(day_history.details)
+                # Handle legacy format where details was a list
+                if isinstance(details, list):
+                    details = {"task_completions": details}
+            except json.JSONDecodeError:
+                details = {}
+
+        # Add penalty breakdown
+        details["penalty_breakdown"] = {
+            "idle_penalty": idle_penalty,
+            "incomplete_penalty": incomplete_penalty,
+            "missed_habits_penalty": habits_penalty,
+            "progressive_multiplier": progressive_multiplier,
+            "total_penalty": total_penalty
+        }
+
+        # Save back to history
+        day_history.details = json.dumps(details)
         self.history_repo.update(self.db, day_history)
 
     def calculate_daily_penalties(self) -> dict:
