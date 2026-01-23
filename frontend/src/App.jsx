@@ -346,13 +346,13 @@ function App() {
                     className="mood-select"
                     title="Filter tasks by energy level"
                   >
-                    <option value="">All Energy</option>
-                    <option value="0">E:0 Only</option>
-                    <option value="1">E:0-1</option>
-                    <option value="2">E:0-2</option>
-                    <option value="3">E:0-3</option>
-                    <option value="4">E:0-4</option>
-                    <option value="5">E:0-5 (All)</option>
+                    <option value="">[ ALL ENERGY ]</option>
+                    <option value="0">[ E:0 ONLY ]</option>
+                    <option value="1">[ E:0-1 ]</option>
+                    <option value="2">[ E:0-2 ]</option>
+                    <option value="3">[ E:0-3 ]</option>
+                    <option value="4">[ E:0-4 ]</option>
+                    <option value="5">[ E:0-5 ]</option>
                   </select>
                   <button className="btn btn-secondary" onClick={handleRoll}>
                     [ ROLL_DAILY_PLAN ]
