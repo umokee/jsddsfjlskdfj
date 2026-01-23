@@ -286,14 +286,47 @@ async def get_points_projection_endpoint(target_date: str, db: Session = Depends
 
 @app.get("/api/goals", response_model=List[PointGoalResponse], dependencies=[Depends(verify_api_key)])
 async def get_goals_endpoint(include_achieved: bool = False, db: Session = Depends(get_db)):
-    """Get point goals"""
-    return crud.get_point_goals(db, include_achieved)
+    """Get point goals with project progress"""
+    from backend.services.goal_service import GoalService
+
+    goals = crud.get_point_goals(db, include_achieved)
+    goal_service = GoalService(db)
+
+    # Add project progress for project_completion goals
+    result = []
+    for goal in goals:
+        goal_dict = {
+            "id": goal.id,
+            "goal_type": goal.goal_type,
+            "target_points": goal.target_points,
+            "project_name": goal.project_name,
+            "reward_description": goal.reward_description,
+            "deadline": goal.deadline,
+            "achieved": goal.achieved,
+            "achieved_date": goal.achieved_date,
+            "reward_claimed": goal.reward_claimed,
+            "reward_claimed_at": goal.reward_claimed_at,
+            "created_at": goal.created_at,
+        }
+
+        # Add progress for project_completion goals
+        if goal.goal_type == "project_completion" and goal.project_name:
+            progress = goal_service.get_project_progress(goal.project_name)
+            goal_dict["total_tasks"] = progress["total_tasks"]
+            goal_dict["completed_tasks"] = progress["completed_tasks"]
+
+        result.append(goal_dict)
+
+    return result
 
 
 @app.post("/api/goals", response_model=PointGoalResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
 async def create_goal_endpoint(goal: PointGoalCreate, db: Session = Depends(get_db)):
     """Create a new point goal"""
-    return crud.create_point_goal(db, goal)
+    try:
+        return crud.create_point_goal(db, goal)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.put("/api/goals/{goal_id}", response_model=PointGoalResponse, dependencies=[Depends(verify_api_key)])

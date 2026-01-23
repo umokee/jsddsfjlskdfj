@@ -5,12 +5,14 @@ Handles point goals and rest days.
 from datetime import date, datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 
-from backend.models import PointGoal, RestDay
+from backend.models import PointGoal, RestDay, Task
 from backend.schemas import PointGoalCreate, PointGoalUpdate, RestDayCreate
 from backend.repositories.points_repository import (
     PointGoalRepository, RestDayRepository
 )
+from backend.constants import TASK_STATUS_COMPLETED
 
 
 class GoalService:
@@ -24,8 +26,51 @@ class GoalService:
         """Get all point goals"""
         return self.goal_repo.get_all(self.db, include_achieved)
 
+    def get_project_progress(self, project_name: str) -> dict:
+        """Get task completion progress for a project"""
+        total_tasks = self.db.query(Task).filter(
+            and_(
+                Task.project == project_name,
+                Task.is_habit == False
+            )
+        ).count()
+
+        completed_tasks = self.db.query(Task).filter(
+            and_(
+                Task.project == project_name,
+                Task.is_habit == False,
+                Task.status == TASK_STATUS_COMPLETED
+            )
+        ).count()
+
+        return {
+            "total_tasks": total_tasks,
+            "completed_tasks": completed_tasks
+        }
+
     def create_goal(self, goal_data: PointGoalCreate) -> PointGoal:
         """Create a new point goal"""
+        # Validate project_completion goals
+        if goal_data.goal_type == "project_completion":
+            if not goal_data.project_name:
+                raise ValueError("project_name is required for project_completion goals")
+
+            # Check if project has any tasks
+            task_count = self.db.query(Task).filter(
+                and_(
+                    Task.project == goal_data.project_name,
+                    Task.is_habit == False
+                )
+            ).count()
+
+            if task_count == 0:
+                raise ValueError(f"Project '{goal_data.project_name}' has no tasks. Add tasks before creating a goal.")
+
+        # Validate points goals
+        if goal_data.goal_type == "points":
+            if not goal_data.target_points or goal_data.target_points <= 0:
+                raise ValueError("target_points must be greater than 0 for points goals")
+
         goal = PointGoal(**goal_data.model_dump())
         return self.goal_repo.create(self.db, goal)
 

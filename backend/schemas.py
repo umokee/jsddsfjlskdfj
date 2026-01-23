@@ -200,6 +200,9 @@ class PointGoalResponse(PointGoalBase):
     reward_claimed: bool
     reward_claimed_at: Optional[datetime]
     created_at: datetime
+    # Project progress (only for project_completion goals)
+    total_tasks: Optional[int] = None
+    completed_tasks: Optional[int] = None
 
     class Config:
         from_attributes = True

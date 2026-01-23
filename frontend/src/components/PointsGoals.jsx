@@ -239,9 +239,31 @@ function PointsGoals({ currentPoints }) {
                 )}
 
                 {!goal.achieved && goal.goal_type === 'project_completion' && (
-                  <div className="goal-info">
-                    Complete all tasks in project "{goal.project_name}" to unlock reward
-                  </div>
+                  <>
+                    {goal.total_tasks !== undefined && (
+                      <>
+                        <div className="goal-progress">
+                          <div
+                            className="goal-progress-bar"
+                            style={{ width: `${goal.total_tasks > 0 ? (goal.completed_tasks / goal.total_tasks * 100) : 0}%` }}
+                          ></div>
+                        </div>
+                        <div className="goal-stats">
+                          <span>{goal.completed_tasks} / {goal.total_tasks} tasks</span>
+                          <span>
+                            {goal.total_tasks > 0
+                              ? `${goal.total_tasks - goal.completed_tasks} tasks to go`
+                              : 'No tasks in project'}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {goal.total_tasks === undefined && (
+                      <div className="goal-info">
+                        Complete all tasks in project "{goal.project_name}" to unlock reward
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {goal.achieved && goal.achieved_date && (
