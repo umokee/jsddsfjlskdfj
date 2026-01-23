@@ -1834,10 +1834,15 @@ small {
 
 .item-energy,
 .item-streak,
+.item-points,
 .item-value {
   color: var(--accent);
   font-size: 0.85rem;
   font-weight: bold;
+}
+
+.item-points {
+  margin-left: auto;
 }
 
 .item-value {

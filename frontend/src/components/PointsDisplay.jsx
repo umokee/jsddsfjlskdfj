@@ -183,6 +183,7 @@ function PointsDisplay() {
                           <span className="item-desc">{task.description}</span>
                           {task.project && <span className="item-project">{task.project}</span>}
                           <span className="item-energy">E:{task.energy}</span>
+                          {task.points > 0 && <span className="item-points">+{task.points}</span>}
                         </div>
                       ))}
                     </div>
@@ -199,6 +200,7 @@ function PointsDisplay() {
                           <span className="item-desc">{habit.description}</span>
                           <span className="item-type">{habit.habit_type}</span>
                           {habit.streak > 0 && <span className="item-streak">Streak: {habit.streak}</span>}
+                          {habit.points > 0 && <span className="item-points">+{habit.points}</span>}
                         </div>
                       ))}
                     </div>

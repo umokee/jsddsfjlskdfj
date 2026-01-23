@@ -300,6 +300,10 @@ class PointsService:
             )
         ).all()
 
+        # Get points for each task/habit from details
+        task_completions = details.get("task_completions", [])
+        points_map = {item["task_id"]: item["points"] for item in task_completions if "task_id" in item and "points" in item}
+
         # Build response
         return {
             "date": target_date.isoformat(),
@@ -316,7 +320,8 @@ class PointsService:
                     "id": task.id,
                     "description": task.description,
                     "project": task.project,
-                    "energy": task.energy
+                    "energy": task.energy,
+                    "points": points_map.get(task.id, 0)
                 }
                 for task in completed_tasks
             ],
@@ -325,7 +330,8 @@ class PointsService:
                     "id": habit.id,
                     "description": habit.description,
                     "habit_type": habit.habit_type,
-                    "streak": habit.streak
+                    "streak": habit.streak,
+                    "points": points_map.get(habit.id, 0)
                 }
                 for habit in completed_habits
             ],
