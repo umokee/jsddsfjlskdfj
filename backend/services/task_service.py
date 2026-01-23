@@ -425,13 +425,8 @@ class TaskService:
         # 3. Clear today tag from regular tasks
         self.task_repo.clear_today_flag(self.db)
 
-        # 4. Add critical tasks (due soon)
-        critical_tasks = self._schedule_critical_tasks(today_start, critical_days)
-
-        # 5. Fill remaining slots with random tasks
-        self._schedule_random_tasks(
-            mood, daily_limit, len(critical_tasks)
-        )
+        # 4. Select tasks using weighted random based on urgency
+        self._schedule_weighted_tasks(mood, daily_limit, today)
 
         # 6. Save tasks_planned count and task details for today to track completion rate later
         today_tasks = self.task_repo.get_today_tasks(self.db)
@@ -502,80 +497,87 @@ class TaskService:
 
         return deleted_count
 
-    def _schedule_critical_tasks(
-        self,
-        today_start: datetime,
-        critical_days: int
-    ) -> List[Task]:
-        """Schedule tasks that are due soon"""
-        critical_date = today_start + timedelta(days=critical_days)
-        critical_tasks = self.task_repo.get_critical_tasks(
-            self.db, today_start, critical_date
-        )
-
-        for task in critical_tasks:
-            task.is_today = True
-        self.db.commit()
-
-        return critical_tasks
-
-    def _schedule_random_tasks(
+    def _schedule_weighted_tasks(
         self,
         mood: Optional[str],
         daily_limit: int,
-        critical_count: int
+        today: date
     ) -> None:
-        """Fill remaining slots with random tasks"""
-        slots = max(0, daily_limit - critical_count)
-        if slots == 0:
-            return
+        """
+        Select tasks using weighted random selection based on urgency.
 
-        # Get available tasks
+        Higher urgency tasks have higher probability of being selected,
+        but all tasks have some chance (unless filtered out).
+
+        Args:
+            mood: User's energy level (0-5) for filtering by task.energy
+            daily_limit: Maximum number of tasks to select
+            today: Current date for urgency calculation
+        """
+        # 1. Get all available pending tasks
         available_tasks = self.task_repo.get_available_tasks(self.db)
 
-        # Pass 1: Tasks with completed dependencies
+        if not available_tasks:
+            return
+
+        # 2. Filter by mood (energy level)
+        if mood and mood.isdigit():
+            energy_level = int(mood)
+            if 0 <= energy_level <= 5:
+                available_tasks = [t for t in available_tasks if t.energy <= energy_level]
+
+        # 3. Filter by dependencies (only ready tasks)
         ready_tasks = [
             t for t in available_tasks if self.check_dependencies_met(t)
         ]
-        ready_tasks = self._filter_by_mood(ready_tasks, mood)
-        selected_count = self._select_and_schedule_tasks(ready_tasks, slots)
 
-        # Pass 2: Tasks with dependency in today's plan
-        if selected_count < slots:
-            dependent_tasks = [
-                t for t in available_tasks
-                if not t.is_today and self.check_dependency_in_today_plan(t)
-            ]
-            dependent_tasks = self._filter_by_mood(dependent_tasks, mood)
-            remaining_slots = slots - selected_count
-            self._select_and_schedule_tasks(dependent_tasks, remaining_slots)
+        if not ready_tasks:
+            return
+
+        # 4. Calculate urgency for each task
+        for task in ready_tasks:
+            task.calculate_urgency()
+
+        # 5. Normalize weights (handle negative urgency)
+        min_urgency = min(task.urgency for task in ready_tasks)
+        if min_urgency < 0:
+            # Shift all weights to be positive
+            weights = [task.urgency - min_urgency + 1 for task in ready_tasks]
+        else:
+            # Add 1 to avoid zero weights
+            weights = [task.urgency + 1 for task in ready_tasks]
+
+        # 6. Weighted random selection up to daily_limit
+        selected_tasks = []
+        available_pool = ready_tasks.copy()
+        available_weights = weights.copy()
+
+        slots = min(daily_limit, len(available_pool))
+
+        for _ in range(slots):
+            if not available_pool:
+                break
+
+            # Select one task based on weights
+            selected_task = random.choices(
+                available_pool,
+                weights=available_weights,
+                k=1
+            )[0]
+
+            # Add to selected
+            selected_tasks.append(selected_task)
+
+            # Remove from available pool (to avoid selecting twice)
+            idx = available_pool.index(selected_task)
+            available_pool.pop(idx)
+            available_weights.pop(idx)
+
+        # 7. Mark selected tasks for today
+        for task in selected_tasks:
+            task.is_today = True
 
         self.db.commit()
-
-    def _filter_by_mood(self, tasks: List[Task], mood: Optional[str]) -> List[Task]:
-        """Filter tasks by energy/mood level"""
-        if not mood or not mood.isdigit():
-            return tasks
-
-        energy_level = int(mood)
-        if 0 <= energy_level <= 5:
-            return [t for t in tasks if t.energy <= energy_level]
-
-        return tasks
-
-    def _select_and_schedule_tasks(self, tasks: List[Task], slots: int) -> int:
-        """Randomly select and schedule tasks up to slot limit"""
-        random.shuffle(tasks)
-        selected_count = 0
-
-        for task in tasks:
-            if selected_count >= slots:
-                break
-            if not task.is_today:
-                task.is_today = True
-                selected_count += 1
-
-        return selected_count
 
     def _get_roll_summary(
         self,

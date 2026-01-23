@@ -37,13 +37,19 @@ class Task(Base):
     daily_completed = Column(Integer, default=0)       # How many times completed today
 
     def calculate_urgency(self):
-        """Calculate task urgency based on priority, due date, and energy"""
+        """
+        Calculate task urgency for weighted random selection.
+
+        Formula: urgency = priority × 10 + due_date_bonus + energy_bonus
+
+        Higher urgency = higher probability of being selected for today's plan.
+        """
         urgency = 0.0
 
-        # Priority coefficient (0-10) * 10
+        # Priority component (0-10) × 10 = 0-100
         urgency += self.priority * 10.0
 
-        # Due date coefficient
+        # Due date component
         if self.due_date:
             # Handle both timezone-aware and timezone-naive datetimes
             due_date_naive = self.due_date.replace(tzinfo=None) if self.due_date.tzinfo else self.due_date
@@ -51,17 +57,17 @@ class Task(Base):
 
             days_until = (due_date_naive - now_naive).days
             if days_until <= 0:
-                urgency += 50.0  # Overdue
+                urgency += 100.0  # Overdue - maximum priority
             elif days_until <= 2:
-                urgency += 25.0  # Critical
+                urgency += 75.0   # Critical - very high probability (~90-99%)
             elif days_until <= 7:
-                urgency += 10.0  # Soon
+                urgency += 30.0   # Soon - noticeably higher probability
 
-        # Energy coefficient
+        # Energy component
         if self.energy >= 4:
-            urgency += 5.0  # High energy
+            urgency += 5.0   # High energy - slightly increases probability
         elif self.energy <= 1:
-            urgency -= 1.0  # Low energy
+            urgency -= 5.0   # Low energy - slightly decreases probability
 
         self.urgency = urgency
         return urgency
