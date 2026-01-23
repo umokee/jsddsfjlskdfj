@@ -9,7 +9,9 @@ function PointsGoals({ currentPoints }) {
   const [showForm, setShowForm] = useState(false);
   const [showAchieved, setShowAchieved] = useState(false);
   const [formData, setFormData] = useState({
+    goal_type: 'points',
     target_points: '',
+    project_name: '',
     reward_description: '',
     deadline: ''
   });
@@ -34,16 +36,29 @@ function PointsGoals({ currentPoints }) {
     e.preventDefault();
 
     const goalData = {
-      target_points: parseInt(formData.target_points),
+      goal_type: formData.goal_type,
       reward_description: formData.reward_description,
-      deadline: formData.deadline || undefined  // Send undefined so it's omitted from JSON
+      deadline: formData.deadline || undefined
     };
+
+    // Add type-specific fields
+    if (formData.goal_type === 'points') {
+      goalData.target_points = parseInt(formData.target_points);
+    } else if (formData.goal_type === 'project_completion') {
+      goalData.project_name = formData.project_name;
+    }
 
     try {
       await axios.post(`${API_URL}/api/goals`, goalData, {
         headers: { 'X-API-Key': getApiKey() }
       });
-      setFormData({ target_points: '', reward_description: '', deadline: '' });
+      setFormData({
+        goal_type: 'points',
+        target_points: '',
+        project_name: '',
+        reward_description: '',
+        deadline: ''
+      });
       setShowForm(false);
       fetchGoals();
     } catch (error) {
@@ -63,6 +78,19 @@ function PointsGoals({ currentPoints }) {
       fetchGoals();
     } catch (error) {
       console.error('Failed to delete goal:', error);
+    }
+  };
+
+  const handleClaimReward = async (goalId) => {
+    try {
+      await axios.post(`${API_URL}/api/goals/${goalId}/claim`, {}, {
+        headers: { 'X-API-Key': getApiKey() }
+      });
+      fetchGoals();
+    } catch (error) {
+      console.error('Failed to claim reward:', error);
+      const errorMsg = error.response?.data?.detail || error.message || 'Failed to claim reward';
+      alert(`Failed to claim reward: ${errorMsg}`);
     }
   };
 
@@ -88,15 +116,44 @@ function PointsGoals({ currentPoints }) {
       {showForm && (
         <form onSubmit={handleSubmit} className="goal-form">
           <div className="form-group">
-            <label>Target Points:</label>
-            <input
-              type="number"
-              value={formData.target_points}
-              onChange={(e) => setFormData({ ...formData, target_points: e.target.value })}
+            <label>Goal Type:</label>
+            <select
+              value={formData.goal_type}
+              onChange={(e) => setFormData({ ...formData, goal_type: e.target.value })}
               required
-              min="1"
-            />
+            >
+              <option value="points">Points Goal</option>
+              <option value="project_completion">Project Completion</option>
+            </select>
           </div>
+
+          {formData.goal_type === 'points' && (
+            <div className="form-group">
+              <label>Target Points:</label>
+              <input
+                type="number"
+                value={formData.target_points}
+                onChange={(e) => setFormData({ ...formData, target_points: e.target.value })}
+                required
+                min="1"
+              />
+            </div>
+          )}
+
+          {formData.goal_type === 'project_completion' && (
+            <div className="form-group">
+              <label>Project Name:</label>
+              <input
+                type="text"
+                value={formData.project_name}
+                onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
+                required
+                maxLength="200"
+                placeholder="e.g., Work.Backend"
+              />
+            </div>
+          )}
+
           <div className="form-group">
             <label>Reward Description:</label>
             <input
@@ -127,18 +184,26 @@ function PointsGoals({ currentPoints }) {
           </div>
         ) : (
           goals.map((goal) => {
-            const progress = calculateProgress(goal);
-            const pointsNeeded = goal.target_points - (currentPoints || 0);
+            const progress = goal.goal_type === 'points' ? calculateProgress(goal) : 0;
+            const pointsNeeded = goal.goal_type === 'points' ? goal.target_points - (currentPoints || 0) : 0;
 
             return (
               <div
                 key={goal.id}
-                className={`goal-item ${goal.achieved ? 'achieved' : ''}`}
+                className={`goal-item ${goal.achieved ? 'achieved' : ''} ${goal.reward_claimed ? 'claimed' : ''}`}
               >
                 <div className="goal-header">
-                  <div className="goal-target">{goal.target_points} pts</div>
-                  {goal.achieved && (
-                    <div className="goal-badge">Achieved!</div>
+                  <div className="goal-type-badge">
+                    {goal.goal_type === 'points' ? 'POINTS' : 'PROJECT'}
+                  </div>
+                  <div className="goal-target">
+                    {goal.goal_type === 'points' ? `${goal.target_points} pts` : goal.project_name}
+                  </div>
+                  {goal.achieved && !goal.reward_claimed && (
+                    <div className="goal-badge achieved">Achieved!</div>
+                  )}
+                  {goal.reward_claimed && (
+                    <div className="goal-badge claimed">Claimed!</div>
                   )}
                   {!goal.achieved && (
                     <button
@@ -150,7 +215,7 @@ function PointsGoals({ currentPoints }) {
                   )}
                 </div>
 
-                <div className="goal-reward">{goal.reward_description}</div>
+                <div className="goal-reward">Reward: {goal.reward_description}</div>
 
                 {goal.deadline && (
                   <div className="goal-deadline">
@@ -158,7 +223,7 @@ function PointsGoals({ currentPoints }) {
                   </div>
                 )}
 
-                {!goal.achieved && (
+                {!goal.achieved && goal.goal_type === 'points' && (
                   <>
                     <div className="goal-progress">
                       <div
@@ -173,10 +238,31 @@ function PointsGoals({ currentPoints }) {
                   </>
                 )}
 
+                {!goal.achieved && goal.goal_type === 'project_completion' && (
+                  <div className="goal-info">
+                    Complete all tasks in project "{goal.project_name}" to unlock reward
+                  </div>
+                )}
+
                 {goal.achieved && goal.achieved_date && (
                   <div className="goal-achieved-date">
                     Achieved on {new Date(goal.achieved_date).toLocaleDateString()}
                   </div>
+                )}
+
+                {goal.reward_claimed && goal.reward_claimed_at && (
+                  <div className="goal-claimed-date">
+                    Claimed on {new Date(goal.reward_claimed_at).toLocaleDateString()}
+                  </div>
+                )}
+
+                {goal.achieved && !goal.reward_claimed && (
+                  <button
+                    onClick={() => handleClaimReward(goal.id)}
+                    className="claim-reward-btn"
+                  >
+                    Claim Reward
+                  </button>
                 )}
               </div>
             );

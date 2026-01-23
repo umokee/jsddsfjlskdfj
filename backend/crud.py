@@ -275,6 +275,12 @@ def delete_point_goal(db: Session, goal_id: int) -> bool:
     return service.delete_goal(goal_id)
 
 
+def claim_goal_reward(db: Session, goal_id: int) -> Optional[PointGoal]:
+    """Claim reward for achieved goal"""
+    service = GoalService(db)
+    return service.claim_reward(goal_id)
+
+
 def check_goal_achievements(db: Session) -> List[PointGoal]:
     """Check and mark achieved goals"""
     service = PointsService(db)

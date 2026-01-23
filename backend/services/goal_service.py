@@ -2,7 +2,7 @@
 Goal management service.
 Handles point goals and rest days.
 """
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
@@ -53,6 +53,21 @@ class GoalService:
 
         self.goal_repo.delete(self.db, goal)
         return True
+
+    def claim_reward(self, goal_id: int) -> Optional[PointGoal]:
+        """Claim reward for an achieved goal"""
+        goal = self.goal_repo.get_by_id(self.db, goal_id)
+        if not goal:
+            return None
+
+        if not goal.achieved:
+            return None
+
+        # Mark reward as claimed
+        goal.reward_claimed = True
+        goal.reward_claimed_at = datetime.now()
+
+        return self.goal_repo.update(self.db, goal)
 
 
 class RestDayService:

@@ -172,7 +172,9 @@ class PointHistoryResponse(PointHistoryBase):
 
 # Point Goal schemas
 class PointGoalBase(BaseModel):
-    target_points: int = Field(..., ge=1)
+    goal_type: str = Field(default="points", pattern="^(points|project_completion)$")
+    target_points: Optional[int] = Field(None, ge=1)  # Required for points goals
+    project_name: Optional[str] = Field(None, max_length=200)  # Required for project_completion goals
     reward_description: str = Field(..., min_length=1, max_length=500)
     deadline: Optional[date] = None
 
@@ -182,16 +184,21 @@ class PointGoalCreate(PointGoalBase):
 
 
 class PointGoalUpdate(BaseModel):
+    goal_type: Optional[str] = Field(None, pattern="^(points|project_completion)$")
     target_points: Optional[int] = Field(None, ge=1)
+    project_name: Optional[str] = Field(None, max_length=200)
     reward_description: Optional[str] = Field(None, min_length=1, max_length=500)
     deadline: Optional[date] = None
     achieved: Optional[bool] = None
+    reward_claimed: Optional[bool] = None
 
 
 class PointGoalResponse(PointGoalBase):
     id: int
     achieved: bool
     achieved_date: Optional[date]
+    reward_claimed: bool
+    reward_claimed_at: Optional[datetime]
     created_at: datetime
 
     class Config:

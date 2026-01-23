@@ -311,6 +311,17 @@ async def delete_goal_endpoint(goal_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Goal not found")
 
 
+@app.post("/api/goals/{goal_id}/claim", response_model=PointGoalResponse, dependencies=[Depends(verify_api_key)])
+async def claim_reward_endpoint(goal_id: int, db: Session = Depends(get_db)):
+    """Claim reward for achieved goal"""
+    goal = crud.claim_goal_reward(db, goal_id)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    if not goal.achieved:
+        raise HTTPException(status_code=400, detail="Goal not achieved yet")
+    return goal
+
+
 # ===== REST DAYS ENDPOINTS =====
 
 @app.get("/api/rest-days", response_model=List[RestDayResponse], dependencies=[Depends(verify_api_key)])

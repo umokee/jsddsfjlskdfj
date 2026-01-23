@@ -384,6 +384,9 @@ class PointsService:
         Returns:
             List of newly achieved goals
         """
+        from backend.constants import TASK_STATUS_COMPLETED
+        from sqlalchemy import and_
+
         current_total = self.get_current_points()
         goal_repo = PointGoalRepository()
         goals = goal_repo.get_all(self.db, include_achieved=False)
@@ -393,7 +396,40 @@ class PointsService:
         today = self.date_service.get_effective_date(settings)
 
         for goal in goals:
-            if current_total >= goal.target_points:
+            is_achieved = False
+
+            # Check based on goal type
+            if goal.goal_type == "points":
+                # Points goal: check if current total >= target
+                if goal.target_points and current_total >= goal.target_points:
+                    is_achieved = True
+
+            elif goal.goal_type == "project_completion":
+                # Project completion goal: check if all tasks in project are completed
+                if goal.project_name:
+                    # Count total tasks in project
+                    from backend.models import Task
+                    total_tasks = self.db.query(Task).filter(
+                        and_(
+                            Task.project == goal.project_name,
+                            Task.is_habit == False
+                        )
+                    ).count()
+
+                    # Count completed tasks in project
+                    completed_tasks = self.db.query(Task).filter(
+                        and_(
+                            Task.project == goal.project_name,
+                            Task.is_habit == False,
+                            Task.status == TASK_STATUS_COMPLETED
+                        )
+                    ).count()
+
+                    # Project is complete if all tasks are done (and there's at least 1 task)
+                    if total_tasks > 0 and completed_tasks == total_tasks:
+                        is_achieved = True
+
+            if is_achieved:
                 goal.achieved = True
                 goal.achieved_date = today
                 goal_repo.update(self.db, goal)
