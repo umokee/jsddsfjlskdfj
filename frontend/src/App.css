@@ -1883,6 +1883,26 @@ small {
   }
 
   /* Goals */
+  .goals-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .goals-controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .goals-controls button {
+    width: 100%;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
   .goals-list {
     padding: 1rem;
   }
@@ -1891,13 +1911,36 @@ small {
     padding: 1rem;
   }
 
+  .goal-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
   .goal-target {
     font-size: 1.25rem;
+    width: 100%;
+    order: 1;
+  }
+
+  .goal-type-badge {
+    order: 0;
   }
 
   .goal-badge {
     font-size: 0.65rem;
     padding: 0.3rem 0.625rem;
+    order: 2;
+  }
+
+  .delete-btn {
+    order: 3;
+    margin-left: auto;
+  }
+
+  .goal-stats {
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-start;
   }
 
   .goal-form {
@@ -1938,9 +1981,14 @@ small {
     padding: 1rem 1.25rem;
   }
 
+  .settings-tabs {
+    flex-wrap: wrap;
+  }
+
   .settings-section {
     margin: 1rem;
     padding: 1rem;
+    overflow-x: hidden;
   }
 
   .settings-section h3 {
@@ -1949,9 +1997,38 @@ small {
   }
 
   .tab-button {
-    padding: 0.875rem 1rem;
-    font-size: 0.7rem;
-    letter-spacing: 1px;
+    padding: 0.75rem 0.875rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+
+  /* Backups */
+  .backup-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .backup-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .backup-actions .btn {
+    width: 100%;
   }
 
   /* Modal - make more mobile-friendly */
@@ -2229,9 +2306,25 @@ small {
   }
 
   /* Goals and calculator */
+  .goals-header {
+    padding: 0.875rem;
+  }
+
+  .goals-controls {
+    grid-template-columns: 1fr;
+  }
+
   .goals-list,
   .projection-results {
     padding: 0.75rem;
+  }
+
+  .goal-target {
+    font-size: 1.125rem;
+  }
+
+  .goal-reward {
+    font-size: 0.875rem;
   }
 
   .calculator-input,
@@ -2249,6 +2342,18 @@ small {
     letter-spacing: 1.5px;
   }
 
+  .settings-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tab-button {
+    padding: 0.625rem 0.5rem;
+    font-size: 0.6rem;
+    letter-spacing: 0;
+    text-align: center;
+  }
+
   .settings-section {
     margin: 0.75rem;
     padding: 0.875rem;
@@ -2259,9 +2364,17 @@ small {
   }
 
   /* Backups */
+  .backups-header {
+    padding: 0.875rem;
+  }
+
   .backup-status,
   .backup-item {
     padding: 0.875rem;
+  }
+
+  .backup-actions {
+    grid-template-columns: 1fr;
   }
 
   .backups-header h2 {
