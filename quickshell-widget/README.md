@@ -18,18 +18,29 @@
 cp TaskWidget.qml TaskService.qml ~/.config/quickshell/widgets/
 ```
 
-2. Настройте API ключ в вашем конфиге QuickShell:
+2. Добавьте в ваш QuickShell конфиг (см. `example-config.qml`):
 ```qml
 TaskService {
     id: taskService
     apiKey: "your-api-key-here"
     apiUrl: "http://localhost:8000/api"
+    updateManager: updateManager  // optional
 }
 
 TaskWidget {
     service: taskService
     panelWindow: panel
 }
+```
+
+3. Замените `"your-api-key-here"` на ваш реальный API ключ
+
+## Быстрый старт
+
+Скопируйте `example-config.qml` как основу для вашего конфига:
+```bash
+cp example-config.qml ~/.config/quickshell/shell.qml
+# Отредактируйте файл и установите свой API ключ
 ```
 
 ## Использование
