@@ -1570,8 +1570,20 @@ small {
     flex-direction: column;
   }
 
+  .app-title {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+
   .nav-tabs {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .widget-grid {
@@ -1615,7 +1627,8 @@ small {
 
   .nav-tab {
     font-size: 0.75rem;
-    padding: 0.875rem 1.25rem;
+    padding: 0.875rem 1rem;
+    flex-shrink: 0;
   }
 
   /* Reduce widget spacing */
@@ -1640,6 +1653,15 @@ small {
   .task-timer {
     font-size: 1.75rem;
     margin: 1.25rem 0;
+  }
+
+  /* Task header responsive */
+  .task-header {
+    gap: 0.75rem;
+  }
+
+  .task-actions {
+    flex-wrap: wrap;
   }
 
   /* Compact buttons */
@@ -1722,12 +1744,33 @@ small {
     font-size: 0.85rem;
     padding: 0.75rem 1rem;
     letter-spacing: 1px;
+    text-align: center;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    width: 100%;
   }
 
   .nav-tab {
-    font-size: 0.7rem;
-    padding: 0.75rem 1rem;
-    letter-spacing: 0.5px;
+    font-size: 0.65rem;
+    padding: 0.75rem 0.5rem;
+    letter-spacing: 0;
+    text-align: center;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-tab:nth-child(3n) {
+    border-right: none;
+  }
+
+  .nav-tab:nth-last-child(-n+3) {
+    border-bottom: none;
   }
 
   .status-label {
@@ -1757,29 +1800,41 @@ small {
     padding: 0.875rem;
   }
 
+  .task-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
   .task-title {
     font-size: 0.875rem;
   }
 
   .task-meta {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
     font-size: 0.7rem;
   }
 
   .task-metadata {
-    flex-direction: column;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
     font-size: 0.75rem;
   }
 
   .task-actions {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
     width: 100%;
   }
 
   .task-actions .btn {
     width: 100%;
+  }
+
+  .task-actions .btn-danger {
+    grid-column: span 2;
   }
 
   /* Current task widget */
@@ -2058,16 +2113,36 @@ small {
     padding: 0.75rem;
   }
 
-  /* Navigation - very compact */
+  /* Navigation - very compact 2x3 grid */
   .app-title {
     font-size: 0.8rem;
     padding: 0.625rem 0.875rem;
     letter-spacing: 0.5px;
   }
 
+  .nav-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .nav-tab {
-    font-size: 0.65rem;
-    padding: 0.625rem 0.875rem;
+    font-size: 0.6rem;
+    padding: 0.625rem 0.5rem;
+  }
+
+  .nav-tab:nth-child(3n) {
+    border-right: 1px solid var(--border);
+  }
+
+  .nav-tab:nth-child(2n) {
+    border-right: none;
+  }
+
+  .nav-tab:nth-last-child(-n+3) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-tab:nth-last-child(-n+2) {
+    border-bottom: none;
   }
 
   .command-bar-right {
@@ -2097,6 +2172,15 @@ small {
 
   .points-value {
     font-size: 2.25rem;
+  }
+
+  /* Task actions - full width buttons */
+  .task-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .task-actions .btn-danger {
+    grid-column: span 1;
   }
 
   /* Buttons - optimize for touch */

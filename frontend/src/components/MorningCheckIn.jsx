@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../api';
+import { API_URL } from '../config';
+import { getApiKey } from '../api';
 
 const MorningCheckIn = ({ onComplete }) => {
   const [selectedMood, setSelectedMood] = useState(null);
@@ -26,9 +27,9 @@ const MorningCheckIn = ({ onComplete }) => {
     setError(null);
 
     try {
-      const apiKey = localStorage.getItem('apiKey');
+      const apiKey = getApiKey();
       const response = await axios.post(
-        `${API_BASE_URL}/tasks/complete-roll`,
+        `${API_URL}/api/tasks/complete-roll`,
         null,
         {
           params: { mood: selectedMood },

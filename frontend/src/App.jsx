@@ -49,6 +49,7 @@ function App() {
   const [rollMessage, setRollMessage] = useState('');
   const [rollMood, setRollMood] = useState('');
   const [showMorningCheckIn, setShowMorningCheckIn] = useState(false);
+  const [settings, setSettings] = useState(null);
 
   useEffect(() => {
     if (apiKey) {
@@ -85,8 +86,9 @@ function App() {
       const response = await fetch(`${API_URL}/api/settings`, {
         headers: { 'X-API-Key': apiKey }
       });
-      const settings = await response.json();
-      setShowMorningCheckIn(settings.pending_roll || false);
+      const settingsData = await response.json();
+      setSettings(settingsData);
+      setShowMorningCheckIn(settingsData.pending_roll || false);
     } catch (err) {
       console.error('Failed to check pending roll:', err);
     }
@@ -426,6 +428,7 @@ function App() {
                         onComplete={handleComplete}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        settings={settings}
                       />
                     </div>
                   )}
@@ -439,6 +442,7 @@ function App() {
                         onComplete={handleComplete}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        settings={settings}
                       />
                     </div>
                   )}
@@ -461,6 +465,7 @@ function App() {
                     onDelete={handleDeleteTask}
                     onEdit={handleEditTask}
                     showAll={true}
+                    settings={settings}
                   />
                 </div>
               </div>
@@ -478,6 +483,7 @@ function App() {
                     onDelete={handleDeleteTask}
                     onEdit={handleEditTask}
                     showAll={true}
+                    settings={settings}
                   />
                 </div>
               </div>
