@@ -18,6 +18,7 @@ QtObject {
     property int currentTaskEnergy: 3
     property bool isRestDay: false
     property bool pendingMood: false
+    property string effectiveDate: ""  // Effective date from server (respects day_start_time)
 
     // === Stats ===
     property int tasksDone: 0
@@ -129,6 +130,9 @@ QtObject {
     function _fetchSettings() {
         _apiGet("/settings", function(data) {
             pendingMood = data.pending_roll || false;
+            effectiveDate = data.effective_date || "";
+            // Check rest day using effective date from server
+            _checkRestDay();
         });
     }
 
@@ -155,7 +159,7 @@ QtObject {
 
     function _fetchTodayHabits() {
         todayHabitsModel.clear();
-        _apiGet("/habits/today", function(data) {
+        _apiGet("/tasks/today-habits", function(data) {
             if (Array.isArray(data)) {
                 for (let i = 0; i < data.length; i++) {
                     let habit = data[i];
@@ -172,13 +176,14 @@ QtObject {
         });
     }
 
-    function _fetchRestDays() {
+    function _checkRestDay() {
+        // Use effective date from server (respects day_start_time setting)
+        if (!effectiveDate) return;
         _apiGet("/rest-days", function(data) {
-            let today = new Date().toISOString().split('T')[0];
             isRestDay = false;
             if (Array.isArray(data)) {
                 for (let i = 0; i < data.length; i++) {
-                    if (data[i].date === today) {
+                    if (data[i].date === effectiveDate) {
                         isRestDay = true;
                         break;
                     }
@@ -273,6 +278,6 @@ QtObject {
             updateManager.register(service, 1, _update, "TaskService");
         }
         refresh();
-        _fetchRestDays();
+        // Rest day check is now done inside _fetchSettings using effective_date
     }
 }

@@ -51,10 +51,19 @@ class TaskService:
         pending_today = self.task_repo.get_pending_count(self.db, today)
         total_pending = self.task_repo.get_total_pending_count(self.db)
 
+        # Habits stats
+        habits_done = self.task_repo.get_completed_count(
+            self.db, day_start, day_end, is_habit=True
+        )
+        today_habits = self.task_repo.get_today_habits(self.db, today)
+        habits_total = len(today_habits) + habits_done
+
         return {
             "done_today": done_today,
             "pending_today": pending_today,
-            "total_pending": total_pending
+            "total_pending": total_pending,
+            "habits_done": habits_done,
+            "habits_total": habits_total
         }
 
     def create_task(self, task_data: TaskCreate) -> Task:

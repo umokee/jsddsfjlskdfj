@@ -68,6 +68,8 @@ class StatsResponse(BaseModel):
     done_today: int
     pending_today: int
     total_pending: int
+    habits_done: int = 0
+    habits_total: int = 0
     active_task: Optional[TaskResponse]
 
 
@@ -142,6 +144,7 @@ class SettingsResponse(SettingsBase):
     id: int
     updated_at: datetime
     last_backup_date: Optional[datetime] = None
+    effective_date: Optional[date] = None  # Current effective date based on day_start_time
 
     class Config:
         from_attributes = True

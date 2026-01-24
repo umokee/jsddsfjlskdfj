@@ -283,8 +283,14 @@ async def complete_roll(mood: str, db: Session = Depends(get_db)):
 
 @app.get("/api/settings", response_model=SettingsResponse, dependencies=[Depends(verify_api_key)])
 async def get_settings_endpoint(db: Session = Depends(get_db)):
-    """Get settings"""
-    return crud.get_settings(db)
+    """Get settings with effective date"""
+    from backend.services.date_service import DateService
+    settings = crud.get_settings(db)
+    effective_date = DateService.get_effective_date(settings)
+    # Convert to dict and add effective_date
+    response = SettingsResponse.model_validate(settings)
+    response.effective_date = effective_date
+    return response
 
 
 @app.put("/api/settings", response_model=SettingsResponse, dependencies=[Depends(verify_api_key)])
