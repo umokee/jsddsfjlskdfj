@@ -1441,6 +1441,8 @@ small {
 /* ======================
    RESPONSIVE
    ====================== */
+
+/* Tablet devices (≤ 968px) */
 @media (max-width: 968px) {
   .command-bar {
     flex-direction: column;
@@ -1467,8 +1469,123 @@ small {
     justify-content: center;
     padding: 0.75rem 0;
   }
+
+  /* Optimize grid layouts for tablets */
+  .widget-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Make projection stats single column on tablets */
+  .projection-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
+/* Large mobile devices (≤ 768px) */
+@media (max-width: 768px) {
+  /* Reduce overall padding */
+  .command-content {
+    padding: 1.25rem;
+  }
+
+  /* Compact navigation tabs */
+  .app-title {
+    font-size: 0.9rem;
+    padding: 0.875rem 1.25rem;
+    letter-spacing: 1.5px;
+  }
+
+  .nav-tab {
+    font-size: 0.75rem;
+    padding: 0.875rem 1.25rem;
+  }
+
+  /* Reduce widget spacing */
+  .widget {
+    margin-bottom: 1.25rem;
+  }
+
+  .widget-body {
+    padding: 1.25rem;
+  }
+
+  /* Optimize typography */
+  .widget-title {
+    font-size: 0.75rem;
+    letter-spacing: 1.5px;
+  }
+
+  .task-description {
+    font-size: 1.125rem;
+  }
+
+  .task-timer {
+    font-size: 1.75rem;
+    margin: 1.25rem 0;
+  }
+
+  /* Compact buttons */
+  .btn {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.75rem;
+  }
+
+  .btn-small {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.65rem;
+  }
+
+  /* Points display */
+  .points-value {
+    font-size: 3rem;
+  }
+
+  .points-current {
+    padding: 2.5rem 1.5rem;
+  }
+
+  /* History entry - make it stack better */
+  .history-entry {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .history-stats {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .history-points {
+    justify-content: space-between;
+  }
+
+  /* Modal adjustments */
+  .modal-content {
+    max-width: 95%;
+  }
+
+  .modal-header h3 {
+    font-size: 1.125rem;
+  }
+
+  /* Settings and forms */
+  .settings-header h2,
+  .points-display h2,
+  .points-goals h2,
+  .points-calculator h2 {
+    font-size: 1.125rem;
+    letter-spacing: 2px;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .settings-section {
+    margin: 1.25rem;
+    padding: 1.25rem;
+  }
+}
+
+/* Standard mobile devices (≤ 640px) */
 @media (max-width: 640px) {
   .command-content {
     padding: 1rem;
@@ -1481,6 +1598,735 @@ small {
   .action-bar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  /* Further compact navigation */
+  .app-title {
+    font-size: 0.85rem;
+    padding: 0.75rem 1rem;
+    letter-spacing: 1px;
+  }
+
+  .nav-tab {
+    font-size: 0.7rem;
+    padding: 0.75rem 1rem;
+    letter-spacing: 0.5px;
+  }
+
+  .status-label {
+    font-size: 0.65rem;
+  }
+
+  .status-value {
+    font-size: 0.875rem;
+  }
+
+  /* Widget optimizations */
+  .widget-header {
+    padding: 0.625rem 0.875rem;
+  }
+
+  .widget-title {
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+  }
+
+  .widget-count, .widget-status {
+    font-size: 0.7rem;
+  }
+
+  /* Task list optimizations */
+  .task-item {
+    padding: 0.875rem;
+  }
+
+  .task-title {
+    font-size: 0.875rem;
+  }
+
+  .task-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .task-metadata {
+    flex-direction: column;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .task-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .task-actions .btn {
+    width: 100%;
+  }
+
+  /* Current task widget */
+  .task-description {
+    font-size: 1rem;
+  }
+
+  .task-timer {
+    font-size: 1.5rem;
+    margin: 1rem 0;
+    letter-spacing: 1px;
+  }
+
+  /* Points display */
+  .points-value {
+    font-size: 2.5rem;
+    letter-spacing: 2px;
+  }
+
+  .points-current {
+    padding: 2rem 1rem;
+  }
+
+  .points-breakdown {
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .points-history {
+    padding: 1rem;
+  }
+
+  /* History entries - full mobile stack */
+  .history-entry {
+    padding: 0.875rem;
+  }
+
+  .history-date {
+    font-size: 0.75rem;
+  }
+
+  .history-stats {
+    gap: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  /* Goals */
+  .goals-list {
+    padding: 1rem;
+  }
+
+  .goal-item {
+    padding: 1rem;
+  }
+
+  .goal-target {
+    font-size: 1.25rem;
+  }
+
+  .goal-badge {
+    font-size: 0.65rem;
+    padding: 0.3rem 0.625rem;
+  }
+
+  .goal-form {
+    padding: 1.25rem;
+  }
+
+  /* Calculator */
+  .calculator-input {
+    padding: 1.25rem;
+  }
+
+  .projection-results {
+    padding: 1rem;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .range-value {
+    font-size: 1.5rem;
+  }
+
+  /* Forms */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 0.875rem;
+    padding: 0.625rem;
+  }
+
+  .form-label {
+    font-size: 0.7rem;
+  }
+
+  /* Settings */
+  .settings-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .settings-section {
+    margin: 1rem;
+    padding: 1rem;
+  }
+
+  .settings-section h3 {
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
+  }
+
+  .tab-button {
+    padding: 0.875rem 1rem;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+  }
+
+  /* Modal - make more mobile-friendly */
+  .modal-overlay {
+    padding: 0.5rem;
+  }
+
+  .modal-content {
+    max-height: 95vh;
+  }
+
+  .modal-header {
+    padding: 1rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1rem;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .day-summary {
+    padding: 0.875rem;
+  }
+
+  .summary-stat {
+    font-size: 1.25rem;
+  }
+
+  .detail-item {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .item-project,
+  .item-type {
+    font-size: 0.75rem;
+  }
+
+  /* Radio groups */
+  .radio-group {
+    flex-direction: column;
+  }
+
+  .radio-label {
+    padding: 0.625rem 0.875rem;
+  }
+
+  /* Login screen */
+  .login-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .logo {
+    font-size: 1.25rem;
+    letter-spacing: 1.5px;
+  }
+
+  .login-body {
+    padding: 1.25rem;
+  }
+
+  /* Action bar and roll controls */
+  .action-bar {
+    padding: 0.875rem;
+    gap: 0.75rem;
+  }
+
+  .roll-message {
+    font-size: 0.75rem;
+    text-align: center;
+  }
+
+  .roll-controls {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .mood-select {
+    width: 100%;
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+  }
+
+  /* Backups page */
+  .backups-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .backup-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .backup-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .backup-actions .btn {
+    width: 100%;
+  }
+
+  .backup-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+/* Small mobile devices (≤ 480px) */
+@media (max-width: 480px) {
+  /* Further reduce padding */
+  .command-content {
+    padding: 0.75rem;
+  }
+
+  .widget {
+    margin-bottom: 1rem;
+  }
+
+  .widget-body {
+    padding: 0.75rem;
+  }
+
+  /* Navigation - very compact */
+  .app-title {
+    font-size: 0.8rem;
+    padding: 0.625rem 0.875rem;
+    letter-spacing: 0.5px;
+  }
+
+  .nav-tab {
+    font-size: 0.65rem;
+    padding: 0.625rem 0.875rem;
+  }
+
+  .command-bar-right {
+    padding: 0 0.75rem;
+  }
+
+  .status-bar {
+    gap: 0.75rem;
+  }
+
+  .status-label {
+    font-size: 0.6rem;
+  }
+
+  .status-value {
+    font-size: 0.8rem;
+  }
+
+  /* Typography - very compact */
+  .task-description {
+    font-size: 0.95rem;
+  }
+
+  .task-timer {
+    font-size: 1.35rem;
+  }
+
+  .points-value {
+    font-size: 2.25rem;
+  }
+
+  /* Buttons - optimize for touch */
+  .btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.7rem;
+  }
+
+  .btn-small {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.625rem;
+  }
+
+  /* Forms */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 0.85rem;
+  }
+
+  /* Modal - nearly fullscreen */
+  .modal-overlay {
+    padding: 0.25rem;
+  }
+
+  .modal-content {
+    max-width: 100%;
+    max-height: 98vh;
+  }
+
+  .modal-header {
+    padding: 0.875rem;
+  }
+
+  .modal-body {
+    padding: 0.875rem;
+  }
+
+  /* Points display */
+  .points-current {
+    padding: 1.5rem 0.75rem;
+  }
+
+  .points-history {
+    padding: 0.75rem;
+  }
+
+  /* Goals and calculator */
+  .goals-list,
+  .projection-results {
+    padding: 0.75rem;
+  }
+
+  .calculator-input,
+  .goal-form {
+    padding: 1rem;
+  }
+
+  /* Settings */
+  .settings-header,
+  .points-display h2,
+  .points-goals h2,
+  .points-calculator h2 {
+    padding: 1rem;
+    font-size: 1rem;
+    letter-spacing: 1.5px;
+  }
+
+  .settings-section {
+    margin: 0.75rem;
+    padding: 0.875rem;
+  }
+
+  .settings-intro {
+    margin: 1rem 0.75rem 0 0.75rem;
+  }
+
+  /* Backups */
+  .backup-status,
+  .backup-item {
+    padding: 0.875rem;
+  }
+
+  .backups-header h2 {
+    font-size: 1.125rem;
+  }
+
+  /* Login */
+  .login-header {
+    padding: 0.875rem 1rem;
+  }
+
+  .login-body {
+    padding: 1rem;
+  }
+
+  .logo {
+    font-size: 1.125rem;
+  }
+
+  /* Empty states */
+  .empty-state,
+  .no-goals,
+  .no-backups {
+    padding: 2rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  /* Info boxes */
+  .info-box {
+    font-size: 0.75rem;
+    padding: 0.625rem 0.875rem;
+  }
+
+  .error-message {
+    font-size: 0.8rem;
+    padding: 0.875rem;
+  }
+}
+
+/* Extra small devices (≤ 375px) */
+@media (max-width: 375px) {
+  /* Minimal padding for very small screens */
+  .command-content {
+    padding: 0.625rem;
+  }
+
+  .widget-body {
+    padding: 0.625rem;
+  }
+
+  /* Very compact navigation */
+  .app-title {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .nav-tab {
+    font-size: 0.625rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Hide status dividers on very small screens */
+  .status-divider {
+    display: none;
+  }
+
+  .status-bar {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* Typography */
+  .task-description {
+    font-size: 0.9rem;
+  }
+
+  .task-timer {
+    font-size: 1.25rem;
+  }
+
+  .points-value {
+    font-size: 2rem;
+  }
+
+  .widget-title {
+    font-size: 0.65rem;
+  }
+
+  /* Buttons - full width for better touch targets */
+  .btn {
+    padding: 0.75rem;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+  }
+
+  /* Forms */
+  .form-label {
+    font-size: 0.65rem;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 0.8rem;
+    padding: 0.625rem;
+  }
+
+  /* Task items */
+  .task-item {
+    padding: 0.75rem;
+  }
+
+  .task-title {
+    font-size: 0.8rem;
+  }
+
+  /* History */
+  .history-entry {
+    padding: 0.75rem;
+  }
+
+  /* Goals */
+  .goal-item {
+    padding: 0.875rem;
+  }
+
+  .goal-target {
+    font-size: 1.125rem;
+  }
+
+  /* Modal */
+  .modal-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .summary-stat {
+    font-size: 1.125rem;
+  }
+
+  /* Settings headers */
+  .settings-header h2,
+  .points-display h2,
+  .points-goals h2,
+  .points-calculator h2,
+  .backups-header h2 {
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+  }
+}
+
+/* ======================
+   MOBILE LANDSCAPE ORIENTATION
+   ====================== */
+@media (max-width: 968px) and (orientation: landscape) {
+  /* Reduce vertical spacing in landscape mode */
+  .command-content {
+    padding: 0.75rem;
+  }
+
+  .widget {
+    margin-bottom: 1rem;
+  }
+
+  .widget-body {
+    padding: 0.875rem;
+  }
+
+  .points-current {
+    padding: 1.5rem 1rem;
+  }
+
+  .points-value {
+    font-size: 2.5rem;
+  }
+
+  .task-timer {
+    font-size: 1.5rem;
+    margin: 0.75rem 0;
+  }
+
+  .modal-content {
+    max-height: 85vh;
+  }
+
+  .login-screen {
+    padding: 1rem 0;
+  }
+
+  /* Make history and lists more compact in landscape */
+  .history-entry,
+  .task-item,
+  .goal-item {
+    padding: 0.75rem;
+  }
+
+  /* Optimize action bar for landscape */
+  .action-bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .roll-controls {
+    flex-direction: row;
+  }
+}
+
+/* ======================
+   TOUCH-FRIENDLY IMPROVEMENTS
+   ====================== */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch targets for mobile devices */
+  .btn {
+    min-height: 44px; /* iOS recommended minimum touch target */
+  }
+
+  .btn-small {
+    min-height: 38px;
+  }
+
+  .nav-tab {
+    min-height: 44px;
+  }
+
+  .checkbox {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Improve form inputs for touch */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    min-height: 44px;
+  }
+
+  /* Better spacing for touch interaction */
+  .task-actions .btn {
+    margin-top: 0.25rem;
+  }
+
+  /* Remove hover effects on touch devices */
+  .task-item:hover,
+  .history-entry:hover,
+  .goal-item:hover,
+  .backup-item:hover {
+    background: var(--bg-tertiary);
+    border-left-color: var(--border);
+  }
+
+  /* Active states for better feedback */
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+
+  .nav-tab:active {
+    background: var(--bg-primary);
+  }
+}
+
+/* ======================
+   PREVENT TEXT ZOOM ON MOBILE
+   ====================== */
+@media (max-width: 640px) {
+  /* Prevent iOS Safari from auto-zooming on input focus */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 16px; /* iOS won't zoom if font-size >= 16px */
+  }
+}
+
+/* ======================
+   ACCESSIBILITY IMPROVEMENTS
+   ====================== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .btn,
+  .nav-tab,
+  .widget,
+  .task-item {
+    border-width: 2px;
+  }
+
+  .widget-title,
+  .task-title,
+  .nav-tab.active {
+    font-weight: 700;
   }
 }
 
