@@ -28,6 +28,7 @@ import PointsDisplay from './components/PointsDisplay';
 import PointsGoals from './components/PointsGoals';
 import PointsCalculator from './components/PointsCalculator';
 import Backups from './components/Backups';
+import MorningCheckIn from './components/MorningCheckIn';
 
 function App() {
   const [apiKey, setApiKey] = useState(getApiKey());
@@ -47,17 +48,20 @@ function App() {
   const [canRollToday, setCanRollToday] = useState(true);
   const [rollMessage, setRollMessage] = useState('');
   const [rollMood, setRollMood] = useState('');
+  const [showMorningCheckIn, setShowMorningCheckIn] = useState(false);
 
   useEffect(() => {
     if (apiKey) {
       loadData();
       loadPoints();
       checkCanRoll();
+      checkPendingRoll();
 
       const interval = setInterval(() => {
         loadData();
         loadPoints();
         checkCanRoll();
+        checkPendingRoll();
       }, 30000);
 
       return () => clearInterval(interval);
@@ -73,6 +77,18 @@ function App() {
       setCurrentPoints(data.points || 0);
     } catch (err) {
       console.error('Failed to load points:', err);
+    }
+  };
+
+  const checkPendingRoll = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/settings`, {
+        headers: { 'X-API-Key': apiKey }
+      });
+      const settings = await response.json();
+      setShowMorningCheckIn(settings.pending_roll || false);
+    } catch (err) {
+      console.error('Failed to check pending roll:', err);
     }
   };
 
@@ -163,6 +179,15 @@ function App() {
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to roll tasks');
     }
+  };
+
+  const handleMorningCheckInComplete = async (result) => {
+    // Morning check-in completed successfully
+    setShowMorningCheckIn(false);
+    // Reload all data to show the newly rolled tasks
+    await loadData();
+    await checkCanRoll();
+    await checkPendingRoll();
   };
 
   const handleSubmitTask = async (taskData) => {
@@ -460,6 +485,11 @@ function App() {
           </>
         )}
       </main>
+
+      {/* Morning Check-in Modal */}
+      {showMorningCheckIn && (
+        <MorningCheckIn onComplete={handleMorningCheckInComplete} />
+      )}
     </div>
   );
 }

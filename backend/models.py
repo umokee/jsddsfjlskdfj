@@ -135,6 +135,7 @@ class Settings(Base):
     penalty_time = Column(String, default="00:01")  # Time when penalties are calculated (HH:MM format)
     auto_roll_enabled = Column(Boolean, default=False)  # Enable automatic roll
     auto_roll_time = Column(String, default="06:00")  # Time for automatic roll (HH:MM format)
+    pending_roll = Column(Boolean, default=False)  # Auto-roll triggered, waiting for user mood selection
 
     # Backup settings
     auto_backup_enabled = Column(Boolean, default=True)  # Enable automatic backups

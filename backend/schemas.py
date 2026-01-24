@@ -124,6 +124,7 @@ class SettingsBase(BaseModel):
     penalty_time: str = Field(default="00:01", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     auto_roll_enabled: bool = Field(default=False)
     auto_roll_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    pending_roll: bool = Field(default=False)
 
     # Backup settings
     auto_backup_enabled: bool = Field(default=True)

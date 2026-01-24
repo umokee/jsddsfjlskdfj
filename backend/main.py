@@ -234,6 +234,51 @@ async def roll_tasks(mood: Optional[str] = None, db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/tasks/complete-roll", dependencies=[Depends(verify_api_key)])
+async def complete_roll(mood: str, db: Session = Depends(get_db)):
+    """
+    Complete the morning check-in by rolling tasks with selected mood.
+    Called after user selects their energy level in the Morning Check-in modal.
+    """
+    settings = crud.get_settings(db)
+
+    # Check if there's a pending roll
+    if not settings.pending_roll:
+        raise HTTPException(
+            status_code=400,
+            detail="No pending roll. Morning check-in already completed or not triggered."
+        )
+
+    # Validate mood parameter
+    if not mood or not mood.isdigit() or not (0 <= int(mood) <= 5):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid mood. Must be a number between 0 and 5."
+        )
+
+    # Execute roll with the selected mood
+    result = crud.roll_tasks(db, mood)
+
+    # Check if roll was successful
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    # Clear pending_roll flag
+    settings.pending_roll = False
+    db.commit()
+
+    return {
+        "message": "Morning check-in completed. Daily plan generated!",
+        "habits_count": len(result["habits"]),
+        "tasks_count": len(result["tasks"]),
+        "deleted_habits": result["deleted_habits"],
+        "habits": result["habits"],
+        "tasks": result["tasks"],
+        "penalty_info": result.get("penalty_info"),
+        "mood": int(mood)
+    }
+
+
 # ===== SETTINGS ENDPOINTS =====
 
 @app.get("/api/settings", response_model=SettingsResponse, dependencies=[Depends(verify_api_key)])

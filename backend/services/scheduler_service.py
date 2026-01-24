@@ -35,7 +35,14 @@ def _normalize_time(time_str: str | None) -> str:
 
 
 async def run_auto_roll():
-    """Задача: Автоматический перенос задач (Roll)"""
+    """
+    Задача: Автоматическая подготовка к новому дню
+
+    Morning Check-in Mode:
+    - Применяет штрафы за вчерашний день
+    - Устанавливает флаг pending_roll = True
+    - Реальный roll с выбором задач происходит после того, как пользователь выберет mood
+    """
     db = SessionLocal()
     try:
         settings = crud.get_settings(db)
@@ -45,24 +52,28 @@ async def run_auto_roll():
         # Получаем текущее время в формате HHMM
         current_time = datetime.now().strftime("%H%M")
         target_time = _normalize_time(settings.auto_roll_time or "0600")
-        
+
         # Проверяем эффективную дату
         today = crud.get_effective_date(settings)
-        
-        # Запускаем roll, если:
+
+        # Запускаем подготовку дня, если:
         # 1. Время уже наступило (или прошло)
-        # 2. Сегодня еще не роллили
-        if int(current_time) >= int(target_time) and settings.last_roll_date != today:
-            logger.info(f"Executing Auto-Roll (Current: {current_time}, Target: {target_time})")
-            result = crud.roll_tasks(db)
-            
-            if "error" not in result:
-                logger.info(f"Auto-roll successful: {len(result.get('tasks', []))} tasks, {len(result.get('habits', []))} habits")
-            else:
-                logger.warning(f"Auto-roll failed: {result['error']}")
-        
+        # 2. pending_roll еще не установлен (не делали подготовку сегодня)
+        if int(current_time) >= int(target_time) and not settings.pending_roll and settings.last_roll_date != today:
+            logger.info(f"Executing Auto-Roll Preparation - Morning Check-in (Current: {current_time}, Target: {target_time})")
+
+            # Применяем штрафы за вчера
+            penalty_info = crud.calculate_daily_penalties(db)
+            logger.info(f"Penalties applied for yesterday: {penalty_info.get('penalty', 0)} points")
+
+            # Устанавливаем флаг pending_roll - пользователь должен выбрать mood
+            settings.pending_roll = True
+            db.commit()
+
+            logger.info("Morning Check-in pending - waiting for user to select mood")
+
     except Exception as e:
-        logger.error(f"Scheduler Error (Auto-Roll): {e}")
+        logger.error(f"Scheduler Error (Auto-Roll Preparation): {e}")
     finally:
         db.close()
 
