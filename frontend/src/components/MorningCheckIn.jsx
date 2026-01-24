@@ -50,7 +50,7 @@ const MorningCheckIn = ({ onComplete }) => {
     <div className="modal-overlay" style={{ zIndex: 9999 }}>
       <div className="modal-content morning-checkin-modal">
         <div className="modal-header">
-          <h3>⚡ MORNING CHECK-IN</h3>
+          <h3>MORNING CHECK-IN</h3>
         </div>
 
         <div className="modal-body">

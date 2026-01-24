@@ -218,18 +218,56 @@ QtObject {
 
     // === HTTP Helpers ===
 
+    // Callback registry for async operations
+    property var _callbacks: ({})
+    property int _callbackId: 0
+
+    function _registerCallback(callback) {
+        let id = _callbackId++;
+        _callbacks[id] = callback;
+        return id;
+    }
+
+    function _executeCallback(id, data) {
+        if (_callbacks[id]) {
+            _callbacks[id](data);
+            delete _callbacks[id];
+        }
+    }
+
     function _apiGet(endpoint, callback) {
+        let cbId = _registerCallback(callback);
+        let url = apiUrl + endpoint;
+        let key = apiKey;
+
         let proc = Qt.createQmlObject(`
+            import QtQuick
             import Quickshell.Io
             Process {
-                command: ["curl", "-s", "-H", "X-API-Key: ${apiKey}", "${apiUrl}${endpoint}"]
+                id: proc
+                property string responseData: ""
+                command: ["curl", "-s", "--connect-timeout", "5", "-H", "X-API-Key: ` + key + `", "` + url + `"]
                 stdout: SplitParser {
                     onRead: data => {
-                        try {
-                            let json = JSON.parse(data);
-                            callback(json);
-                        } catch (e) {
-                            console.error("JSON parse error:", e);
+                        proc.responseData += data;
+                    }
+                }
+                stderr: SplitParser {
+                    onRead: data => {
+                        console.error("TaskService: curl error for ` + endpoint + `:", data);
+                    }
+                }
+                onRunningChanged: {
+                    if (!running) {
+                        if (responseData) {
+                            try {
+                                let json = JSON.parse(responseData);
+                                service._executeCallback(` + cbId + `, json);
+                            } catch (e) {
+                                console.error("TaskService: JSON parse error for ` + endpoint + `:", e, "Data:", responseData.substring(0, 100));
+                            }
+                        } else {
+                            console.warn("TaskService: Empty response for ` + endpoint + ` - API may be unreachable");
                         }
                     }
                 }
@@ -239,20 +277,37 @@ QtObject {
     }
 
     function _apiPost(endpoint, body, callback) {
+        let cbId = callback ? _registerCallback(callback) : -1;
+        let url = apiUrl + endpoint;
+        let key = apiKey;
+
         let proc = Qt.createQmlObject(`
+            import QtQuick
             import Quickshell.Io
             Process {
-                command: ["curl", "-s", "-X", "POST",
-                         "-H", "X-API-Key: ${apiKey}",
+                id: proc
+                property string responseData: ""
+                command: ["curl", "-s", "--connect-timeout", "5", "-X", "POST",
+                         "-H", "X-API-Key: ` + key + `",
                          "-H", "Content-Type: application/json",
-                         "${apiUrl}${endpoint}"]
+                         "` + url + `"]
                 stdout: SplitParser {
                     onRead: data => {
+                        proc.responseData += data;
+                    }
+                }
+                stderr: SplitParser {
+                    onRead: data => {
+                        console.error("TaskService: curl POST error for ` + endpoint + `:", data);
+                    }
+                }
+                onRunningChanged: {
+                    if (!running && responseData && ` + cbId + ` >= 0) {
                         try {
-                            let json = JSON.parse(data);
-                            if (callback) callback(json);
+                            let json = JSON.parse(responseData);
+                            service._executeCallback(` + cbId + `, json);
                         } catch (e) {
-                            console.error("JSON parse error:", e);
+                            console.error("TaskService: JSON parse error for POST ` + endpoint + `:", e);
                         }
                     }
                 }
@@ -262,10 +317,14 @@ QtObject {
     }
 
     function _notify(title, msg) {
+        // Escape quotes for shell safety
+        let safeTitle = title.replace(/"/g, '\\"');
+        let safeMsg = msg.replace(/"/g, '\\"');
+
         let proc = Qt.createQmlObject(`
             import Quickshell.Io
             Process {
-                command: ["notify-send", "-u", "low", "${title}", "${msg}"]
+                command: ["notify-send", "-u", "low", "` + safeTitle + `", "` + safeMsg + `"]
             }
         `, service);
         proc.running = true;
