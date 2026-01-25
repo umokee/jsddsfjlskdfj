@@ -171,9 +171,8 @@ class PenaltyService:
             )
             day_history.habits_completed = habits_completed
 
-        # Set tasks_planned if not tracked
-        if day_history.tasks_planned == 0:
-            day_history.tasks_planned = max(day_history.tasks_completed, 1)
+        # Note: tasks_planned is set during roll in task_service.py
+        # If it's 0, it means no tasks were planned - don't override
 
     def _calculate_idle_penalty(
         self,
