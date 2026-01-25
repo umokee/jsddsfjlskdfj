@@ -14,7 +14,8 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
     recurrence_interval: 1,
     recurrence_days: '[]',
     depends_on: null,
-    habit_type: 'skill'
+    habit_type: 'skill',
+    daily_target: 1
   });
 
   const [selectedWeekDays, setSelectedWeekDays] = useState([]);
@@ -62,7 +63,8 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
         recurrence_interval: editTask.recurrence_interval || 1,
         recurrence_days: editTask.recurrence_days || '[]',
         depends_on: editTask.depends_on || null,
-        habit_type: editTask.habit_type || 'skill'
+        habit_type: editTask.habit_type || 'skill',
+        daily_target: editTask.daily_target || 1
       });
 
       // Parse weekly days
@@ -267,6 +269,22 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
               {formData.habit_type === 'skill'
                 ? 'Skills: Full points. For building new habits like exercise, meditation, learning.'
                 : 'Routines: 50% points. For easy daily tasks like brushing teeth, making bed.'}
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '1rem' }}>
+            <label className="form-label">Daily Target</label>
+            <input
+              className="form-input"
+              type="number"
+              name="daily_target"
+              min="1"
+              max="20"
+              value={formData.daily_target}
+              onChange={handleChange}
+            />
+            <div className="info-box" style={{ marginTop: '0.5rem' }}>
+              How many times per day should this habit be completed? (e.g., "Drink water" - 8 times)
             </div>
           </div>
 

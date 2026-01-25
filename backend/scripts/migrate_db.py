@@ -129,6 +129,11 @@ def migrate():
             cursor.execute('ALTER TABLE settings ADD COLUMN incomplete_penalty_percent FLOAT DEFAULT 0.5')
             migrations_applied.append('Added incomplete_penalty_percent column to Settings table')
 
+        # Morning Check-in feature
+        if not column_exists(cursor, 'settings', 'pending_roll'):
+            cursor.execute('ALTER TABLE settings ADD COLUMN pending_roll BOOLEAN DEFAULT 0')
+            migrations_applied.append('Added pending_roll column to Settings table (Morning Check-in feature)')
+
         # Update existing settings to v2.0 defaults
         # Update minutes_per_energy_unit from 30 to 20
         cursor.execute('UPDATE settings SET minutes_per_energy_unit = 20 WHERE minutes_per_energy_unit = 30')

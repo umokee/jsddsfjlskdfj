@@ -33,15 +33,23 @@ class Task(Base):
     habit_type = Column(String, default="skill")  # skill (new habit) or routine (daily routine)
     streak = Column(Integer, default=0)                # Current streak count
     last_completed_date = Column(Date, nullable=True)  # Last completion date for streak tracking
+    daily_target = Column(Integer, default=1)          # How many times per day habit should be completed
+    daily_completed = Column(Integer, default=0)       # How many times completed today
 
     def calculate_urgency(self):
-        """Calculate task urgency based on priority, due date, and energy"""
+        """
+        Calculate task urgency for weighted random selection.
+
+        Formula: urgency = priority × 10 + due_date_bonus + energy_bonus
+
+        Higher urgency = higher probability of being selected for today's plan.
+        """
         urgency = 0.0
 
-        # Priority coefficient (0-10) * 10
+        # Priority component (0-10) × 10 = 0-100
         urgency += self.priority * 10.0
 
-        # Due date coefficient
+        # Due date component
         if self.due_date:
             # Handle both timezone-aware and timezone-naive datetimes
             due_date_naive = self.due_date.replace(tzinfo=None) if self.due_date.tzinfo else self.due_date
@@ -49,17 +57,17 @@ class Task(Base):
 
             days_until = (due_date_naive - now_naive).days
             if days_until <= 0:
-                urgency += 50.0  # Overdue
+                urgency += 100.0  # Overdue - maximum priority
             elif days_until <= 2:
-                urgency += 25.0  # Critical
+                urgency += 75.0   # Critical - very high probability (~90-99%)
             elif days_until <= 7:
-                urgency += 10.0  # Soon
+                urgency += 30.0   # Soon - noticeably higher probability
 
-        # Energy coefficient
+        # Energy component
         if self.energy >= 4:
-            urgency += 5.0  # High energy
+            urgency += 5.0   # High energy - slightly increases probability
         elif self.energy <= 1:
-            urgency -= 1.0  # Low energy
+            urgency -= 5.0   # Low energy - slightly decreases probability
 
         self.urgency = urgency
         return urgency
@@ -127,6 +135,7 @@ class Settings(Base):
     penalty_time = Column(String, default="00:01")  # Time when penalties are calculated (HH:MM format)
     auto_roll_enabled = Column(Boolean, default=False)  # Enable automatic roll
     auto_roll_time = Column(String, default="06:00")  # Time for automatic roll (HH:MM format)
+    pending_roll = Column(Boolean, default=False)  # Auto-roll triggered, waiting for user mood selection
 
     # Backup settings
     auto_backup_enabled = Column(Boolean, default=True)  # Enable automatic backups
@@ -172,8 +181,12 @@ class PointGoal(Base):
     __tablename__ = "point_goals"
 
     id = Column(Integer, primary_key=True, index=True)
-    target_points = Column(Integer, nullable=False)
-    reward_description = Column(String, nullable=False)
+    goal_type = Column(String, default="points")  # "points" or "project_completion"
+    target_points = Column(Integer, nullable=True)  # For points goals
+    project_name = Column(String, nullable=True)  # For project_completion goals
+    reward_description = Column(String, nullable=False)  # What you'll reward yourself
+    reward_claimed = Column(Boolean, default=False)  # Did you claim the reward?
+    reward_claimed_at = Column(DateTime, nullable=True)  # When claimed
     deadline = Column(Date, nullable=True)
     achieved = Column(Boolean, default=False)
     achieved_date = Column(Date, nullable=True)

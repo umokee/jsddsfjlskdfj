@@ -231,6 +231,12 @@ def get_current_points(db: Session) -> int:
     return service.get_current_points()
 
 
+def get_day_details(db: Session, target_date: date) -> dict:
+    """Get detailed breakdown for a specific day"""
+    service = PointsService(db)
+    return service.get_day_details(target_date)
+
+
 def calculate_projection(db: Session, target_date: date) -> dict:
     """Calculate point projections until target date"""
     service = PointsService(db)
@@ -267,6 +273,12 @@ def delete_point_goal(db: Session, goal_id: int) -> bool:
     """Delete a point goal"""
     service = GoalService(db)
     return service.delete_goal(goal_id)
+
+
+def claim_goal_reward(db: Session, goal_id: int) -> Optional[PointGoal]:
+    """Claim reward for achieved goal"""
+    service = GoalService(db)
+    return service.claim_reward(goal_id)
 
 
 def check_goal_achievements(db: Session) -> List[PointGoal]:

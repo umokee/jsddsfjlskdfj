@@ -51,10 +51,19 @@ class TaskService:
         pending_today = self.task_repo.get_pending_count(self.db, today)
         total_pending = self.task_repo.get_total_pending_count(self.db)
 
+        # Habits stats
+        habits_done = self.task_repo.get_completed_count(
+            self.db, day_start, day_end, is_habit=True
+        )
+        today_habits = self.task_repo.get_today_habits(self.db, today)
+        habits_total = len(today_habits) + habits_done
+
         return {
             "done_today": done_today,
             "pending_today": pending_today,
-            "total_pending": total_pending
+            "total_pending": total_pending,
+            "habits_done": habits_done,
+            "habits_total": habits_total
         }
 
     def create_task(self, task_data: TaskCreate) -> Task:
@@ -62,16 +71,29 @@ class TaskService:
         # Convert TaskCreate to Task model
         task = Task(**task_data.model_dump())
 
-        # For recurring habits without due_date, set it to today
+        # For recurring habits without due_date, set it to next available day (after roll)
         if task.is_habit and task.recurrence_type != RECURRENCE_NONE and not task.due_date:
-            task.due_date = datetime.combine(date.today(), datetime.min.time())
+            settings = self.settings_repo.get(self.db)
+            effective_today = self.date_service.get_effective_date(settings)
+
+            # If roll already happened today, create habit for tomorrow
+            # Otherwise create for today (will show up after roll)
+            if settings.last_roll_date == effective_today:
+                # Roll already done for this effective day, create for next day
+                task.due_date = datetime.combine(effective_today + timedelta(days=1), datetime.min.time())
+            else:
+                # Roll not done yet, create for current effective day (will show after roll)
+                task.due_date = datetime.combine(effective_today, datetime.min.time())
 
         # Normalize due_date to midnight
         if task.due_date:
             task.due_date = self.date_service.normalize_to_midnight(task.due_date)
 
-        # For recurring habits, calculate next occurrence if due_date is in the past
-        if task.is_habit and task.recurrence_type != RECURRENCE_NONE and task.due_date:
+        # For recurring habits with explicit due_date (provided by user),
+        # calculate next occurrence if due_date is in the past.
+        # Skip this for habits we just auto-set above (they're already correct)
+        if (task.is_habit and task.recurrence_type != RECURRENCE_NONE and
+            task.due_date and task_data.due_date is not None):
             task.due_date = self.date_service.calculate_next_occurrence(
                 task.due_date,
                 task.recurrence_type,
@@ -190,12 +212,49 @@ class TaskService:
         if not task:
             return None
 
-        # Prevent duplicate completions
+        # Prevent duplicate completions (race condition protection)
+        # Refresh task from DB to get latest status
+        self.db.refresh(task)
         if task.status == TASK_STATUS_COMPLETED:
             return task
 
-        # Mark as completed
         completion_date = datetime.now()
+
+        # For habits with daily_target > 1, track progress
+        if task.is_habit and (task.daily_target or 1) > 1:
+            task.daily_completed = (task.daily_completed or 0) + 1
+
+            # Check if daily target is reached
+            if task.daily_completed >= task.daily_target:
+                # Target reached - complete the habit
+                task.status = TASK_STATUS_COMPLETED
+                task.completed_at = completion_date
+
+                # Handle habit recurrence
+                if task.recurrence_type != RECURRENCE_NONE:
+                    self._handle_habit_completion(task)
+
+                self.task_repo.update(self.db, task)
+
+                # Award points
+                self.points_service.add_task_completion_points(task)
+
+                # Check goal achievements
+                self.points_service.check_goal_achievements()
+            else:
+                # Not yet reached - just update counter
+                # Stop the task but don't complete it
+                if task.started_at:
+                    elapsed = (completion_date - task.started_at).total_seconds()
+                    task.time_spent = (task.time_spent or 0) + int(elapsed)
+
+                task.status = TASK_STATUS_PENDING
+                task.started_at = None
+                self.task_repo.update(self.db, task)
+
+            return task
+
+        # Regular task or habit with daily_target=1
         task.status = TASK_STATUS_COMPLETED
         task.completed_at = completion_date
 
@@ -247,7 +306,7 @@ class TaskService:
         elif habit.recurrence_type == RECURRENCE_EVERY_N_DAYS:
             expected_diff = max(1, habit.recurrence_interval or 1)
         elif habit.recurrence_type == RECURRENCE_WEEKLY:
-            expected_diff = 14  # Within 2 weeks is acceptable
+            expected_diff = 8  # Within 1 week + 1 day tolerance
         else:
             expected_diff = 1
 
@@ -257,11 +316,16 @@ class TaskService:
             # On time or early - increment streak
             habit.streak = (habit.streak or 0) + 1
         else:
-            # Missed expected completion - reset streak
+            # Missed expected completion - this is first completion of new series
             habit.streak = 1
 
     def _create_next_habit_occurrence(self, habit: Task, next_due: date) -> None:
         """Create next occurrence of a recurring habit"""
+        # Determine if this is after a missed occurrence
+        # If habit was not completed (being created during roll cleanup), streak should reset to 0
+        # If habit was completed (being created after completion), keep streak from parent
+        is_missed = habit.status != TASK_STATUS_COMPLETED
+
         next_habit = Task(
             description=habit.description,
             project=habit.project,
@@ -274,8 +338,10 @@ class TaskService:
             recurrence_interval=habit.recurrence_interval,
             recurrence_days=habit.recurrence_days,
             habit_type=habit.habit_type,
-            streak=habit.streak,
-            last_completed_date=habit.last_completed_date
+            streak=0 if is_missed else habit.streak,  # Reset to 0 if missed
+            last_completed_date=habit.last_completed_date,
+            daily_target=habit.daily_target or 1,  # Copy target from parent
+            daily_completed=0  # Reset counter for new day
         )
         next_habit.calculate_urgency()
         self.task_repo.create(self.db, next_habit)
@@ -312,17 +378,23 @@ class TaskService:
         settings = self.settings_repo.get(self.db)
         now = datetime.now()
         effective_today = self.date_service.get_effective_date(settings)
-        current_time = now.strftime("%H:%M")
+        current_hhmm = now.strftime("%H%M")
 
         # Check if already rolled today
         if settings.last_roll_date == effective_today:
             return False, "Roll already done today"
 
-        # Check if current time is after roll_available_time
-        if not settings.day_start_enabled and settings.last_roll_date != effective_today:
-            roll_time = settings.roll_available_time or "00:00"
-            if current_time < roll_time:
-                return False, f"Roll will be available at {roll_time}"
+        # If day_start is enabled, roll is always available (day boundary controls it)
+        if settings.day_start_enabled:
+            return True, ""
+
+        # If day_start is disabled, check roll_available_time
+        roll_time_str = settings.roll_available_time or "0000"
+        target_hhmm = roll_time_str.replace(":", "")
+
+        if int(current_hhmm) < int(target_hhmm):
+            formatted_time = f"{target_hhmm[:2]}:{target_hhmm[2:]}"
+            return False, f"Roll will be available at {formatted_time}"
 
         return True, ""
 
@@ -352,24 +424,43 @@ class TaskService:
         today = self.date_service.get_effective_date(settings)
         today_start = datetime.combine(today, datetime.min.time())
 
-        # 1. Clean up overdue habits
-        deleted_count = self._delete_overdue_habits(today_start)
-
-        # 2. Clear today tag from regular tasks
-        self.task_repo.clear_today_flag()
-
-        # 3. Add critical tasks (due soon)
-        critical_tasks = self._schedule_critical_tasks(today_start, critical_days)
-
-        # 4. Fill remaining slots with random tasks
-        self._schedule_random_tasks(
-            mood, daily_limit, len(critical_tasks)
-        )
-
-        # 5. Calculate penalties for yesterday
+        # 1. Calculate penalties for yesterday BEFORE clearing flags
+        # This allows penalty calculation to see yesterday's incomplete tasks
         penalty_info = self.penalty_service.calculate_daily_penalties()
 
-        # 6. Update last roll date
+        # 2. Clean up overdue habits
+        deleted_count = self._delete_overdue_habits(today_start)
+
+        # 3. Clear today tag from regular tasks
+        self.task_repo.clear_today_flag(self.db)
+
+        # 4. Select tasks using weighted random based on urgency
+        self._schedule_weighted_tasks(mood, daily_limit, today)
+
+        # 6. Save tasks_planned count and task details for today to track completion rate later
+        today_tasks = self.task_repo.get_today_tasks(self.db)
+        if today_tasks:
+            import json
+            today_history = self.points_service.get_or_create_today_history()
+            today_history.tasks_planned = len(today_tasks)
+
+            # Save task details for penalty calculation later
+            planned_tasks_info = []
+            for task in today_tasks:
+                planned_tasks_info.append({
+                    "task_id": task.id,
+                    "energy": task.energy,
+                    "description": task.description[:50]  # Truncate for storage
+                })
+
+            # Store in details field (will be used for penalty calculation tomorrow)
+            existing_details = json.loads(today_history.details) if today_history.details else {}
+            existing_details["planned_tasks"] = planned_tasks_info
+            today_history.details = json.dumps(existing_details)
+
+            self.db.commit()
+
+        # 7. Update last roll date
         settings.last_roll_date = today
         self.settings_repo.update(self.db, settings)
 
@@ -393,86 +484,109 @@ class TaskService:
         }
 
     def _delete_overdue_habits(self, today_start: datetime) -> int:
-        """Delete habits from before today"""
+        """Delete overdue habits and create new instances if recurring"""
         overdue_habits = self.task_repo.get_overdue_habits(self.db, today_start)
+        deleted_count = 0
+        today = today_start.date()
+
         for habit in overdue_habits:
+            # For recurring habits, create new instance at next occurrence
+            if habit.recurrence_type != RECURRENCE_NONE:
+                # Calculate next due date from current due date
+                current_due = habit.due_date.date() if habit.due_date else today
+                next_due = self.date_service.calculate_next_due_date(habit, current_due)
+
+                # Create new instance if next occurrence exists
+                if next_due:
+                    self._create_next_habit_occurrence(habit, next_due)
+
+            # Delete the overdue habit
             self.task_repo.delete(self.db, habit)
-        return len(overdue_habits)
+            deleted_count += 1
 
-    def _schedule_critical_tasks(
-        self,
-        today_start: datetime,
-        critical_days: int
-    ) -> List[Task]:
-        """Schedule tasks that are due soon"""
-        critical_date = today_start + timedelta(days=critical_days)
-        critical_tasks = self.task_repo.get_critical_tasks(
-            self.db, today_start, critical_date
-        )
+        return deleted_count
 
-        for task in critical_tasks:
-            task.is_today = True
-        self.db.commit()
-
-        return critical_tasks
-
-    def _schedule_random_tasks(
+    def _schedule_weighted_tasks(
         self,
         mood: Optional[str],
         daily_limit: int,
-        critical_count: int
+        today: date
     ) -> None:
-        """Fill remaining slots with random tasks"""
-        slots = max(0, daily_limit - critical_count)
-        if slots == 0:
-            return
+        """
+        Select tasks using weighted random selection based on urgency.
 
-        # Get available tasks
+        Higher urgency tasks have higher probability of being selected,
+        but all tasks have some chance (unless filtered out).
+
+        Args:
+            mood: User's energy level (0-5) for filtering by task.energy
+            daily_limit: Maximum number of tasks to select
+            today: Current date for urgency calculation
+        """
+        # 1. Get all available pending tasks
         available_tasks = self.task_repo.get_available_tasks(self.db)
 
-        # Pass 1: Tasks with completed dependencies
+        if not available_tasks:
+            return
+
+        # 2. Filter by mood (energy level)
+        if mood and mood.isdigit():
+            energy_level = int(mood)
+            if 0 <= energy_level <= 5:
+                available_tasks = [t for t in available_tasks if t.energy <= energy_level]
+
+        # 3. Filter by dependencies (only ready tasks)
         ready_tasks = [
             t for t in available_tasks if self.check_dependencies_met(t)
         ]
-        ready_tasks = self._filter_by_mood(ready_tasks, mood)
-        selected_count = self._select_and_schedule_tasks(ready_tasks, slots)
 
-        # Pass 2: Tasks with dependency in today's plan
-        if selected_count < slots:
-            dependent_tasks = [
-                t for t in available_tasks
-                if not t.is_today and self.check_dependency_in_today_plan(t)
-            ]
-            dependent_tasks = self._filter_by_mood(dependent_tasks, mood)
-            remaining_slots = slots - selected_count
-            self._select_and_schedule_tasks(dependent_tasks, remaining_slots)
+        if not ready_tasks:
+            return
+
+        # 4. Calculate urgency for each task
+        for task in ready_tasks:
+            task.calculate_urgency()
+
+        # 5. Normalize weights (handle negative urgency)
+        min_urgency = min(task.urgency for task in ready_tasks)
+        if min_urgency < 0:
+            # Shift all weights to be positive
+            weights = [task.urgency - min_urgency + 1 for task in ready_tasks]
+        else:
+            # Add 1 to avoid zero weights
+            weights = [task.urgency + 1 for task in ready_tasks]
+
+        # 6. Weighted random selection up to daily_limit
+        selected_tasks = []
+        available_pool = ready_tasks.copy()
+        available_weights = weights.copy()
+
+        slots = min(daily_limit, len(available_pool))
+
+        for _ in range(slots):
+            if not available_pool:
+                break
+
+            # Select one task based on weights
+            selected_task = random.choices(
+                available_pool,
+                weights=available_weights,
+                k=1
+            )[0]
+
+            # Add to selected
+            selected_tasks.append(selected_task)
+
+            # Remove from available pool (to avoid selecting twice)
+            idx = available_pool.index(selected_task)
+            available_pool.pop(idx)
+            available_weights.pop(idx)
+
+        # 7. Mark selected tasks for today
+        for task in selected_tasks:
+            task.is_today = True
 
         self.db.commit()
-
-    def _filter_by_mood(self, tasks: List[Task], mood: Optional[str]) -> List[Task]:
-        """Filter tasks by energy/mood level"""
-        if not mood or not mood.isdigit():
-            return tasks
-
-        energy_level = int(mood)
-        if 0 <= energy_level <= 5:
-            return [t for t in tasks if t.energy <= energy_level]
-
-        return tasks
-
-    def _select_and_schedule_tasks(self, tasks: List[Task], slots: int) -> int:
-        """Randomly select and schedule tasks up to slot limit"""
-        random.shuffle(tasks)
-        selected_count = 0
-
-        for task in tasks:
-            if selected_count >= slots:
-                break
-            if not task.is_today:
-                task.is_today = True
-                selected_count += 1
-
-        return selected_count
 
     def _get_roll_summary(
         self,

@@ -53,6 +53,17 @@ class PenaltyService:
         if not day_history:
             return self._no_history_result()
 
+        # Idempotency: if penalties already applied, return existing values
+        if day_history.points_penalty > 0 or day_history.completion_rate > 0:
+            return {
+                "penalty": day_history.points_penalty,
+                "completion_rate": day_history.completion_rate,
+                "tasks_completed": day_history.tasks_completed,
+                "tasks_planned": day_history.tasks_planned,
+                "missed_habits": 0,
+                "already_finalized": True
+            }
+
         # Update completion counts
         self._update_completion_counts(day_history, target_date)
 
@@ -61,7 +72,8 @@ class PenaltyService:
         missed_task_potential = 0
 
         # 1. Idle Penalty
-        penalty += self._calculate_idle_penalty(day_history, settings)
+        idle_penalty = self._calculate_idle_penalty(day_history, settings)
+        penalty += idle_penalty
 
         # 2. Incomplete Day Penalty
         incomplete_penalty, missed_task_potential = self._calculate_incomplete_penalty(
@@ -78,13 +90,29 @@ class PenaltyService:
         )
         penalty += habits_penalty
 
+        # Store pre-multiplier penalty for breakdown
+        base_penalty = penalty
+
         # 5. Progressive Penalty Multiplier
         penalty = self._apply_progressive_multiplier(
             penalty, target_date, day_history, settings
         )
 
+        # Calculate progressive multiplier
+        progressive_multiplier = penalty / base_penalty if base_penalty > 0 else 1.0
+
         # Apply final penalties and bonuses
         self._apply_final_penalties(day_history, penalty)
+
+        # Save penalty breakdown to history details
+        self._save_penalty_breakdown(
+            day_history,
+            idle_penalty,
+            incomplete_penalty,
+            habits_penalty,
+            progressive_multiplier,
+            penalty
+        )
 
         return {
             "penalty": penalty,
@@ -143,9 +171,8 @@ class PenaltyService:
             )
             day_history.habits_completed = habits_completed
 
-        # Set tasks_planned if not tracked
-        if day_history.tasks_planned == 0:
-            day_history.tasks_planned = max(day_history.tasks_completed, 1)
+        # Note: tasks_planned is set during roll in task_service.py
+        # If it's 0, it means no tasks were planned - don't override
 
     def _calculate_idle_penalty(
         self,
@@ -181,25 +208,55 @@ class PenaltyService:
         )
         day_history.completion_rate = completion_rate
 
-        # Get incomplete tasks
-        incomplete_tasks = self.task_repo.get_incomplete_today_tasks(self.db)
+        # Get incomplete tasks from target date using saved planned_tasks info
+        day_start, day_end = self.date_service.get_day_range(target_date)
 
-        # Calculate missed potential
+        # Load planned tasks from details
+        import json
+        planned_tasks_info = []
+        if day_history.details:
+            try:
+                details = json.loads(day_history.details)
+                planned_tasks_info = details.get("planned_tasks", [])
+            except (json.JSONDecodeError, KeyError):
+                planned_tasks_info = []
+
+        if not planned_tasks_info:
+            # No planned tasks info - fallback to average
+            incomplete_count = day_history.tasks_planned - day_history.tasks_completed
+            if incomplete_count <= 0:
+                return 0, 0
+
+            energy_mult = settings.energy_mult_base + (3 * settings.energy_mult_step)
+            potential_per_task = settings.points_per_task_base * energy_mult
+            missed_task_potential = int(incomplete_count * potential_per_task)
+
+            penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
+            return penalty, missed_task_potential
+
+        # Calculate missed potential using REAL task energy from planned_tasks
         missed_task_potential = 0
-        for task in incomplete_tasks:
-            # Potential = Base × EnergyMultiplier
-            energy_mult = settings.energy_mult_base + (
-                task.energy * settings.energy_mult_step
-            )
-            potential = settings.points_per_task_base * energy_mult
-            missed_task_potential += potential
+        incomplete_count = 0
+
+        for task_info in planned_tasks_info:
+            task_id = task_info.get("task_id")
+            task_energy = task_info.get("energy", 3)
+
+            # Check if task was completed
+            task = self.task_repo.get_by_id(self.db, task_id)
+            if not task or task.status != "completed":
+                # Task was not completed - calculate its potential
+                energy_mult = settings.energy_mult_base + (task_energy * settings.energy_mult_step)
+                potential = settings.points_per_task_base * energy_mult
+                missed_task_potential += potential
+                incomplete_count += 1
+
+        if missed_task_potential == 0:
+            return 0, 0
 
         # Calculate penalty
-        if missed_task_potential > 0:
-            penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
-            return penalty, int(missed_task_potential)
-
-        return 0, 0
+        penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
+        return penalty, int(missed_task_potential)
 
     def _apply_consistency_bonus(
         self,
@@ -348,11 +405,49 @@ class PenaltyService:
         )
 
         # Update cumulative total (never goes below 0)
+        # NOTE: points_earned were already added to cumulative_total when tasks were completed
+        # So we only add the bonus and subtract penalties here
         net_change = day_history.points_bonus - penalty
         day_history.cumulative_total = max(
             0, day_history.cumulative_total + net_change
         )
 
+        self.history_repo.update(self.db, day_history)
+
+    def _save_penalty_breakdown(
+        self,
+        day_history: PointHistory,
+        idle_penalty: int,
+        incomplete_penalty: int,
+        habits_penalty: int,
+        progressive_multiplier: float,
+        total_penalty: int
+    ) -> None:
+        """Save detailed penalty breakdown to history details"""
+        import json
+
+        # Load existing details (as dict)
+        details = {}
+        if day_history.details:
+            try:
+                details = json.loads(day_history.details)
+                # Handle legacy format where details was a list
+                if isinstance(details, list):
+                    details = {"task_completions": details}
+            except json.JSONDecodeError:
+                details = {}
+
+        # Add penalty breakdown
+        details["penalty_breakdown"] = {
+            "idle_penalty": idle_penalty,
+            "incomplete_penalty": incomplete_penalty,
+            "missed_habits_penalty": habits_penalty,
+            "progressive_multiplier": progressive_multiplier,
+            "total_penalty": total_penalty
+        }
+
+        # Save back to history
+        day_history.details = json.dumps(details)
         self.history_repo.update(self.db, day_history)
 
     def calculate_daily_penalties(self) -> dict:

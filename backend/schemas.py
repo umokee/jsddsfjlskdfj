@@ -18,6 +18,7 @@ class TaskBase(BaseModel):
     recurrence_interval: int = Field(default=1, ge=1, le=30)
     recurrence_days: Optional[str] = None  # JSON array for weekly: "[0,2,4]"
     habit_type: str = Field(default="skill")  # skill or routine
+    daily_target: int = Field(default=1, ge=1, le=20)  # How many times per day
 
 class TaskCreate(TaskBase):
     pass
@@ -39,6 +40,8 @@ class TaskUpdate(BaseModel):
     recurrence_interval: Optional[int] = Field(None, ge=1, le=30)
     recurrence_days: Optional[str] = None
     habit_type: Optional[str] = None
+    daily_target: Optional[int] = Field(None, ge=1, le=20)
+    daily_completed: Optional[int] = Field(None, ge=0, le=20)
 
 class TaskResponse(TaskBase):
     id: int
@@ -55,6 +58,8 @@ class TaskResponse(TaskBase):
     # Habit-specific fields
     streak: int = 0
     last_completed_date: Optional[date] = None
+    daily_target: int = 1
+    daily_completed: int = 0
 
     class Config:
         from_attributes = True
@@ -63,6 +68,8 @@ class StatsResponse(BaseModel):
     done_today: int
     pending_today: int
     total_pending: int
+    habits_done: int = 0
+    habits_total: int = 0
     active_task: Optional[TaskResponse]
 
 
@@ -119,6 +126,7 @@ class SettingsBase(BaseModel):
     penalty_time: str = Field(default="00:01", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     auto_roll_enabled: bool = Field(default=False)
     auto_roll_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    pending_roll: bool = Field(default=False)
 
     # Backup settings
     auto_backup_enabled: bool = Field(default=True)
@@ -136,6 +144,7 @@ class SettingsResponse(SettingsBase):
     id: int
     updated_at: datetime
     last_backup_date: Optional[datetime] = None
+    effective_date: Optional[date] = None  # Current effective date based on day_start_time
 
     class Config:
         from_attributes = True
@@ -167,7 +176,9 @@ class PointHistoryResponse(PointHistoryBase):
 
 # Point Goal schemas
 class PointGoalBase(BaseModel):
-    target_points: int = Field(..., ge=1)
+    goal_type: str = Field(default="points", pattern="^(points|project_completion)$")
+    target_points: Optional[int] = Field(None, ge=1)  # Required for points goals
+    project_name: Optional[str] = Field(None, max_length=200)  # Required for project_completion goals
     reward_description: str = Field(..., min_length=1, max_length=500)
     deadline: Optional[date] = None
 
@@ -177,17 +188,25 @@ class PointGoalCreate(PointGoalBase):
 
 
 class PointGoalUpdate(BaseModel):
+    goal_type: Optional[str] = Field(None, pattern="^(points|project_completion)$")
     target_points: Optional[int] = Field(None, ge=1)
+    project_name: Optional[str] = Field(None, max_length=200)
     reward_description: Optional[str] = Field(None, min_length=1, max_length=500)
     deadline: Optional[date] = None
     achieved: Optional[bool] = None
+    reward_claimed: Optional[bool] = None
 
 
 class PointGoalResponse(PointGoalBase):
     id: int
     achieved: bool
     achieved_date: Optional[date]
+    reward_claimed: bool
+    reward_claimed_at: Optional[datetime]
     created_at: datetime
+    # Project progress (only for project_completion goals)
+    total_tasks: Optional[int] = None
+    completed_tasks: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -229,3 +248,4 @@ class BackupResponse(BackupBase):
 
     class Config:
         from_attributes = True
+

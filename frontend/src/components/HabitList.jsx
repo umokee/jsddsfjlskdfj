@@ -1,7 +1,7 @@
 import { formatTimeSpent } from '../utils/timeFormat';
 import { formatDueDate, isToday, sortByDueDate } from '../utils/dateFormat';
 
-function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
+function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll, settings }) {
   if (!habits || habits.length === 0) {
     return (
       <div className="empty-state">
@@ -11,14 +11,14 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
   }
 
   // Sort habits by due date (today first, then tomorrow, etc.)
-  const sortedHabits = sortByDueDate(habits);
+  const sortedHabits = sortByDueDate(habits, settings);
 
   return (
     <div className="task-list">
       {sortedHabits.map((habit) => {
-        const isTodayHabit = isToday(habit.due_date);
+        const isTodayHabit = isToday(habit.due_date, settings);
         const showDone = showAll ? isTodayHabit : true; // If showAll, only show Done for today's habits
-        const dueDateLabel = formatDueDate(habit.due_date);
+        const dueDateLabel = formatDueDate(habit.due_date, settings);
 
         return (
           <div
@@ -75,6 +75,9 @@ function HabitList({ habits, onStart, onComplete, onDelete, onEdit, showAll }) {
             )}
             {habit.streak > 0 && (
               <span>STREAK: {habit.streak}D</span>
+            )}
+            {(habit.daily_target || 1) > 1 && (
+              <span>PROGRESS: {habit.daily_completed || 0}/{habit.daily_target}</span>
             )}
             {dueDateLabel && (
               <span>{dueDateLabel}</span>

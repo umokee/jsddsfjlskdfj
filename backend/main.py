@@ -20,7 +20,7 @@ from backend.schemas import (
 from backend.middleware.auth import verify_api_key
 from backend import crud
 from backend.services.scheduler_service import start_scheduler, stop_scheduler
-from backend.infrastructure.migrations import auto_migrate
+from backend.infrastructure.migrations import auto_migrate, fix_target_points_nullable
 from backend.services import backup_service
 from datetime import date
 
@@ -58,6 +58,7 @@ Base.metadata.create_all(bind=engine)
 # Run automatic schema migrations (add missing columns)
 try:
     auto_migrate()
+    fix_target_points_nullable()
 except Exception as e:
     logger.error(f"Auto-migration failed: {e}")
     # Don't crash the app - continue with existing schema
@@ -83,16 +84,13 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     logger.info(f"Task Manager API started. Logging to: {log_path}")
-    # Start background scheduler for automatic tasks
     start_scheduler()
-    logger.info("Background scheduler started")
 
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down Task Manager API")
     stop_scheduler()
-    logger.info("Background scheduler stopped")
 
 # Health check (no auth required)
 @app.get("/")
@@ -236,12 +234,63 @@ async def roll_tasks(mood: Optional[str] = None, db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/tasks/complete-roll", dependencies=[Depends(verify_api_key)])
+async def complete_roll(mood: str, db: Session = Depends(get_db)):
+    """
+    Complete the morning check-in by rolling tasks with selected mood.
+    Called after user selects their energy level in the Morning Check-in modal.
+    """
+    settings = crud.get_settings(db)
+
+    # Check if there's a pending roll
+    if not settings.pending_roll:
+        raise HTTPException(
+            status_code=400,
+            detail="No pending roll. Morning check-in already completed or not triggered."
+        )
+
+    # Validate mood parameter
+    if not mood or not mood.isdigit() or not (0 <= int(mood) <= 5):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid mood. Must be a number between 0 and 5."
+        )
+
+    # Execute roll with the selected mood
+    result = crud.roll_tasks(db, mood)
+
+    # Check if roll was successful
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    # Clear pending_roll flag
+    settings.pending_roll = False
+    db.commit()
+
+    return {
+        "message": "Morning check-in completed. Daily plan generated!",
+        "habits_count": len(result["habits"]),
+        "tasks_count": len(result["tasks"]),
+        "deleted_habits": result["deleted_habits"],
+        "habits": result["habits"],
+        "tasks": result["tasks"],
+        "penalty_info": result.get("penalty_info"),
+        "mood": int(mood)
+    }
+
+
 # ===== SETTINGS ENDPOINTS =====
 
 @app.get("/api/settings", response_model=SettingsResponse, dependencies=[Depends(verify_api_key)])
 async def get_settings_endpoint(db: Session = Depends(get_db)):
-    """Get settings"""
-    return crud.get_settings(db)
+    """Get settings with effective date"""
+    from backend.services.date_service import DateService
+    settings = crud.get_settings(db)
+    effective_date = DateService.get_effective_date(settings)
+    # Convert to dict and add effective_date
+    response = SettingsResponse.model_validate(settings)
+    response.effective_date = effective_date
+    return response
 
 
 @app.put("/api/settings", response_model=SettingsResponse, dependencies=[Depends(verify_api_key)])
@@ -264,6 +313,16 @@ async def get_points_history_endpoint(days: int = 30, db: Session = Depends(get_
     return crud.get_point_history(db, days)
 
 
+@app.get("/api/points/history/{target_date}", dependencies=[Depends(verify_api_key)])
+async def get_day_details_endpoint(target_date: str, db: Session = Depends(get_db)):
+    """Get detailed breakdown for a specific day (format: YYYY-MM-DD)"""
+    try:
+        target = date.fromisoformat(target_date)
+        return crud.get_day_details(db, target)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+
 @app.get("/api/points/projection", dependencies=[Depends(verify_api_key)])
 async def get_points_projection_endpoint(target_date: str, db: Session = Depends(get_db)):
     """Calculate point projection until target date (format: YYYY-MM-DD)"""
@@ -278,14 +337,47 @@ async def get_points_projection_endpoint(target_date: str, db: Session = Depends
 
 @app.get("/api/goals", response_model=List[PointGoalResponse], dependencies=[Depends(verify_api_key)])
 async def get_goals_endpoint(include_achieved: bool = False, db: Session = Depends(get_db)):
-    """Get point goals"""
-    return crud.get_point_goals(db, include_achieved)
+    """Get point goals with project progress"""
+    from backend.services.goal_service import GoalService
+
+    goals = crud.get_point_goals(db, include_achieved)
+    goal_service = GoalService(db)
+
+    # Add project progress for project_completion goals
+    result = []
+    for goal in goals:
+        goal_dict = {
+            "id": goal.id,
+            "goal_type": goal.goal_type,
+            "target_points": goal.target_points,
+            "project_name": goal.project_name,
+            "reward_description": goal.reward_description,
+            "deadline": goal.deadline,
+            "achieved": goal.achieved,
+            "achieved_date": goal.achieved_date,
+            "reward_claimed": goal.reward_claimed,
+            "reward_claimed_at": goal.reward_claimed_at,
+            "created_at": goal.created_at,
+        }
+
+        # Add progress for project_completion goals
+        if goal.goal_type == "project_completion" and goal.project_name:
+            progress = goal_service.get_project_progress(goal.project_name)
+            goal_dict["total_tasks"] = progress["total_tasks"]
+            goal_dict["completed_tasks"] = progress["completed_tasks"]
+
+        result.append(goal_dict)
+
+    return result
 
 
 @app.post("/api/goals", response_model=PointGoalResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
 async def create_goal_endpoint(goal: PointGoalCreate, db: Session = Depends(get_db)):
     """Create a new point goal"""
-    return crud.create_point_goal(db, goal)
+    try:
+        return crud.create_point_goal(db, goal)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.put("/api/goals/{goal_id}", response_model=PointGoalResponse, dependencies=[Depends(verify_api_key)])
@@ -302,6 +394,17 @@ async def delete_goal_endpoint(goal_id: int, db: Session = Depends(get_db)):
     """Delete a point goal"""
     if not crud.delete_point_goal(db, goal_id):
         raise HTTPException(status_code=404, detail="Goal not found")
+
+
+@app.post("/api/goals/{goal_id}/claim", response_model=PointGoalResponse, dependencies=[Depends(verify_api_key)])
+async def claim_reward_endpoint(goal_id: int, db: Session = Depends(get_db)):
+    """Claim reward for achieved goal"""
+    goal = crud.claim_goal_reward(db, goal_id)
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    if not goal.achieved:
+        raise HTTPException(status_code=400, detail="Goal not achieved yet")
+    return goal
 
 
 # ===== REST DAYS ENDPOINTS =====
@@ -380,4 +483,4 @@ async def delete_backup_endpoint(backup_id: int, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=False)

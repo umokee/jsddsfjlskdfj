@@ -28,6 +28,7 @@ import PointsDisplay from './components/PointsDisplay';
 import PointsGoals from './components/PointsGoals';
 import PointsCalculator from './components/PointsCalculator';
 import Backups from './components/Backups';
+import MorningCheckIn from './components/MorningCheckIn';
 
 function App() {
   const [apiKey, setApiKey] = useState(getApiKey());
@@ -46,17 +47,22 @@ function App() {
   const [currentPoints, setCurrentPoints] = useState(0);
   const [canRollToday, setCanRollToday] = useState(true);
   const [rollMessage, setRollMessage] = useState('');
+  const [rollMood, setRollMood] = useState('');
+  const [showMorningCheckIn, setShowMorningCheckIn] = useState(false);
+  const [settings, setSettings] = useState(null);
 
   useEffect(() => {
     if (apiKey) {
       loadData();
       loadPoints();
       checkCanRoll();
+      checkPendingRoll();
 
       const interval = setInterval(() => {
         loadData();
         loadPoints();
         checkCanRoll();
+        checkPendingRoll();
       }, 30000);
 
       return () => clearInterval(interval);
@@ -72,6 +78,19 @@ function App() {
       setCurrentPoints(data.points || 0);
     } catch (err) {
       console.error('Failed to load points:', err);
+    }
+  };
+
+  const checkPendingRoll = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/settings`, {
+        headers: { 'X-API-Key': apiKey }
+      });
+      const settingsData = await response.json();
+      setSettings(settingsData);
+      setShowMorningCheckIn(settingsData.pending_roll || false);
+    } catch (err) {
+      console.error('Failed to check pending roll:', err);
     }
   };
 
@@ -153,12 +172,24 @@ function App() {
 
   const handleRoll = async () => {
     try {
-      await rollTasks();
+      // Pass mood to rollTasks (null if not set)
+      const mood = rollMood || null;
+      await rollTasks(mood);
       await loadData();
       await checkCanRoll();
+      setRollMood(''); // Reset mood after roll
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to roll tasks');
     }
+  };
+
+  const handleMorningCheckInComplete = async (result) => {
+    // Morning check-in completed successfully
+    setShowMorningCheckIn(false);
+    // Reload all data to show the newly rolled tasks
+    await loadData();
+    await checkCanRoll();
+    await checkPendingRoll();
   };
 
   const handleSubmitTask = async (taskData) => {
@@ -335,9 +366,25 @@ function App() {
                 {showTaskForm ? '[ CANCEL ]' : '[ + NEW_TASK ]'}
               </button>
               {canRollToday ? (
-                <button className="btn btn-secondary" onClick={handleRoll}>
-                  [ ROLL_DAILY_PLAN ]
-                </button>
+                <div className="roll-controls">
+                  <select
+                    value={rollMood}
+                    onChange={(e) => setRollMood(e.target.value)}
+                    className="mood-select"
+                    title="Filter tasks by energy level"
+                  >
+                    <option value="">[ ALL ENERGY ]</option>
+                    <option value="0">[ E:0 ONLY ]</option>
+                    <option value="1">[ E:0-1 ]</option>
+                    <option value="2">[ E:0-2 ]</option>
+                    <option value="3">[ E:0-3 ]</option>
+                    <option value="4">[ E:0-4 ]</option>
+                    <option value="5">[ E:0-5 ]</option>
+                  </select>
+                  <button className="btn btn-secondary" onClick={handleRoll}>
+                    [ ROLL_DAILY_PLAN ]
+                  </button>
+                </div>
               ) : (
                 rollMessage && <span className="roll-message">{rollMessage}</span>
               )}
@@ -381,6 +428,7 @@ function App() {
                         onComplete={handleComplete}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        settings={settings}
                       />
                     </div>
                   )}
@@ -394,6 +442,7 @@ function App() {
                         onComplete={handleComplete}
                         onDelete={handleDeleteTask}
                         onEdit={handleEditTask}
+                        settings={settings}
                       />
                     </div>
                   )}
@@ -416,6 +465,7 @@ function App() {
                     onDelete={handleDeleteTask}
                     onEdit={handleEditTask}
                     showAll={true}
+                    settings={settings}
                   />
                 </div>
               </div>
@@ -433,6 +483,7 @@ function App() {
                     onDelete={handleDeleteTask}
                     onEdit={handleEditTask}
                     showAll={true}
+                    settings={settings}
                   />
                 </div>
               </div>
@@ -440,6 +491,11 @@ function App() {
           </>
         )}
       </main>
+
+      {/* Morning Check-in Modal */}
+      {showMorningCheckIn && (
+        <MorningCheckIn onComplete={handleMorningCheckInComplete} />
+      )}
     </div>
   );
 }

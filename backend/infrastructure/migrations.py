@@ -4,9 +4,9 @@ Compares SQLAlchemy models with actual database schema and adds missing columns.
 """
 import sqlite3
 import logging
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
-from backend.infrastructure.database import engine, Base
+from backend.infrastructure.database import engine, Base, SessionLocal
 from backend import models  # Import to register all models
 
 logger = logging.getLogger("task_manager.migrations")
@@ -153,7 +153,93 @@ def auto_migrate():
     return migrations_applied
 
 
+def fix_target_points_nullable():
+    """
+    Make target_points column nullable in point_goals table.
+
+    This is needed for project_completion goals which don't use target_points.
+    SQLite doesn't support ALTER COLUMN, so we need to recreate the table.
+    """
+    conn = engine.raw_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Check if point_goals table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='point_goals'")
+        if not cursor.fetchone():
+            logger.info("point_goals table doesn't exist yet, skipping nullable migration")
+            return
+
+        # Check current schema
+        cursor.execute("PRAGMA table_info(point_goals)")
+        columns = cursor.fetchall()
+
+        target_points_col = None
+        for col in columns:
+            # Column info: (cid, name, type, notnull, dflt_value, pk)
+            if col[1] == 'target_points':
+                target_points_col = col
+                break
+
+        if not target_points_col:
+            logger.info("target_points column doesn't exist, skipping nullable migration")
+            return
+
+        # Check if already nullable (notnull=0 means nullable)
+        is_nullable = target_points_col[3] == 0
+
+        if is_nullable:
+            logger.info("✓ target_points is already nullable")
+            return
+
+        logger.info("⚠ target_points is NOT NULL, fixing schema...")
+
+        # Recreate table with correct schema
+        logger.info("Creating temporary table...")
+        cursor.execute("""
+            CREATE TABLE point_goals_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                goal_type VARCHAR DEFAULT 'points',
+                target_points INTEGER,
+                project_name VARCHAR,
+                reward_description VARCHAR NOT NULL,
+                reward_claimed BOOLEAN DEFAULT 0,
+                reward_claimed_at DATETIME,
+                deadline DATE,
+                achieved BOOLEAN DEFAULT 0,
+                achieved_date DATE,
+                created_at DATETIME
+            )
+        """)
+
+        logger.info("Copying existing data...")
+        cursor.execute("""
+            INSERT INTO point_goals_new
+            SELECT * FROM point_goals
+        """)
+
+        logger.info("Dropping old table...")
+        cursor.execute("DROP TABLE point_goals")
+
+        logger.info("Renaming new table...")
+        cursor.execute("ALTER TABLE point_goals_new RENAME TO point_goals")
+
+        logger.info("Recreating indexes...")
+        cursor.execute("CREATE INDEX IF NOT EXISTS ix_point_goals_id ON point_goals (id)")
+
+        conn.commit()
+        logger.info("✓ Migration completed: target_points is now nullable")
+
+    except Exception as e:
+        logger.error(f"✗ Nullable migration failed: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     # Allow running as standalone script
     logging.basicConfig(level=logging.INFO)
     auto_migrate()
+    fix_target_points_nullable()
