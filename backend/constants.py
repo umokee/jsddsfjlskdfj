@@ -47,11 +47,12 @@ DEFAULT_LOG_DIRECTORY_DEV = "logs"
 MAX_LOG_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 LOG_BACKUP_COUNT = 5
 
-# CORS Configuration
+# CORS Configuration (localhost only)
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "*"
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
 ]
 
 # API Configuration
