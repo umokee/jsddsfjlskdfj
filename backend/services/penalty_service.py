@@ -53,6 +53,17 @@ class PenaltyService:
         if not day_history:
             return self._no_history_result()
 
+        # Idempotency: if penalties already applied, return existing values
+        if day_history.points_penalty > 0 or day_history.completion_rate > 0:
+            return {
+                "penalty": day_history.points_penalty,
+                "completion_rate": day_history.completion_rate,
+                "tasks_completed": day_history.tasks_completed,
+                "tasks_planned": day_history.tasks_planned,
+                "missed_habits": 0,
+                "already_finalized": True
+            }
+
         # Update completion counts
         self._update_completion_counts(day_history, target_date)
 
