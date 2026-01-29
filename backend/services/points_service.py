@@ -347,7 +347,9 @@ class PointsService:
             "incomplete_penalty": penalty_breakdown.get("incomplete_penalty", 0),
             "missed_habits_penalty": penalty_breakdown.get("missed_habits_penalty", 0),
             "progressive_multiplier": penalty_breakdown.get("progressive_multiplier", 1.0),
-            "total": penalty_breakdown.get("total_penalty", 0)
+            "total": penalty_breakdown.get("total_penalty", 0),
+            "missed_habits": penalty_breakdown.get("missed_habits", []),
+            "incomplete_tasks": penalty_breakdown.get("incomplete_tasks", [])
         }
 
     def calculate_projection(self, target_date: date) -> dict:

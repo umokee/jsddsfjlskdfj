@@ -3039,6 +3039,13 @@ small {
   border-left-color: var(--danger);
 }
 
+.detail-item.sub-item {
+  margin-left: 1.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
 .item-desc {
   flex: 1;
   color: var(--text-primary);
@@ -3069,4 +3076,8 @@ small {
 .item-value {
   min-width: 4rem;
   text-align: right;
+}
+
+.detail-item.penalty .item-value {
+  color: var(--danger);
 }

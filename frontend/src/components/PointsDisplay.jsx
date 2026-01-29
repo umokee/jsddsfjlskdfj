@@ -219,16 +219,33 @@ function PointsDisplay() {
                         </div>
                       )}
                       {dayDetails.penalties.incomplete_penalty > 0 && (
-                        <div className="detail-item penalty">
-                          <span className="item-desc">Incomplete Tasks</span>
-                          <span className="item-value">-{dayDetails.penalties.incomplete_penalty}</span>
-                        </div>
+                        <>
+                          <div className="detail-item penalty">
+                            <span className="item-desc">Incomplete Tasks</span>
+                            <span className="item-value">-{dayDetails.penalties.incomplete_penalty}</span>
+                          </div>
+                          {dayDetails.penalties.incomplete_tasks && dayDetails.penalties.incomplete_tasks.map((task) => (
+                            <div key={task.id} className="detail-item penalty sub-item">
+                              <span className="item-desc">{task.description}</span>
+                              <span className="item-energy">E:{task.energy}</span>
+                            </div>
+                          ))}
+                        </>
                       )}
                       {dayDetails.penalties.missed_habits_penalty > 0 && (
-                        <div className="detail-item penalty">
-                          <span className="item-desc">Missed Habits</span>
-                          <span className="item-value">-{dayDetails.penalties.missed_habits_penalty}</span>
-                        </div>
+                        <>
+                          <div className="detail-item penalty">
+                            <span className="item-desc">Missed Habits</span>
+                            <span className="item-value">-{dayDetails.penalties.missed_habits_penalty}</span>
+                          </div>
+                          {dayDetails.penalties.missed_habits && dayDetails.penalties.missed_habits.map((habit) => (
+                            <div key={habit.id} className="detail-item penalty sub-item">
+                              <span className="item-desc">{habit.description}</span>
+                              <span className="item-type">{habit.habit_type}</span>
+                              <span className="item-value">-{habit.penalty}</span>
+                            </div>
+                          ))}
+                        </>
                       )}
                       {dayDetails.penalties.progressive_multiplier > 1 && (
                         <div className="detail-item">

@@ -76,7 +76,7 @@ class PenaltyService:
         penalty += idle_penalty
 
         # 2. Incomplete Day Penalty
-        incomplete_penalty, missed_task_potential = self._calculate_incomplete_penalty(
+        incomplete_penalty, missed_task_potential, incomplete_tasks = self._calculate_incomplete_penalty(
             day_history, target_date, settings
         )
         penalty += incomplete_penalty
@@ -111,7 +111,9 @@ class PenaltyService:
             incomplete_penalty,
             habits_penalty,
             progressive_multiplier,
-            penalty
+            penalty,
+            missed_habits,
+            incomplete_tasks
         )
 
         return {
@@ -192,15 +194,15 @@ class PenaltyService:
         day_history: PointHistory,
         target_date: date,
         settings: Settings
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int, list]:
         """
         Calculate incomplete day penalty based on missed task potential.
 
         Returns:
-            Tuple of (penalty, missed_task_potential)
+            Tuple of (penalty, missed_task_potential, incomplete_tasks_details)
         """
         if day_history.tasks_planned == 0:
-            return 0, 0
+            return 0, 0, []
 
         # Calculate completion rate
         completion_rate = min(
@@ -225,18 +227,18 @@ class PenaltyService:
             # No planned tasks info - fallback to average
             incomplete_count = day_history.tasks_planned - day_history.tasks_completed
             if incomplete_count <= 0:
-                return 0, 0
+                return 0, 0, []
 
             energy_mult = settings.energy_mult_base + (3 * settings.energy_mult_step)
             potential_per_task = settings.points_per_task_base * energy_mult
             missed_task_potential = int(incomplete_count * potential_per_task)
 
             penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
-            return penalty, missed_task_potential
+            return penalty, missed_task_potential, []
 
         # Calculate missed potential using REAL task energy from planned_tasks
         missed_task_potential = 0
-        incomplete_count = 0
+        incomplete_tasks_details = []
 
         for task_info in planned_tasks_info:
             task_id = task_info.get("task_id")
@@ -249,14 +251,19 @@ class PenaltyService:
                 energy_mult = settings.energy_mult_base + (task_energy * settings.energy_mult_step)
                 potential = settings.points_per_task_base * energy_mult
                 missed_task_potential += potential
-                incomplete_count += 1
+                incomplete_tasks_details.append({
+                    "id": task_id,
+                    "description": task.description if task else task_info.get("description", "Unknown task"),
+                    "energy": task_energy,
+                    "potential": int(potential)
+                })
 
         if missed_task_potential == 0:
-            return 0, 0
+            return 0, 0, []
 
         # Calculate penalty
         penalty = int(missed_task_potential * settings.incomplete_penalty_percent)
-        return penalty, int(missed_task_potential)
+        return penalty, int(missed_task_potential), incomplete_tasks_details
 
     def _apply_consistency_bonus(
         self,
@@ -285,12 +292,13 @@ class PenaltyService:
         target_date: date,
         day_history: PointHistory,
         settings: Settings
-    ) -> tuple[List[Task], int]:
+    ) -> tuple[list, int]:
         """
         Calculate penalty for missed habits.
 
         Returns:
-            Tuple of (missed_habits_list, penalty)
+            Tuple of (missed_habits_details, penalty)
+            missed_habits_details is a list of dicts with habit info and penalty
         """
         day_start, day_end = self.date_service.get_day_range(target_date)
 
@@ -309,19 +317,27 @@ class PenaltyService:
             self.db, day_start, day_end
         )
 
-        # Calculate penalty
+        # Calculate penalty and build details list
         penalty = 0
+        missed_habits_details = []
         for habit in missed_habits:
             if habit.habit_type == HABIT_TYPE_SKILL:
                 # Full penalty for skill habits
-                penalty += settings.missed_habit_penalty_base
+                habit_penalty = settings.missed_habit_penalty_base
             else:
                 # Reduced penalty for routines
-                penalty += int(
+                habit_penalty = int(
                     settings.missed_habit_penalty_base * ROUTINE_PENALTY_MULTIPLIER
                 )
+            penalty += habit_penalty
+            missed_habits_details.append({
+                "id": habit.id,
+                "description": habit.description,
+                "habit_type": habit.habit_type,
+                "penalty": habit_penalty
+            })
 
-        return missed_habits, penalty
+        return missed_habits_details, penalty
 
     def _apply_progressive_multiplier(
         self,
@@ -421,7 +437,9 @@ class PenaltyService:
         incomplete_penalty: int,
         habits_penalty: int,
         progressive_multiplier: float,
-        total_penalty: int
+        total_penalty: int,
+        missed_habits_details: list = None,
+        incomplete_tasks_details: list = None
     ) -> None:
         """Save detailed penalty breakdown to history details"""
         import json
@@ -443,7 +461,9 @@ class PenaltyService:
             "incomplete_penalty": incomplete_penalty,
             "missed_habits_penalty": habits_penalty,
             "progressive_multiplier": progressive_multiplier,
-            "total_penalty": total_penalty
+            "total_penalty": total_penalty,
+            "missed_habits": missed_habits_details or [],
+            "incomplete_tasks": incomplete_tasks_details or []
         }
 
         # Save back to history
