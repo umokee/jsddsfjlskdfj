@@ -424,11 +424,32 @@ class PenaltyService:
         # NOTE: points_earned were already added to cumulative_total when tasks were completed
         # So we only add the bonus and subtract penalties here
         net_change = day_history.points_bonus - penalty
+        old_cumulative = day_history.cumulative_total
         day_history.cumulative_total = max(
             0, day_history.cumulative_total + net_change
         )
 
         self.history_repo.update(self.db, day_history)
+
+        # Propagate the change to subsequent days if their history already exists
+        # This handles the case when user opens app before roll - today's history
+        # was created with old cumulative_total before penalties were applied
+        if net_change != 0:
+            cumulative_delta = day_history.cumulative_total - old_cumulative
+            self._propagate_cumulative_change(day_history.date, cumulative_delta)
+
+    def _propagate_cumulative_change(self, from_date: date, delta: int) -> None:
+        """Propagate cumulative_total change to all days after from_date"""
+        from backend.models import PointHistory
+
+        # Get all history entries after from_date
+        subsequent_histories = self.db.query(PointHistory).filter(
+            PointHistory.date > from_date
+        ).order_by(PointHistory.date.asc()).all()
+
+        for history in subsequent_histories:
+            history.cumulative_total = max(0, history.cumulative_total + delta)
+            self.history_repo.update(self.db, history)
 
     def _save_penalty_breakdown(
         self,
