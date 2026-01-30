@@ -278,9 +278,9 @@ class PointsService:
             except json.JSONDecodeError:
                 details = {}
 
-        # Get completed tasks/habits for this day
-        day_start = datetime.combine(target_date, datetime.min.time())
-        day_end = day_start + timedelta(days=1)
+        # Get completed tasks/habits for this day using effective day range
+        # This respects day_start_time setting (e.g., 6 AM means day runs 6 AM to 6 AM)
+        day_start, day_end = self.date_service.get_day_range(target_date)
 
         completed_tasks = self.db.query(Task).filter(
             and_(
