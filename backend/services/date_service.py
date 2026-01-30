@@ -237,17 +237,39 @@ class DateService:
         """
         return datetime.combine(dt.date(), datetime.min.time())
 
-    @staticmethod
-    def get_day_range(target_date: date) -> tuple[datetime, datetime]:
+    def get_day_range(self, target_date: date, settings: Optional['Settings'] = None) -> tuple[datetime, datetime]:
         """
-        Get datetime range for a full day (midnight to midnight).
+        Get datetime range for a full day, respecting day_start_time setting.
+
+        If day_start_enabled is True and day_start_time is set (e.g., "06:00"),
+        the day runs from that time on target_date to that time on the next date.
 
         Args:
             target_date: Date to get range for
+            settings: Optional settings object. If provided and day_start_enabled,
+                     uses day_start_time for the range.
 
         Returns:
             Tuple of (day_start, day_end) datetimes
         """
-        day_start = datetime.combine(target_date, datetime.min.time())
-        day_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
-        return day_start, day_end
+        # Default to midnight-to-midnight if no settings or day_start not enabled
+        if not settings or not settings.day_start_enabled:
+            day_start = datetime.combine(target_date, datetime.min.time())
+            day_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
+            return day_start, day_end
+
+        # Parse day_start_time
+        try:
+            t_str = settings.day_start_time or "06:00"
+            hour, minute = self.parse_time(t_str)
+            from datetime import time
+            start_time = time(hour=hour, minute=minute)
+
+            day_start = datetime.combine(target_date, start_time)
+            day_end = datetime.combine(target_date + timedelta(days=1), start_time)
+            return day_start, day_end
+        except (ValueError, IndexError, AttributeError):
+            # Fallback to midnight
+            day_start = datetime.combine(target_date, datetime.min.time())
+            day_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
+            return day_start, day_end

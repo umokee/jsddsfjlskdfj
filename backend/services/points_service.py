@@ -280,7 +280,8 @@ class PointsService:
 
         # Get completed tasks/habits for this day using effective day range
         # This respects day_start_time setting (e.g., 6 AM means day runs 6 AM to 6 AM)
-        day_start, day_end = self.date_service.get_day_range(target_date)
+        settings = self.settings_repo.get(self.db)
+        day_start, day_end = self.date_service.get_day_range(target_date, settings)
 
         completed_tasks = self.db.query(Task).filter(
             and_(
@@ -347,6 +348,7 @@ class PointsService:
             "incomplete_penalty": penalty_breakdown.get("incomplete_penalty", 0),
             "missed_habits_penalty": penalty_breakdown.get("missed_habits_penalty", 0),
             "progressive_multiplier": penalty_breakdown.get("progressive_multiplier", 1.0),
+            "penalty_streak": penalty_breakdown.get("penalty_streak", 0),
             "total": penalty_breakdown.get("total_penalty", 0),
             "missed_habits": penalty_breakdown.get("missed_habits", []),
             "incomplete_tasks": penalty_breakdown.get("incomplete_tasks", [])

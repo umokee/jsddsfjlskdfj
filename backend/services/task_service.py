@@ -43,7 +43,7 @@ class TaskService:
         """Get daily statistics"""
         settings = self.settings_repo.get(self.db)
         today = self.date_service.get_effective_date(settings)
-        day_start, day_end = self.date_service.get_day_range(today)
+        day_start, day_end = self.date_service.get_day_range(today, settings)
 
         done_today = self.task_repo.get_completed_count(
             self.db, day_start, day_end

@@ -42,6 +42,60 @@ class PenaltyService:
         Returns:
             Dictionary with penalty information
         """
+        # First, ensure all previous days are finalized (handles skipped rolls)
+        self._finalize_missing_days(target_date)
+
+        # Now finalize the target date
+        return self._finalize_single_day(target_date)
+
+    def _finalize_missing_days(self, target_date: date) -> None:
+        """
+        Finalize any missing days between the last finalized day and target_date.
+
+        This handles the case where roll was skipped for one or more days,
+        ensuring penalty_streak is calculated correctly.
+        """
+        # Find the most recent finalized day
+        yesterday = target_date - timedelta(days=1)
+
+        # Check back up to 7 days for missing finalizations
+        missing_days = []
+        check_date = yesterday
+
+        for _ in range(7):
+            history = self.history_repo.get_by_date(self.db, check_date)
+
+            if not history:
+                # No history at all - skip (user wasn't active)
+                break
+
+            # Check if this day needs finalization
+            # A day is finalized if points_penalty > 0 OR it has penalty_breakdown in details
+            if history.points_penalty > 0:
+                # Already finalized - we can stop
+                break
+
+            # Check if there's penalty_breakdown (day was finalized with 0 penalty)
+            import json
+            if history.details:
+                try:
+                    details = json.loads(history.details)
+                    if "penalty_breakdown" in details:
+                        # Already finalized
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+            # This day needs finalization
+            missing_days.append(check_date)
+            check_date -= timedelta(days=1)
+
+        # Finalize missing days in chronological order (oldest first)
+        for missing_date in reversed(missing_days):
+            self._finalize_single_day(missing_date)
+
+    def _finalize_single_day(self, target_date: date) -> dict:
+        """Internal finalization for a single day (no recursion check)"""
         # Check if this is a rest day - no penalties
         if self._is_rest_day(target_date):
             return self._rest_day_result()
@@ -65,7 +119,7 @@ class PenaltyService:
             }
 
         # Update completion counts
-        self._update_completion_counts(day_history, target_date)
+        self._update_completion_counts(day_history, target_date, settings)
 
         # Calculate penalties
         penalty = 0
@@ -94,12 +148,9 @@ class PenaltyService:
         base_penalty = penalty
 
         # 5. Progressive Penalty Multiplier
-        penalty = self._apply_progressive_multiplier(
+        penalty, progressive_multiplier = self._apply_progressive_multiplier(
             penalty, target_date, day_history, settings
         )
-
-        # Calculate progressive multiplier
-        progressive_multiplier = penalty / base_penalty if base_penalty > 0 else 1.0
 
         # Apply final penalties and bonuses
         self._apply_final_penalties(day_history, penalty)
@@ -154,10 +205,11 @@ class PenaltyService:
     def _update_completion_counts(
         self,
         day_history: PointHistory,
-        target_date: date
+        target_date: date,
+        settings: Settings
     ) -> None:
         """Update completion counts in history if not already set"""
-        day_start, day_end = self.date_service.get_day_range(target_date)
+        day_start, day_end = self.date_service.get_day_range(target_date, settings)
 
         # Count completed tasks
         if day_history.tasks_completed == 0:
@@ -211,7 +263,7 @@ class PenaltyService:
         day_history.completion_rate = completion_rate
 
         # Get incomplete tasks from target date using saved planned_tasks info
-        day_start, day_end = self.date_service.get_day_range(target_date)
+        day_start, day_end = self.date_service.get_day_range(target_date, settings)
 
         # Load planned tasks from details
         import json
@@ -300,7 +352,7 @@ class PenaltyService:
             Tuple of (missed_habits_details, penalty)
             missed_habits_details is a list of dicts with habit info and penalty
         """
-        day_start, day_end = self.date_service.get_day_range(target_date)
+        day_start, day_end = self.date_service.get_day_range(target_date, settings)
 
         # Count habits due on target date
         habits_due = self.task_repo.count_habits_due_in_range(
@@ -345,22 +397,26 @@ class PenaltyService:
         target_date: date,
         day_history: PointHistory,
         settings: Settings
-    ) -> int:
+    ) -> tuple[int, float]:
         """
         Apply progressive penalty multiplier based on streak.
 
         Also handles penalty streak reset logic.
 
         Returns:
-            Final penalty with multiplier applied
+            Tuple of (final penalty with multiplier, actual multiplier used)
         """
         yesterday_date = target_date - timedelta(days=1)
         yesterday_history = self.history_repo.get_by_date(self.db, yesterday_date)
 
         if penalty > 0:
-            # Got penalties today - increment streak
-            if yesterday_history and yesterday_history.penalty_streak > 0:
-                day_history.penalty_streak = yesterday_history.penalty_streak + 1
+            # Got penalties today - calculate streak
+            # We need to check if yesterday had penalties (points_penalty > 0)
+            # Not just penalty_streak > 0, because yesterday might not be finalized yet
+            yesterday_streak = self._get_effective_penalty_streak(yesterday_date, settings)
+
+            if yesterday_streak > 0:
+                day_history.penalty_streak = yesterday_streak + 1
             else:
                 day_history.penalty_streak = 1
 
@@ -370,13 +426,60 @@ class PenaltyService:
                 day_history.penalty_streak * settings.progressive_penalty_factor,
                 settings.progressive_penalty_max - 1
             )
-            return int(penalty * progressive_multiplier)
+            return int(penalty * progressive_multiplier), progressive_multiplier
         else:
             # No penalties today - check if we should reset streak
             self._update_penalty_streak(
                 day_history, yesterday_history, settings, yesterday_date
             )
-            return penalty
+            return penalty, 1.0
+
+    def _get_effective_penalty_streak(self, check_date: date, settings: Settings) -> int:
+        """
+        Get the effective penalty streak for a date, even if that day wasn't finalized.
+
+        This handles the case where roll was skipped for one or more days.
+        We count backwards to find how many consecutive days had penalties.
+        """
+        history = self.history_repo.get_by_date(self.db, check_date)
+
+        if not history:
+            return 0
+
+        # If the day has penalty_streak set (finalized), use it directly
+        # This is the most reliable source as it was calculated correctly
+        if history.penalty_streak > 0:
+            return history.penalty_streak
+
+        # If the day has penalties but penalty_streak is 0, it might be unfinalized
+        # or it's the first day with penalties
+        if history.points_penalty > 0:
+            # Day has penalties but no streak set - count backwards
+            streak = 1  # At least this day has penalties
+            current_date = check_date - timedelta(days=1)
+
+            # Look back up to 30 days
+            for _ in range(30):
+                prev_history = self.history_repo.get_by_date(self.db, current_date)
+
+                if not prev_history:
+                    break
+
+                # Use penalty_streak if available
+                if prev_history.penalty_streak > 0:
+                    return streak + prev_history.penalty_streak
+
+                # Otherwise check if day had penalties
+                if prev_history.points_penalty > 0:
+                    streak += 1
+                    current_date -= timedelta(days=1)
+                else:
+                    break
+
+            return streak
+
+        # No penalties on this day
+        return 0
 
     def _update_penalty_streak(
         self,
@@ -482,6 +585,7 @@ class PenaltyService:
             "incomplete_penalty": incomplete_penalty,
             "missed_habits_penalty": habits_penalty,
             "progressive_multiplier": progressive_multiplier,
+            "penalty_streak": day_history.penalty_streak,
             "total_penalty": total_penalty,
             "missed_habits": missed_habits_details or [],
             "incomplete_tasks": incomplete_tasks_details or []
