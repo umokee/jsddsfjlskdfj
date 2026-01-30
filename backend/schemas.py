@@ -61,6 +61,10 @@ class TaskResponse(TaskBase):
     daily_target: int = 1
     daily_completed: int = 0
 
+    # Dependency info (populated by API)
+    dependency_name: Optional[str] = None
+    dependency_completed: bool = True  # True if no dependency or dependency is done
+
     class Config:
         from_attributes = True
 

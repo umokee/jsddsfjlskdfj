@@ -148,7 +148,12 @@ class TaskService:
 
         Returns:
             Started task, or None
+
+        Raises:
+            DependencyNotMetException: If task has unmet dependency
         """
+        from backend.exceptions import DependencyNotMetException
+
         # Stop all active tasks
         active_tasks = self.task_repo.get_all_active_tasks(self.db)
         for task in active_tasks:
@@ -163,6 +168,9 @@ class TaskService:
         if task_id:
             task = self.task_repo.get_by_id(self.db, task_id)
             if task:
+                # Check dependencies before starting
+                if not self.check_dependencies_met(task):
+                    raise DependencyNotMetException(task.id, task.depends_on)
                 task.status = TASK_STATUS_ACTIVE
                 task.started_at = datetime.now()
                 task.is_today = True
@@ -202,7 +210,12 @@ class TaskService:
 
         Returns:
             Completed task, or None
+
+        Raises:
+            DependencyNotMetError: If task has unmet dependency
         """
+        from backend.exceptions import DependencyNotMetException
+
         # Get task to complete
         if task_id:
             task = self.task_repo.get_by_id(self.db, task_id)
@@ -211,6 +224,10 @@ class TaskService:
 
         if not task:
             return None
+
+        # Check dependencies before completing
+        if not self.check_dependencies_met(task):
+            raise DependencyNotMetException(task.id, task.depends_on)
 
         # Prevent duplicate completions (race condition protection)
         # Refresh task from DB to get latest status

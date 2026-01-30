@@ -59,6 +59,53 @@ def get_tasks(db: Session, skip: int = 0, limit: int = 100) -> List[Task]:
     return service.get_tasks(skip, limit)
 
 
+def enrich_task_with_dependency(db: Session, task: Task) -> dict:
+    """Add dependency info to task for API response"""
+    task_dict = {
+        "id": task.id,
+        "description": task.description,
+        "project": task.project,
+        "priority": task.priority,
+        "energy": task.energy,
+        "is_habit": task.is_habit,
+        "is_today": task.is_today,
+        "due_date": task.due_date,
+        "estimated_time": task.estimated_time,
+        "depends_on": task.depends_on,
+        "recurrence_type": task.recurrence_type,
+        "recurrence_interval": task.recurrence_interval,
+        "recurrence_days": task.recurrence_days,
+        "habit_type": task.habit_type,
+        "daily_target": task.daily_target,
+        "daily_completed": task.daily_completed,
+        "status": task.status,
+        "urgency": task.urgency,
+        "created_at": task.created_at,
+        "started_at": task.started_at,
+        "completed_at": task.completed_at,
+        "time_spent": task.time_spent,
+        "streak": task.streak,
+        "last_completed_date": task.last_completed_date,
+        "dependency_name": None,
+        "dependency_completed": True
+    }
+
+    if task.depends_on:
+        from backend.repositories.task_repository import TaskRepository
+        from backend.constants import TASK_STATUS_COMPLETED
+        dep = TaskRepository.get_by_id(db, task.depends_on)
+        if dep:
+            task_dict["dependency_name"] = dep.description
+            task_dict["dependency_completed"] = dep.status == TASK_STATUS_COMPLETED
+
+    return task_dict
+
+
+def enrich_tasks_with_dependencies(db: Session, tasks: List[Task]) -> List[dict]:
+    """Add dependency info to list of tasks"""
+    return [enrich_task_with_dependency(db, task) for task in tasks]
+
+
 def get_pending_tasks(db: Session) -> List[Task]:
     """Get pending tasks (excluding habits)"""
     from backend.repositories.task_repository import TaskRepository

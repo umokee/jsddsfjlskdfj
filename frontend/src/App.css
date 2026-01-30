@@ -578,6 +578,24 @@ small {
   background: rgba(0, 255, 136, 0.03);
 }
 
+.task-item.blocked {
+  opacity: 0.6;
+  border-left-color: var(--warning);
+}
+
+.blocked-indicator {
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.dep-done {
+  color: var(--accent);
+}
+
+.dep-pending {
+  color: var(--warning);
+}
+
 .task-header {
   display: flex;
   justify-content: space-between;

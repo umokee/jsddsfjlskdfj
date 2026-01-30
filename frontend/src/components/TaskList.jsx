@@ -16,18 +16,28 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll, setti
   return (
     <div className="task-list">
       {sortedTasks.map((task) => {
-        const showDone = showAll ? task.is_today : true; // If showAll, only show Done for today's tasks
+        // Only show Start/Done for tasks that are scheduled for today (is_today) or are active
+        // This prevents point abuse by completing unplanned tasks
+        const canInteract = task.is_today || task.status === 'active';
+        const showDone = showAll ? task.is_today : canInteract;
+        const showStart = canInteract && task.status !== 'active';
         const dueDateLabel = formatDueDate(task.due_date, settings);
+
+        // Check if dependency is blocking this task
+        const isBlocked = task.depends_on && !task.dependency_completed;
 
         return (
           <div
             key={task.id}
-            className={`task-item ${task.status === 'active' ? 'active' : ''}`}
+            className={`task-item ${task.status === 'active' ? 'active' : ''} ${isBlocked ? 'blocked' : ''}`}
           >
             <div className="task-header">
-              <div className="task-title">{task.description}</div>
+              <div className="task-title">
+                {task.description}
+                {isBlocked && <span className="blocked-indicator" title={`Blocked by: ${task.dependency_name}`}>⛔</span>}
+              </div>
               <div className="task-actions">
-                {task.status !== 'active' && (
+                {showStart && !isBlocked && (
                   <button
                     className="btn btn-small btn-primary"
                     onClick={() => onStart(task.id)}
@@ -35,7 +45,7 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll, setti
                     Start
                   </button>
                 )}
-                {showDone && (
+                {showDone && !isBlocked && (
                   <button
                     className="btn btn-small"
                     onClick={() => onComplete(task.id)}
@@ -76,6 +86,11 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll, setti
             )}
             {dueDateLabel && (
               <span>{dueDateLabel}</span>
+            )}
+            {task.dependency_name && (
+              <span className={task.dependency_completed ? 'dep-done' : 'dep-pending'}>
+                DEP: {task.dependency_name.substring(0, 20)}{task.dependency_name.length > 20 ? '...' : ''}
+              </span>
             )}
           </div>
         </div>

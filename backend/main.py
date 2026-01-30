@@ -110,12 +110,13 @@ async def get_tasks(
         tasks = db.query(models.Task).filter(models.Task.status == status_filter).offset(skip).limit(limit).all()
     else:
         tasks = crud.get_tasks(db, skip, limit)
-    return tasks
+    return crud.enrich_tasks_with_dependencies(db, tasks)
 
 @app.get("/api/tasks/pending", response_model=List[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def get_pending_tasks(db: Session = Depends(get_db)):
     """Get all pending tasks sorted by urgency"""
-    return crud.get_pending_tasks(db)
+    tasks = crud.get_pending_tasks(db)
+    return crud.enrich_tasks_with_dependencies(db, tasks)
 
 @app.get("/api/tasks/current", response_model=Optional[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def get_current_task(db: Session = Depends(get_db)):
@@ -125,22 +126,27 @@ async def get_current_task(db: Session = Depends(get_db)):
         task = crud.get_next_task(db)
     if not task:
         task = crud.get_next_habit(db)
-    return task
+    if task:
+        return crud.enrich_task_with_dependency(db, task)
+    return None
 
 @app.get("/api/tasks/habits", response_model=List[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def get_habits(db: Session = Depends(get_db)):
     """Get all pending habits"""
-    return crud.get_all_habits(db)
+    habits = crud.get_all_habits(db)
+    return crud.enrich_tasks_with_dependencies(db, habits)
 
 @app.get("/api/tasks/today", response_model=List[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def get_today_tasks_endpoint(db: Session = Depends(get_db)):
     """Get today's tasks (is_today=True)"""
-    return crud.get_today_tasks(db)
+    tasks = crud.get_today_tasks(db)
+    return crud.enrich_tasks_with_dependencies(db, tasks)
 
 @app.get("/api/tasks/today-habits", response_model=List[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def get_today_habits_endpoint(db: Session = Depends(get_db)):
     """Get today's habits"""
-    return crud.get_today_habits(db)
+    habits = crud.get_today_habits(db)
+    return crud.enrich_tasks_with_dependencies(db, habits)
 
 @app.get("/api/stats", response_model=StatsResponse, dependencies=[Depends(verify_api_key)])
 async def get_stats(db: Session = Depends(get_db)):
@@ -158,12 +164,13 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
     task = crud.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    return crud.enrich_task_with_dependency(db, task)
 
 @app.post("/api/tasks", response_model=TaskResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
 async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     """Create a new task"""
-    return crud.create_task(db, task)
+    new_task = crud.create_task(db, task)
+    return crud.enrich_task_with_dependency(db, new_task)
 
 @app.put("/api/tasks/{task_id}", response_model=TaskResponse, dependencies=[Depends(verify_api_key)])
 async def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get_db)):
@@ -171,7 +178,7 @@ async def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depen
     task = crud.update_task(db, task_id, task_update)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    return crud.enrich_task_with_dependency(db, task)
 
 @app.delete("/api/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_api_key)])
 async def delete_task(task_id: int, db: Session = Depends(get_db)):
@@ -182,10 +189,14 @@ async def delete_task(task_id: int, db: Session = Depends(get_db)):
 @app.post("/api/tasks/start", response_model=Optional[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def start_task(task_id: Optional[int] = None, db: Session = Depends(get_db)):
     """Start a task (or next available if no ID provided)"""
-    task = crud.start_task(db, task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="No task available to start")
-    return task
+    from backend.exceptions import DependencyNotMetException
+    try:
+        task = crud.start_task(db, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="No task available to start")
+        return crud.enrich_task_with_dependency(db, task)
+    except DependencyNotMetException as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/tasks/stop", dependencies=[Depends(verify_api_key)])
 async def stop_task(db: Session = Depends(get_db)):
@@ -197,10 +208,14 @@ async def stop_task(db: Session = Depends(get_db)):
 @app.post("/api/tasks/done", response_model=Optional[TaskResponse], dependencies=[Depends(verify_api_key)])
 async def complete_task(task_id: Optional[int] = None, db: Session = Depends(get_db)):
     """Complete a task (active or specified)"""
-    task = crud.complete_task(db, task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="No task to complete")
-    return task
+    from backend.exceptions import DependencyNotMetException
+    try:
+        task = crud.complete_task(db, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="No task to complete")
+        return crud.enrich_task_with_dependency(db, task)
+    except DependencyNotMetException as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/tasks/can-roll", dependencies=[Depends(verify_api_key)])
 async def can_roll_today(db: Session = Depends(get_db)):
