@@ -579,21 +579,20 @@ small {
 }
 
 .task-item.blocked {
-  opacity: 0.6;
-  border-left-color: var(--warning);
+  opacity: 0.7;
+  border-left-color: var(--text-secondary);
 }
 
-.blocked-indicator {
-  margin-left: 0.5rem;
-  font-size: 0.9rem;
+.status-blocked {
+  color: var(--danger);
 }
 
 .dep-done {
-  color: var(--accent);
+  color: var(--text-secondary);
 }
 
 .dep-pending {
-  color: var(--warning);
+  color: var(--text-secondary);
 }
 
 .task-header {

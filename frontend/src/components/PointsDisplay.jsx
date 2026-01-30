@@ -198,8 +198,8 @@ function PointsDisplay() {
                       {dayDetails.completed_habits.map((habit) => (
                         <div key={habit.id} className="detail-item">
                           <span className="item-desc">{habit.description}</span>
-                          <span className="item-type">{habit.habit_type}</span>
-                          {habit.streak > 0 && <span className="item-streak">Streak: {habit.streak}</span>}
+                          <span className="item-type">{habit.habit_type?.toUpperCase()}</span>
+                          {habit.streak > 0 && <span className="item-streak">STREAK: {habit.streak}</span>}
                           {habit.points > 0 && <span className="item-points">+{habit.points}</span>}
                         </div>
                       ))}
@@ -241,7 +241,7 @@ function PointsDisplay() {
                           {dayDetails.penalties.missed_habits && dayDetails.penalties.missed_habits.map((habit) => (
                             <div key={habit.id} className="detail-item penalty sub-item">
                               <span className="item-desc">{habit.description}</span>
-                              <span className="item-type">{habit.habit_type}</span>
+                              <span className="item-type">{habit.habit_type?.toUpperCase()}</span>
                               <span className="item-value">-{habit.penalty}</span>
                             </div>
                           ))}

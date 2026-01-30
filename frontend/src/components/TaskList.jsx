@@ -34,7 +34,6 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll, setti
             <div className="task-header">
               <div className="task-title">
                 {task.description}
-                {isBlocked && <span className="blocked-indicator" title={`Blocked by: ${task.dependency_name}`}>⛔</span>}
               </div>
               <div className="task-actions">
                 {showStart && !isBlocked && (
@@ -87,9 +86,12 @@ function TaskList({ tasks, onStart, onComplete, onDelete, onEdit, showAll, setti
             {dueDateLabel && (
               <span>{dueDateLabel}</span>
             )}
+            {isBlocked && (
+              <span className="status-blocked">BLOCKED</span>
+            )}
             {task.dependency_name && (
               <span className={task.dependency_completed ? 'dep-done' : 'dep-pending'}>
-                DEP: {task.dependency_name.substring(0, 20)}{task.dependency_name.length > 20 ? '...' : ''}
+                NEEDS: {task.dependency_name.substring(0, 15)}{task.dependency_name.length > 15 ? '...' : ''}
               </span>
             )}
           </div>
