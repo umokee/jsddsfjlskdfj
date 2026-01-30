@@ -1460,18 +1460,16 @@ small {
    ====================== */
 .morning-checkin-modal {
   max-width: 700px;
-  border: 3px solid var(--accent);
 }
 
 .morning-checkin-modal .modal-header {
-  background: rgba(0, 255, 136, 0.05);
-  border-bottom: 2px solid var(--accent);
+  border-bottom: 1px solid var(--border);
 }
 
 .morning-checkin-modal .modal-header h3 {
-  font-size: 1.5rem;
-  letter-spacing: 3px;
-  color: var(--accent);
+  font-size: 1.25rem;
+  letter-spacing: 2px;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -1483,10 +1481,10 @@ small {
 }
 
 .morning-checkin-intro p {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--accent);
+  letter-spacing: 1px;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
@@ -1520,9 +1518,8 @@ small {
 
 .mood-option.selected {
   border-color: var(--accent);
-  background: rgba(0, 255, 136, 0.1);
-  border-width: 3px;
-  box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+  background: var(--bg-primary);
+  border-width: 2px;
 }
 
 .mood-option:disabled {
@@ -1561,7 +1558,6 @@ small {
 
 .mood-option.selected .mood-value {
   color: var(--accent);
-  text-shadow: 0 0 10px var(--accent);
 }
 
 .mood-option.selected .mood-label {
