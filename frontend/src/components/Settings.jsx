@@ -50,6 +50,7 @@ function Settings({ onClose }) {
     penalty_time: "00:01",
     auto_roll_enabled: false,
     auto_roll_time: "06:00",
+    auto_mood_timeout_hours: 4,
 
     // Backup settings
     auto_backup_enabled: true,
@@ -416,10 +417,17 @@ function Settings({ onClose }) {
                 <label htmlFor="auto_roll">Enable automatic daily Roll</label>
               </div>
               {formData.auto_roll_enabled && (
-                <div className="form-group" style={{ marginTop: '1rem' }}>
-                  <label className="form-label">Auto Roll Time</label>
-                  <input className="form-input" type="time" name="auto_roll_time" value={formData.auto_roll_time} onChange={handleChange} />
-                </div>
+                <>
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label className="form-label">Auto Roll Time</label>
+                    <input className="form-input" type="time" name="auto_roll_time" value={formData.auto_roll_time} onChange={handleChange} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Auto-complete Timeout (hours)</label>
+                    <input className="form-input" type="number" name="auto_mood_timeout_hours" value={formData.auto_mood_timeout_hours} onChange={handleChange} min="1" max="24" />
+                    <small>If energy level not selected within this time, roll completes automatically with max energy (E5)</small>
+                  </div>
+                </>
               )}
             </div>
           </div>
