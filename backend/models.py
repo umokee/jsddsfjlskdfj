@@ -136,6 +136,8 @@ class Settings(Base):
     auto_roll_enabled = Column(Boolean, default=False)  # Enable automatic roll
     auto_roll_time = Column(String, default="06:00")  # Time for automatic roll (HH:MM format)
     pending_roll = Column(Boolean, default=False)  # Auto-roll triggered, waiting for user mood selection
+    pending_roll_started_at = Column(DateTime, nullable=True)  # When pending_roll was set to True
+    auto_mood_timeout_hours = Column(Integer, default=4)  # Hours after which to auto-complete roll with max energy
 
     # Backup settings
     auto_backup_enabled = Column(Boolean, default=True)  # Enable automatic backups

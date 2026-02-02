@@ -443,3 +443,193 @@ class TestRestDays:
 
         assert result["penalty"] == 0
         assert result["is_rest_day"] == True
+
+
+class TestMissedDaysWithoutHistory:
+    """Tests for handling missed days when user didn't open the app"""
+
+    def test_creates_history_for_missed_day_with_habits(self, db_session, default_settings, today):
+        """Should create history and apply penalties for missed days with habits due"""
+        from datetime import datetime
+
+        # Create a habit that was due 2 days ago (user didn't open app)
+        missed_day = today - timedelta(days=2)
+        habit = Task(
+            description="Daily habit",
+            is_habit=True,
+            status="pending",
+            recurrence_type="daily",
+            habit_type="skill",
+            due_date=datetime.combine(missed_day, datetime.min.time()),
+            created_at=datetime.now()
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        # Finalize penalties for today (should process missed day first)
+        service = PenaltyService(db_session)
+        service._finalize_missing_days(today)
+
+        # Check that history was created for missed day
+        missed_history = db_session.query(PointHistory).filter(PointHistory.date == missed_day).first()
+        assert missed_history is not None
+        assert missed_history.points_penalty > 0
+
+        # Check that penalty breakdown includes missed habits
+        details = json.loads(missed_history.details)
+        assert "penalty_breakdown" in details
+        assert details["penalty_breakdown"]["idle_penalty"] == default_settings.idle_penalty
+        assert details["penalty_breakdown"]["missed_habits_penalty"] > 0
+        assert details["penalty_breakdown"]["auto_finalized"] == True
+
+    def test_habits_rolled_forward_after_missed_day(self, db_session, default_settings, today):
+        """Habits should be rolled forward to next occurrence after being marked as missed"""
+        from datetime import datetime
+
+        # Create a daily habit that was due 2 days ago
+        missed_day = today - timedelta(days=2)
+        habit = Task(
+            description="Daily habit to roll",
+            is_habit=True,
+            status="pending",
+            recurrence_type="daily",
+            habit_type="skill",
+            due_date=datetime.combine(missed_day, datetime.min.time()),
+            streak=5,  # Had a streak
+            created_at=datetime.now()
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        original_habit_id = habit.id
+
+        # Finalize missing days
+        service = PenaltyService(db_session)
+        service._finalize_missing_days(today)
+
+        # Original habit should be deleted
+        old_habit = db_session.query(Task).filter(Task.id == original_habit_id).first()
+        assert old_habit is None
+
+        # New habit should exist with next due date and reset streak
+        new_habit = db_session.query(Task).filter(
+            Task.description == "Daily habit to roll",
+            Task.is_habit == True
+        ).first()
+        assert new_habit is not None
+        assert new_habit.due_date.date() > missed_day
+        assert new_habit.streak == 0  # Streak reset because habit was missed
+
+    def test_multiple_missed_days_all_penalized(self, db_session, default_settings, today):
+        """Multiple consecutive missed days should all receive penalties"""
+        from datetime import datetime
+
+        # Create a daily habit due 3 days ago
+        day_3 = today - timedelta(days=3)
+        habit = Task(
+            description="Daily habit",
+            is_habit=True,
+            status="pending",
+            recurrence_type="daily",
+            habit_type="skill",
+            due_date=datetime.combine(day_3, datetime.min.time()),
+            created_at=datetime.now()
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        # Finalize missing days
+        service = PenaltyService(db_session)
+        service._finalize_missing_days(today)
+
+        # Check that history exists for day_3
+        history_3 = db_session.query(PointHistory).filter(PointHistory.date == day_3).first()
+        assert history_3 is not None
+        assert history_3.points_penalty > 0
+
+        # Day 2 should also have a penalty (habit was rolled forward to it)
+        day_2 = today - timedelta(days=2)
+        history_2 = db_session.query(PointHistory).filter(PointHistory.date == day_2).first()
+        assert history_2 is not None
+        assert history_2.points_penalty > 0
+
+        # Check penalty streaks increment correctly
+        assert history_2.penalty_streak > history_3.penalty_streak
+
+    def test_non_recurring_habits_not_rolled_forward(self, db_session, default_settings, today):
+        """Non-recurring habits should be counted as missed but not rolled forward"""
+        from datetime import datetime
+
+        # Create a non-recurring habit due 2 days ago
+        missed_day = today - timedelta(days=2)
+        habit = Task(
+            description="One-time habit",
+            is_habit=True,
+            status="pending",
+            recurrence_type="none",  # Non-recurring
+            habit_type="skill",
+            due_date=datetime.combine(missed_day, datetime.min.time()),
+            created_at=datetime.now()
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        original_habit_id = habit.id
+
+        # Finalize missing days
+        service = PenaltyService(db_session)
+        service._finalize_missing_days(today)
+
+        # History should exist with penalty
+        missed_history = db_session.query(PointHistory).filter(PointHistory.date == missed_day).first()
+        assert missed_history is not None
+        assert missed_history.points_penalty > 0
+
+        # Non-recurring habit should be deleted (not rolled forward)
+        old_habit = db_session.query(Task).filter(Task.id == original_habit_id).first()
+        assert old_habit is None
+
+        # No new habit should be created
+        habits = db_session.query(Task).filter(
+            Task.description == "One-time habit",
+            Task.is_habit == True
+        ).all()
+        assert len(habits) == 0
+
+    def test_progressive_multiplier_across_missed_days(self, db_session, default_settings, today):
+        """Progressive penalty multiplier should increase across consecutive missed days"""
+        from datetime import datetime
+
+        # Create a daily habit due 3 days ago
+        day_3 = today - timedelta(days=3)
+        habit = Task(
+            description="Daily habit for multiplier test",
+            is_habit=True,
+            status="pending",
+            recurrence_type="daily",
+            habit_type="skill",
+            due_date=datetime.combine(day_3, datetime.min.time()),
+            created_at=datetime.now()
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        # Finalize missing days
+        service = PenaltyService(db_session)
+        service._finalize_missing_days(today)
+
+        # Check progressive multipliers
+        day_2 = today - timedelta(days=2)
+        day_1 = today - timedelta(days=1)
+
+        history_3 = db_session.query(PointHistory).filter(PointHistory.date == day_3).first()
+        history_2 = db_session.query(PointHistory).filter(PointHistory.date == day_2).first()
+        history_1 = db_session.query(PointHistory).filter(PointHistory.date == day_1).first()
+
+        # Penalty streaks should increment: 1, 2, 3
+        if history_3:
+            assert history_3.penalty_streak == 1
+        if history_2:
+            assert history_2.penalty_streak == 2
+        if history_1:
+            assert history_1.penalty_streak == 3

@@ -278,8 +278,9 @@ async def complete_roll(mood: str, db: Session = Depends(get_db)):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
 
-    # Clear pending_roll flag
+    # Clear pending_roll flag and timestamp
     settings.pending_roll = False
+    settings.pending_roll_started_at = None
     db.commit()
 
     return {

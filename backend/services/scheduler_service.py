@@ -5,6 +5,7 @@ Handles:
 - Automatic roll at configured time
 - Automatic database backups
 - Resetting last_roll_date for new day
+- Auto-completing roll after timeout if user doesn't select mood
 """
 
 import logging
@@ -15,6 +16,7 @@ from backend.infrastructure.database import SessionLocal
 from backend.models import Backup
 import backend.crud as crud
 from backend.services import backup_service
+from backend.services.penalty_service import PenaltyService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +44,7 @@ async def run_auto_roll():
     - Применяет штрафы за вчерашний день
     - Устанавливает флаг pending_roll = True
     - Реальный roll с выбором задач происходит после того, как пользователь выберет mood
+    - Если пользователь не выбрал mood в течение auto_mood_timeout_hours, roll выполняется автоматически
     """
     db = SessionLocal()
     try:
@@ -50,11 +53,32 @@ async def run_auto_roll():
             return
 
         # Получаем текущее время в формате HHMM
-        current_time = datetime.now().strftime("%H%M")
+        now = datetime.now()
+        current_time = now.strftime("%H%M")
         target_time = _normalize_time(settings.auto_roll_time or "0600")
 
         # Проверяем эффективную дату
         today = crud.get_effective_date(settings)
+
+        # Проверяем, не истек ли таймаут для pending_roll
+        if settings.pending_roll and settings.pending_roll_started_at:
+            timeout_hours = settings.auto_mood_timeout_hours or 4
+            timeout_delta = timedelta(hours=timeout_hours)
+
+            if now - settings.pending_roll_started_at >= timeout_delta:
+                logger.info(f"Auto-roll timeout ({timeout_hours}h) reached - completing roll with max energy")
+
+                # Авто-завершаем roll с максимальной энергией (E5)
+                result = crud.roll_tasks(db, mood="5")
+
+                if "error" not in result:
+                    settings.pending_roll = False
+                    settings.pending_roll_started_at = None
+                    db.commit()
+                    logger.info(f"Auto-roll completed: {len(result.get('tasks', []))} tasks, {len(result.get('habits', []))} habits")
+                else:
+                    logger.error(f"Auto-roll failed: {result.get('error')}")
+                return
 
         # Запускаем подготовку дня, если:
         # 1. Время уже наступило (или прошло)
@@ -62,15 +86,16 @@ async def run_auto_roll():
         if int(current_time) >= int(target_time) and not settings.pending_roll and settings.last_roll_date != today:
             logger.info(f"Executing Auto-Roll Preparation - Morning Check-in (Current: {current_time}, Target: {target_time})")
 
-            # Применяем штрафы за вчера
+            # Применяем штрафы за вчера (это также обработает все пропущенные дни)
             penalty_info = crud.calculate_daily_penalties(db)
             logger.info(f"Penalties applied for yesterday: {penalty_info.get('penalty', 0)} points")
 
             # Устанавливаем флаг pending_roll - пользователь должен выбрать mood
             settings.pending_roll = True
+            settings.pending_roll_started_at = now
             db.commit()
 
-            logger.info("Morning Check-in pending - waiting for user to select mood")
+            logger.info(f"Morning Check-in pending - waiting for user to select mood (timeout: {settings.auto_mood_timeout_hours}h)")
 
     except Exception as e:
         logger.error(f"Scheduler Error (Auto-Roll Preparation): {e}")
