@@ -130,6 +130,7 @@ class SettingsBase(BaseModel):
     penalty_time: str = Field(default="00:01", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
     auto_roll_enabled: bool = Field(default=False)
     auto_roll_time: str = Field(default="06:00", pattern=r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+    auto_mood_timeout_hours: int = Field(default=4, ge=1, le=24)  # Hours to wait before auto-completing roll
     pending_roll: bool = Field(default=False)
 
     # Backup settings
@@ -149,6 +150,7 @@ class SettingsResponse(SettingsBase):
     updated_at: datetime
     last_backup_date: Optional[datetime] = None
     effective_date: Optional[date] = None  # Current effective date based on day_start_time
+    pending_roll_started_at: Optional[datetime] = None  # When pending_roll was set (read-only)
 
     class Config:
         from_attributes = True
