@@ -541,6 +541,163 @@ class PenaltyService:
         day_history.details = json.dumps(details)
         self.history_repo.update(day_history)
 
+    def _finalize_missing_days(
+        self,
+        effective_today: date,
+        is_rest_day_fn: Callable,
+        settings,
+        get_history_fn: Callable,
+        get_missed_habits_fn: Callable,
+        count_habits_due_fn: Callable,
+    ) -> None:
+        """
+        Finalize any missing days between last finalized and yesterday.
+
+        This handles the case where roll was skipped for one or more days,
+        ensuring penalty_streak is calculated correctly.
+        """
+        yesterday = effective_today - timedelta(days=1)
+
+        # Find oldest unfinalized day (look back up to 14 days)
+        oldest_unfinalized = None
+        check_date = yesterday
+
+        for _ in range(14):
+            history = self.history_repo.get_by_date(check_date)
+
+            if history:
+                # Check if already finalized
+                if history.points_penalty > 0 or self._is_day_finalized(history):
+                    break
+                oldest_unfinalized = check_date
+            else:
+                # No history - check if habits were due
+                day_start, day_end = get_day_range(
+                    check_date,
+                    settings.day_start_enabled,
+                    settings.day_start_time
+                )
+                habits_due = count_habits_due_fn(day_start, day_end)
+                if habits_due > 0:
+                    oldest_unfinalized = check_date
+                elif settings.last_roll_date and check_date < settings.last_roll_date:
+                    break
+
+            check_date -= timedelta(days=1)
+
+        if oldest_unfinalized is None or oldest_unfinalized == yesterday:
+            return
+
+        # Process days from oldest to yesterday (excluding yesterday - it's handled separately)
+        current_date = oldest_unfinalized
+        while current_date < yesterday:
+            # Skip rest days
+            if is_rest_day_fn(current_date):
+                current_date += timedelta(days=1)
+                continue
+
+            history = self.history_repo.get_by_date(current_date)
+            if history and (history.points_penalty > 0 or self._is_day_finalized(history)):
+                current_date += timedelta(days=1)
+                continue
+
+            # Get day range
+            day_start, day_end = get_day_range(
+                current_date,
+                settings.day_start_enabled,
+                settings.day_start_time
+            )
+
+            # Check for habits due
+            habits_due = count_habits_due_fn(day_start, day_end)
+            if habits_due == 0 and not history:
+                current_date += timedelta(days=1)
+                continue
+
+            # Create or get history
+            if not history:
+                prev_history = self.history_repo.get_most_recent(current_date)
+                previous_cumulative = prev_history.cumulative_total if prev_history else 0
+
+                history = PointHistory(
+                    date=current_date,
+                    points_earned=0,
+                    points_penalty=0,
+                    points_bonus=0,
+                    daily_total=0,
+                    cumulative_total=previous_cumulative,
+                    tasks_completed=0,
+                    habits_completed=0,
+                    tasks_planned=0,
+                    completion_rate=0.0
+                )
+                self.history_repo.create(history)
+
+            # Calculate idle penalty
+            idle_penalty = getattr(settings, 'idle_penalty', 30)
+
+            # Calculate missed habits penalty
+            missed_habits = get_missed_habits_fn(day_start, day_end)
+            habits_penalty = 0
+            missed_habits_details = []
+
+            for habit in missed_habits:
+                if habit.get("habit_type") == HABIT_TYPE_SKILL:
+                    habit_penalty = getattr(settings, 'missed_habit_penalty_base', 15)
+                else:
+                    habit_penalty = int(
+                        getattr(settings, 'missed_habit_penalty_base', 15) * ROUTINE_PENALTY_MULTIPLIER
+                    )
+                habits_penalty += habit_penalty
+                missed_habits_details.append({
+                    "id": habit.get("id"),
+                    "description": habit.get("description"),
+                    "habit_type": habit.get("habit_type"),
+                    "penalty": habit_penalty
+                })
+
+            base_penalty = idle_penalty + habits_penalty
+
+            # Progressive multiplier
+            yesterday_streak = self._get_effective_penalty_streak(current_date - timedelta(days=1))
+            history.penalty_streak = yesterday_streak + 1 if yesterday_streak > 0 else 1
+
+            progressive_multiplier = 1 + min(
+                history.penalty_streak * getattr(settings, 'progressive_penalty_factor', 0.1),
+                getattr(settings, 'progressive_penalty_max', 1.5) - 1
+            )
+
+            total_penalty = int(base_penalty * progressive_multiplier)
+
+            # Apply penalties
+            old_cumulative = history.cumulative_total
+            history.points_penalty = total_penalty
+            history.daily_total = -total_penalty
+            history.cumulative_total = max(0, history.cumulative_total - total_penalty)
+
+            # Save breakdown
+            details = {
+                "penalty_breakdown": {
+                    "idle_penalty": idle_penalty,
+                    "incomplete_penalty": 0,
+                    "missed_habits_penalty": habits_penalty,
+                    "progressive_multiplier": progressive_multiplier,
+                    "penalty_streak": history.penalty_streak,
+                    "total_penalty": total_penalty,
+                    "missed_habits": missed_habits_details,
+                    "incomplete_tasks": [],
+                    "auto_finalized": True
+                }
+            }
+            history.details = json.dumps(details)
+            self.history_repo.update(history)
+
+            # Propagate to subsequent days
+            if total_penalty > 0:
+                self._propagate_cumulative_change(current_date, history.cumulative_total - old_cumulative)
+
+            current_date += timedelta(days=1)
+
     def calculate_daily_penalties(
         self,
         effective_today: date,
@@ -549,9 +706,11 @@ class PenaltyService:
         get_yesterday_history: Callable,
         get_yesterday_completed_tasks: Callable,
         get_yesterday_completed_habits: Callable,
+        get_missed_habits_fn: Callable = None,
+        count_habits_due_fn: Callable = None,
     ) -> dict:
         """
-        Calculate penalties for yesterday.
+        Calculate penalties for yesterday (and any skipped days).
 
         This is the main entry point called by workflows.
 
@@ -562,10 +721,23 @@ class PenaltyService:
             get_yesterday_history: Function(date) -> PointHistory
             get_yesterday_completed_tasks: Function(start, end) -> List[Task]
             get_yesterday_completed_habits: Function(start, end) -> List[Task]
+            get_missed_habits_fn: Function(start, end) -> List[dict] for missed habits
+            count_habits_due_fn: Function(start, end) -> int for counting due habits
 
         Returns:
             Dictionary with penalty information
         """
+        # First, finalize any skipped days (if callbacks provided)
+        if get_missed_habits_fn and count_habits_due_fn:
+            self._finalize_missing_days(
+                effective_today,
+                is_rest_day_fn,
+                settings,
+                get_yesterday_history,
+                get_missed_habits_fn,
+                count_habits_due_fn,
+            )
+
         yesterday = effective_today - timedelta(days=1)
 
         # Check if rest day

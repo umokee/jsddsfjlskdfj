@@ -454,6 +454,34 @@ class TaskService:
 
         return task_response
 
+    def check_dependency_in_today_plan(self, task: Task) -> bool:
+        """Check if task's dependency is already scheduled for today."""
+        if not task.depends_on:
+            return False
+
+        dependency = self.repo.get_by_id(task.depends_on)
+        if not dependency:
+            return False
+
+        return dependency.status == TASK_STATUS_PENDING and dependency.is_today
+
+    def get_missed_habits(self, start: datetime, end: datetime) -> List[dict]:
+        """Get habits that were due but not completed in a date range."""
+        missed = self.repo.get_missed_habits(start, end)
+        return [
+            {
+                "id": h.id,
+                "description": h.description,
+                "habit_type": h.habit_type,
+                "recurrence_type": h.recurrence_type,
+            }
+            for h in missed
+        ]
+
+    def count_habits_due(self, start: datetime, end: datetime) -> int:
+        """Count habits due in a date range."""
+        return self.repo.count_habits_due_in_range(start, end)
+
     # Private methods
 
     def _check_dependencies_met(self, task: Task) -> bool:

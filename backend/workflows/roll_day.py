@@ -66,7 +66,7 @@ class RollDayWorkflow:
         settings = self.settings_service.get_data()
         today = get_effective_date(settings.day_start_enabled, settings.day_start_time)
 
-        # 1. Calculate penalties for yesterday (before clearing flags)
+        # 1. Calculate penalties for yesterday (and any skipped days)
         penalty_info = self.penalty_service.calculate_daily_penalties(
             effective_today=today,
             is_rest_day_fn=self.rest_day_service.is_rest_day,
@@ -74,6 +74,8 @@ class RollDayWorkflow:
             get_yesterday_history=lambda d: self.points_service.get_history_for_date(d),
             get_yesterday_completed_tasks=lambda start, end: self.task_service._get_completed_in_range(start, end),
             get_yesterday_completed_habits=lambda start, end: self.task_service._get_completed_habits_in_range(start, end),
+            get_missed_habits_fn=lambda start, end: self.task_service.get_missed_habits(start, end),
+            count_habits_due_fn=lambda start, end: self.task_service.count_habits_due(start, end),
         )
 
         # 2. Roll tasks (handles overdue habits, selects tasks)

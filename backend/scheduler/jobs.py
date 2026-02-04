@@ -97,6 +97,8 @@ async def run_auto_roll():
                 get_yesterday_history=lambda d: points_service.get_history_for_date(d),
                 get_yesterday_completed_tasks=lambda s, e: task_service._get_completed_in_range(s, e),
                 get_yesterday_completed_habits=lambda s, e: task_service._get_completed_habits_in_range(s, e),
+                get_missed_habits_fn=lambda s, e: task_service.get_missed_habits(s, e),
+                count_habits_due_fn=lambda s, e: task_service.count_habits_due(s, e),
             )
             logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
 
@@ -151,6 +153,8 @@ async def run_auto_penalties():
                 get_yesterday_history=lambda d: points_service.get_history_for_date(d),
                 get_yesterday_completed_tasks=lambda s, e: task_service._get_completed_in_range(s, e),
                 get_yesterday_completed_habits=lambda s, e: task_service._get_completed_habits_in_range(s, e),
+                get_missed_habits_fn=lambda s, e: task_service.get_missed_habits(s, e),
+                count_habits_due_fn=lambda s, e: task_service.count_habits_due(s, e),
             )
             logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
 
