@@ -35,17 +35,17 @@ async def get_backups(
     dependencies=[Depends(verify_api_key)],
 )
 async def create_backup(
-    service: BackupService = Depends(get_backup_service),
     db: Session = Depends(get_db),
 ):
-    """Create a manual backup."""
-    backup = service.create_local_backup(backup_type="manual")
+    """Create a manual backup (with Google Drive upload if enabled)."""
+    from backend.workflows import CreateBackupWorkflow
+
+    workflow = CreateBackupWorkflow(db)
+    backup = workflow.execute(backup_type="manual")
 
     if not backup:
         raise HTTPException(status_code=500, detail="Failed to create backup")
 
-    # Upload to Google Drive if enabled
-    # Note: settings check is done in workflow, here we just create
     return backup
 
 

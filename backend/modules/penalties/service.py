@@ -10,10 +10,10 @@ from datetime import date, timedelta
 from typing import List, Optional, Callable
 from sqlalchemy.orm import Session
 
-from shared.constants import HABIT_TYPE_SKILL, ROUTINE_PENALTY_MULTIPLIER
-from shared.date_utils import get_day_range
-from modules.points.models import PointHistory
-from modules.points.repository import PointHistoryRepository
+from backend.shared.constants import HABIT_TYPE_SKILL, ROUTINE_PENALTY_MULTIPLIER
+from backend.shared.date_utils import get_day_range
+from backend.modules.points.models import PointHistory
+from backend.modules.points.repository import PointHistoryRepository
 
 
 class PenaltyService:
@@ -540,3 +540,130 @@ class PenaltyService:
 
         day_history.details = json.dumps(details)
         self.history_repo.update(day_history)
+
+    def calculate_daily_penalties(
+        self,
+        effective_today: date,
+        is_rest_day_fn: Callable,
+        settings,
+        get_yesterday_history: Callable,
+        get_yesterday_completed_tasks: Callable,
+        get_yesterday_completed_habits: Callable,
+    ) -> dict:
+        """
+        Calculate penalties for yesterday.
+
+        This is the main entry point called by workflows.
+
+        Args:
+            effective_today: Today's effective date
+            is_rest_day_fn: Function to check if date is rest day
+            settings: Settings DTO with penalty parameters
+            get_yesterday_history: Function(date) -> PointHistory
+            get_yesterday_completed_tasks: Function(start, end) -> List[Task]
+            get_yesterday_completed_habits: Function(start, end) -> List[Task]
+
+        Returns:
+            Dictionary with penalty information
+        """
+        yesterday = effective_today - timedelta(days=1)
+
+        # Check if rest day
+        is_rest_day = is_rest_day_fn(yesterday)
+        if is_rest_day:
+            return self._rest_day_result()
+
+        # Get yesterday's history
+        yesterday_history = get_yesterday_history(yesterday)
+
+        if not yesterday_history:
+            # No history for yesterday - no penalties
+            return self._no_history_result()
+
+        # Check if already finalized
+        if yesterday_history.points_penalty > 0 or self._is_day_finalized(yesterday_history):
+            return {
+                "penalty": yesterday_history.points_penalty,
+                "completion_rate": yesterday_history.completion_rate,
+                "tasks_completed": yesterday_history.tasks_completed,
+                "tasks_planned": yesterday_history.tasks_planned,
+                "missed_habits": 0,
+                "already_finalized": True
+            }
+
+        # Get day range for yesterday
+        day_start, day_end = get_day_range(
+            yesterday,
+            settings.day_start_enabled,
+            settings.day_start_time
+        )
+
+        # Update task counts if needed
+        if yesterday_history.tasks_completed == 0:
+            completed_tasks = get_yesterday_completed_tasks(day_start, day_end)
+            yesterday_history.tasks_completed = len(completed_tasks)
+
+        if yesterday_history.habits_completed == 0:
+            completed_habits = get_yesterday_completed_habits(day_start, day_end)
+            yesterday_history.habits_completed = len(completed_habits)
+
+        # Build settings dict
+        settings_data = {
+            "idle_penalty": getattr(settings, 'idle_penalty', 30),
+            "incomplete_penalty_percent": getattr(settings, 'incomplete_penalty_percent', 0.5),
+            "missed_habit_penalty_base": getattr(settings, 'missed_habit_penalty_base', 15),
+            "progressive_penalty_factor": getattr(settings, 'progressive_penalty_factor', 0.1),
+            "progressive_penalty_max": getattr(settings, 'progressive_penalty_max', 1.5),
+            "completion_bonus_full": getattr(settings, 'completion_bonus_full', 0.10),
+            "completion_bonus_good": getattr(settings, 'completion_bonus_good', 0.05),
+            "points_per_task_base": getattr(settings, 'points_per_task_base', 10),
+            "energy_mult_base": getattr(settings, 'energy_mult_base', 0.6),
+            "energy_mult_step": getattr(settings, 'energy_mult_step', 0.2),
+        }
+
+        # Calculate penalties
+        penalty = 0
+
+        # 1. Idle Penalty
+        idle_penalty = self._calculate_idle_penalty(yesterday_history, settings_data)
+        penalty += idle_penalty
+
+        # 2. Incomplete Day Penalty
+        incomplete_penalty, missed_task_potential, incomplete_tasks = (
+            self._calculate_incomplete_penalty(yesterday_history, settings_data)
+        )
+        penalty += incomplete_penalty
+
+        # 3. Daily Consistency Bonus
+        self._apply_consistency_bonus(yesterday_history, settings_data)
+
+        # 4. Progressive Penalty Multiplier
+        if penalty > 0:
+            penalty, progressive_multiplier = self._apply_progressive_multiplier(
+                penalty, yesterday, yesterday_history, settings_data
+            )
+        else:
+            progressive_multiplier = 1.0
+
+        # Apply final penalties
+        self._apply_final_penalties(yesterday_history, penalty)
+
+        # Save penalty breakdown
+        self._save_penalty_breakdown(
+            yesterday_history,
+            idle_penalty,
+            incomplete_penalty,
+            0,  # habits_penalty
+            progressive_multiplier,
+            penalty,
+            [],  # missed_habits_details
+            incomplete_tasks
+        )
+
+        return {
+            "penalty": penalty,
+            "completion_rate": yesterday_history.completion_rate,
+            "tasks_completed": yesterday_history.tasks_completed,
+            "tasks_planned": yesterday_history.tasks_planned,
+            "missed_habits": 0
+        }

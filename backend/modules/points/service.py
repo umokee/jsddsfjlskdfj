@@ -173,22 +173,73 @@ class PointsService:
 
     def add_task_completion_points(
         self,
-        today: date,
         task_id: int,
-        description: str,
+        energy: int,
+        priority: int,
         is_habit: bool,
-        points: int
-    ) -> None:
+        habit_type: str,
+        streak: int,
+        time_spent: int,
+        started_at: Optional[datetime],
+        points_per_task_base: int,
+        points_per_habit_base: int,
+        energy_mult_base: float,
+        energy_mult_step: float,
+        minutes_per_energy_unit: int,
+        min_work_time_seconds: int,
+        streak_log_factor: float,
+        routine_points_fixed: int,
+        description: str = "",
+    ) -> int:
         """
-        Add points when a task/habit is completed.
+        Calculate and add points when a task/habit is completed.
 
         Args:
-            today: Current effective date
             task_id: ID of completed task
-            description: Task description
+            energy: Task energy level (0-5)
+            priority: Task priority
             is_habit: Whether it's a habit
-            points: Points to add
+            habit_type: "skill" or "routine"
+            streak: Current streak for habits
+            time_spent: Time spent in seconds
+            started_at: When task was started
+            points_per_task_base: Base points for tasks
+            points_per_habit_base: Base points for habits
+            energy_mult_base: Energy multiplier base
+            energy_mult_step: Energy multiplier step
+            minutes_per_energy_unit: Expected minutes per energy
+            min_work_time_seconds: Minimum work time
+            streak_log_factor: Streak log factor
+            routine_points_fixed: Fixed points for routine habits
+            description: Task description for logging
+
+        Returns:
+            Points earned
         """
+        # Calculate points
+        if is_habit:
+            points = self.calculate_habit_points(
+                habit_type=habit_type,
+                streak=streak,
+                points_per_habit_base=points_per_habit_base,
+                routine_points_fixed=routine_points_fixed,
+                streak_log_factor=streak_log_factor,
+            )
+        else:
+            result = self.calculate_task_points(
+                energy=energy,
+                time_spent=time_spent,
+                started_at=started_at,
+                points_per_task_base=points_per_task_base,
+                energy_mult_base=energy_mult_base,
+                energy_mult_step=energy_mult_step,
+                minutes_per_energy_unit=minutes_per_energy_unit,
+                min_work_time_seconds=min_work_time_seconds,
+            )
+            points = result.points
+
+        # Get today's history
+        today = date.today()
         history = self.get_or_create_today_history(today)
 
         # Update counters
@@ -229,6 +280,7 @@ class PointsService:
         history.details = json.dumps(details)
 
         self.repo.update(history)
+        return points
 
     def save_planned_tasks(self, today: date, tasks_planned: int, task_details: List[dict]) -> None:
         """Save planned tasks info for penalty calculation later."""

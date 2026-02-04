@@ -51,7 +51,7 @@ class CompleteTaskWorkflow:
 
         # Award points if task was fully completed
         if result.fully_completed:
-            # Get settings data for point calculation
+            # Calculate and add points
             self.points_service.add_task_completion_points(
                 task_id=result.id,
                 energy=result.energy,
@@ -69,12 +69,14 @@ class CompleteTaskWorkflow:
                 min_work_time_seconds=settings.min_work_time_seconds,
                 streak_log_factor=settings.streak_log_factor,
                 routine_points_fixed=settings.routine_points_fixed,
+                description=result.description,
             )
 
             # Check if any goals were achieved
             current_points = self.points_service.get_current_points()
             self.goal_service.check_achievements(
                 current_points=current_points,
+                today=today,
                 get_project_progress=self.task_service.get_project_progress
             )
 

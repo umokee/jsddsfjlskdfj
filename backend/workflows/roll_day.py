@@ -90,9 +90,9 @@ class RollDayWorkflow:
         if tasks:
             task_details = self.task_service.get_today_task_details()
             self.points_service.save_planned_tasks(
-                history_date=today,
+                today=today,
                 tasks_planned=len(tasks),
-                planned_tasks_info=task_details
+                task_details=task_details
             )
 
         # 4. Update last roll date
