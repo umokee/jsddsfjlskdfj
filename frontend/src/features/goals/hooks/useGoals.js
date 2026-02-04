@@ -1,0 +1,61 @@
+/**
+ * Goals hook - manages goals state and operations.
+ */
+import { useState, useCallback, useEffect } from 'react';
+import { goalsApi } from '../../../shared/api';
+import { useAuth } from '../../../contexts';
+
+export function useGoals() {
+  const { isAuthenticated } = useAuth();
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadGoals = useCallback(async (includeAchieved = false) => {
+    if (!isAuthenticated) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await goalsApi.getAll(includeAchieved);
+      setGoals(response.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to load goals');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  const createGoal = useCallback(async (goalData) => {
+    const response = await goalsApi.create(goalData);
+    return response.data;
+  }, []);
+
+  const deleteGoal = useCallback(async (id) => {
+    await goalsApi.delete(id);
+  }, []);
+
+  const claimReward = useCallback(async (id) => {
+    await goalsApi.claim(id);
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadGoals();
+    }
+  }, [isAuthenticated, loadGoals]);
+
+  return {
+    goals,
+    loading,
+    error,
+    loadGoals,
+    createGoal,
+    deleteGoal,
+    claimReward,
+  };
+}
+
+export default useGoals;
