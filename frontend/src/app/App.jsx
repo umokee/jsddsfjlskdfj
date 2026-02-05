@@ -15,9 +15,9 @@ import { Settings } from '../features/settings';
 import { Backups } from '../features/backups';
 import { Timer } from '../features/timer';
 
-// Shared components
-import PointsCalculator from '../components/PointsCalculator';
-import MorningCheckIn from '../components/MorningCheckIn';
+// Dashboard components
+import MorningCheckIn from '../features/dashboard/components/MorningCheckIn';
+import PointsCalculator from '../features/points/components/PointsCalculator';
 
 function LoginScreen() {
   const { login } = useAuth();

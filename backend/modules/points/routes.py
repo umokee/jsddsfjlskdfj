@@ -48,6 +48,7 @@ def get_day_details(
     _: str = Depends(verify_api_key)
 ):
     """Get detailed breakdown for a specific day."""
+    import json
     from backend.modules.tasks import TaskService
     from backend.shared.date_utils import get_day_range
 
@@ -74,25 +75,58 @@ def get_day_details(
     completed_tasks = task_service._get_completed_in_range(day_start, day_end)
     completed_habits = task_service._get_completed_habits_in_range(day_start, day_end)
 
+    # Parse details JSON for penalties and planned tasks
+    details = {}
+    if history.details:
+        try:
+            details = json.loads(history.details)
+            if isinstance(details, list):
+                details = {"task_completions": details}
+        except json.JSONDecodeError:
+            details = {}
+
+    penalty_breakdown = details.get("penalty_breakdown", {})
+    penalties = {
+        "idle_penalty": penalty_breakdown.get("idle_penalty", 0),
+        "incomplete_penalty": penalty_breakdown.get("incomplete_penalty", 0),
+        "missed_habits_penalty": penalty_breakdown.get("missed_habits_penalty", 0),
+        "progressive_multiplier": penalty_breakdown.get("progressive_multiplier", 1.0),
+        "penalty_streak": penalty_breakdown.get("penalty_streak", 0),
+        "total": penalty_breakdown.get("total_penalty", 0),
+        "missed_habits": penalty_breakdown.get("missed_habits", []),
+        "incomplete_tasks": penalty_breakdown.get("incomplete_tasks", [])
+    }
+
+    # Get points for each task/habit from details
+    task_completions = details.get("task_completions", [])
+    points_map = {
+        item["task_id"]: item["points"]
+        for item in task_completions
+        if "task_id" in item and "points" in item
+    }
+
     return {
         "date": history.date,
-        "points_earned": history.points_earned,
-        "points_penalty": history.points_penalty,
-        "points_bonus": history.points_bonus,
-        "daily_total": history.daily_total,
-        "cumulative_total": history.cumulative_total,
-        "tasks_completed": history.tasks_completed,
-        "habits_completed": history.habits_completed,
-        "tasks_planned": history.tasks_planned,
-        "completion_rate": history.completion_rate,
-        "penalty_streak": history.penalty_streak,
+        "summary": {
+            "points_earned": history.points_earned,
+            "points_penalty": history.points_penalty,
+            "points_bonus": history.points_bonus,
+            "daily_total": history.daily_total,
+            "cumulative_total": history.cumulative_total,
+            "tasks_completed": history.tasks_completed,
+            "habits_completed": history.habits_completed,
+            "tasks_planned": history.tasks_planned,
+            "completion_rate": history.completion_rate,
+        },
         "completed_tasks": [
             {
                 "id": t.id,
                 "description": t.description,
+                "project": t.project,
                 "energy": t.energy,
                 "time_spent": t.time_spent,
-                "completed_at": t.completed_at
+                "completed_at": t.completed_at,
+                "points": points_map.get(t.id, 0)
             }
             for t in completed_tasks
         ],
@@ -100,12 +134,16 @@ def get_day_details(
             {
                 "id": h.id,
                 "description": h.description,
+                "habit_type": h.habit_type,
                 "energy": h.energy,
                 "streak": h.streak,
-                "completed_at": h.completed_at
+                "completed_at": h.completed_at,
+                "points": points_map.get(h.id, 0)
             }
             for h in completed_habits
-        ]
+        ],
+        "penalties": penalties,
+        "planned_tasks": details.get("planned_tasks", [])
     }
 
 

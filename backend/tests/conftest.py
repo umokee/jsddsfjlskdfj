@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.infrastructure.database import Base
+from backend.core.database import Base
 from backend.models import Task, Settings, PointHistory, RestDay
 
 

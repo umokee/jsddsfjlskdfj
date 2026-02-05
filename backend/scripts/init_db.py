@@ -8,11 +8,10 @@ import sys
 from pathlib import Path
 
 # Add backend to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from backend.infrastructure.database import engine, SessionLocal, Base
+from backend.core.database import engine, SessionLocal, Base
 from backend import models  # Import all models to register them with Base
-from backend import crud
 
 def init_database():
     """Initialize database with all tables and default settings"""
@@ -28,7 +27,9 @@ def init_database():
         print("Checking settings...")
         db = SessionLocal()
         try:
-            settings = crud.get_settings(db)
+            from backend.modules.settings import SettingsService
+            settings_service = SettingsService(db)
+            settings = settings_service.get_data()
             print(f"✓ Settings already exist (ID: {settings.id})")
         except Exception as e:
             print(f"Settings not found, will be created on first API call")
