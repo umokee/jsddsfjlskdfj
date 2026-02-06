@@ -32,6 +32,7 @@ const MorningCheckIn = ({ onComplete }) => {
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to complete morning check-in');
+    } finally {
       setIsSubmitting(false);
     }
   };

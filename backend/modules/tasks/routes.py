@@ -103,6 +103,23 @@ def can_roll(
     return {"can_roll": can, "error_message": error_msg}
 
 
+@router.get("/stats", response_model=StatsResponse)
+def get_stats(
+    db: Session = Depends(get_db),
+    _: str = Depends(verify_api_key)
+):
+    """Get daily statistics."""
+    task_service = TaskService(db)
+    settings_service = SettingsService(db)
+    settings = settings_service.get()
+
+    return task_service.get_stats(
+        today=settings.effective_date,
+        day_start_enabled=settings.day_start_enabled,
+        day_start_time=settings.day_start_time
+    )
+
+
 @router.get("/{task_id}", response_model=TaskResponse)
 def get_task(
     task_id: int,
@@ -258,20 +275,3 @@ def complete_roll(
         raise HTTPException(status_code=400, detail=result["error"])
 
     return result
-
-
-@router.get("/stats", response_model=StatsResponse)
-def get_stats(
-    db: Session = Depends(get_db),
-    _: str = Depends(verify_api_key)
-):
-    """Get daily statistics."""
-    task_service = TaskService(db)
-    settings_service = SettingsService(db)
-    settings = settings_service.get()
-
-    return task_service.get_stats(
-        today=settings.effective_date,
-        day_start_enabled=settings.day_start_enabled,
-        day_start_time=settings.day_start_time
-    )

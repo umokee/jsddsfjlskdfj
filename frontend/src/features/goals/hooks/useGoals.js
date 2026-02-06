@@ -29,16 +29,19 @@ export function useGoals() {
 
   const createGoal = useCallback(async (goalData) => {
     const response = await goalsApi.create(goalData);
+    await loadGoals();
     return response.data;
-  }, []);
+  }, [loadGoals]);
 
   const deleteGoal = useCallback(async (id) => {
     await goalsApi.delete(id);
-  }, []);
+    await loadGoals();
+  }, [loadGoals]);
 
   const claimReward = useCallback(async (id) => {
     await goalsApi.claim(id);
-  }, []);
+    await loadGoals();
+  }, [loadGoals]);
 
   // Initial load
   useEffect(() => {

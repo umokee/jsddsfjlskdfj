@@ -59,6 +59,12 @@ async def run_auto_roll():
         target_time = _normalize_time(settings.auto_roll_time or "0600")
         today = get_effective_date(settings.day_start_enabled, settings.day_start_time)
 
+        # Safety: if pending_roll is stuck (roll already done today), clear it
+        if settings.pending_roll and settings.last_roll_date == today:
+            logger.info("Clearing stuck pending_roll flag (roll already done today)")
+            settings_service.clear_pending_roll()
+            return
+
         # Check if timeout reached for pending_roll
         if settings.pending_roll and settings.pending_roll_started_at:
             timeout_hours = settings.auto_mood_timeout_hours or 4
@@ -70,8 +76,10 @@ async def run_auto_roll():
                 workflow = RollDayWorkflow(db)
                 result = workflow.execute(mood="5")
 
+                # Always clear pending_roll after timeout attempt
+                settings_service.clear_pending_roll()
+
                 if "error" not in result:
-                    settings_service.clear_pending_roll()
                     logger.info(f"Auto-roll completed: {len(result.get('tasks', []))} tasks")
                 else:
                     logger.error(f"Auto-roll failed: {result.get('error')}")

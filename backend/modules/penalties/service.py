@@ -340,20 +340,36 @@ class PenaltyService:
             )
             return penalty, missed_task_potential, []
 
-        # Calculate using real task energy
+        # Build set of completed task IDs from details
+        completed_task_ids = set()
+        if day_history.details:
+            try:
+                details = json.loads(day_history.details)
+                for completion in details.get("task_completions", []):
+                    tid = completion.get("task_id")
+                    if tid is not None:
+                        completed_task_ids.add(tid)
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        # Calculate using real task energy - only for INCOMPLETE tasks
         missed_task_potential = 0
         incomplete_tasks_details = []
 
         for task_info in planned_tasks_info:
+            task_id = task_info.get("task_id")
+            # Skip tasks that were actually completed
+            if task_id in completed_task_ids:
+                continue
+
             task_energy = task_info.get("energy", 3)
-            # Assume not completed if we're calculating penalty
             energy_mult = settings_data.get("energy_mult_base", 0.6) + (
                 task_energy * settings_data.get("energy_mult_step", 0.2)
             )
             potential = settings_data.get("points_per_task_base", 10) * energy_mult
             missed_task_potential += potential
             incomplete_tasks_details.append({
-                "id": task_info.get("task_id"),
+                "id": task_id,
                 "description": task_info.get("description", ""),
                 "energy": task_energy,
                 "potential": int(potential)
@@ -440,12 +456,28 @@ class PenaltyService:
             )
             return int(penalty * progressive_multiplier), progressive_multiplier
         else:
-            # Reset streak if N days without penalty
-            yesterday_history = self.history_repo.get_by_date(target_date - timedelta(days=1))
-            if yesterday_history:
-                day_history.penalty_streak = yesterday_history.penalty_streak
-            else:
+            # Count consecutive days without penalty to decide if streak resets
+            reset_days = settings_data.get("penalty_streak_reset_days", 2)
+            consecutive_clean = 0
+            check = target_date
+
+            for _ in range(reset_days):
+                prev = self.history_repo.get_by_date(check - timedelta(days=1))
+                if not prev or prev.points_penalty > 0:
+                    break
+                consecutive_clean += 1
+                check -= timedelta(days=1)
+
+            if consecutive_clean >= reset_days:
+                # Enough clean days: reset streak
                 day_history.penalty_streak = 0
+            else:
+                # Not enough clean days yet: keep previous streak
+                yesterday_history = self.history_repo.get_by_date(target_date - timedelta(days=1))
+                if yesterday_history:
+                    day_history.penalty_streak = yesterday_history.penalty_streak
+                else:
+                    day_history.penalty_streak = 0
             return penalty, 1.0
 
     def _get_effective_penalty_streak(self, check_date: date) -> int:

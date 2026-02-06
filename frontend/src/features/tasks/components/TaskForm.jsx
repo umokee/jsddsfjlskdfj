@@ -82,7 +82,7 @@ function TaskForm({ onSubmit, onCancel, editTask }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    let dueDate = formData.due_date ? new Date(formData.due_date).toISOString() : null;
+    let dueDate = formData.due_date ? new Date(formData.due_date + 'T12:00:00').toISOString() : null;
     if (formData.is_habit && !dueDate) {
       dueDate = new Date().toISOString();
     }

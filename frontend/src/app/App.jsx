@@ -92,6 +92,7 @@ function AppContent() {
   const [rollMood, setRollMood] = useState('');
   const [showMorningCheckIn, setShowMorningCheckIn] = useState(false);
   const [appError, setAppError] = useState(null);
+  const [actionInProgress, setActionInProgress] = useState(false);
 
   // Check for pending roll on mount and periodically
   useEffect(() => {
@@ -114,42 +115,63 @@ function AppContent() {
   }, [loadTasks, loadHabits, loadCurrentPoints, checkCanRoll, refetchSettings]);
 
   const handleStart = async (taskId = null) => {
+    if (actionInProgress) return;
+    setActionInProgress(true);
+    setAppError(null);
     try {
       await startTask(taskId);
     } catch (err) {
       setAppError(err.response?.data?.detail || 'Failed to start task');
+    } finally {
+      setActionInProgress(false);
     }
   };
 
   const handleStop = async () => {
+    if (actionInProgress) return;
+    setActionInProgress(true);
+    setAppError(null);
     try {
       await stopTask();
     } catch (err) {
       setAppError(err.response?.data?.detail || 'Failed to stop task');
+    } finally {
+      setActionInProgress(false);
     }
   };
 
   const handleComplete = async (taskId = null) => {
+    if (actionInProgress) return;
+    setActionInProgress(true);
+    setAppError(null);
     try {
       await completeTask(taskId);
       await loadCurrentPoints();
     } catch (err) {
       setAppError(err.response?.data?.detail || 'Failed to complete task');
+    } finally {
+      setActionInProgress(false);
     }
   };
 
   const handleRoll = async () => {
+    if (actionInProgress) return;
+    setActionInProgress(true);
+    setAppError(null);
     try {
       const mood = rollMood || null;
       await rollTasks(mood);
       setRollMood('');
     } catch (err) {
       setAppError(err.response?.data?.detail || 'Failed to roll tasks');
+    } finally {
+      setActionInProgress(false);
     }
   };
 
   const handleMorningCheckInComplete = async () => {
     setShowMorningCheckIn(false);
+    setAppError(null);
     await loadTasks();
     await loadHabits();
     await checkCanRoll();
@@ -157,6 +179,9 @@ function AppContent() {
   };
 
   const handleSubmitTask = async (taskData) => {
+    if (actionInProgress) return;
+    setActionInProgress(true);
+    setAppError(null);
     try {
       if (editingTask) {
         await updateTask(editingTask.id, taskData);
@@ -168,6 +193,8 @@ function AppContent() {
     } catch (err) {
       const action = editingTask ? 'update' : 'create';
       setAppError(err.response?.data?.detail || `Failed to ${action} task`);
+    } finally {
+      setActionInProgress(false);
     }
   };
 
@@ -182,10 +209,15 @@ function AppContent() {
   };
 
   const handleDeleteTask = async (taskId) => {
+    if (actionInProgress) return;
+    setActionInProgress(true);
+    setAppError(null);
     try {
       await deleteTask(taskId);
     } catch (err) {
       setAppError(err.response?.data?.detail || 'Failed to delete task');
+    } finally {
+      setActionInProgress(false);
     }
   };
 
@@ -279,11 +311,11 @@ function AppContent() {
                   </div>
                   <div className="task-actions">
                     {currentTask.status === 'active' ? (
-                      <button className="btn btn-secondary" onClick={handleStop}>PAUSE</button>
+                      <button className="btn btn-secondary" onClick={handleStop} disabled={actionInProgress}>PAUSE</button>
                     ) : (
-                      <button className="btn btn-primary" onClick={() => handleStart(currentTask.id)}>RESUME</button>
+                      <button className="btn btn-primary" onClick={() => handleStart(currentTask.id)} disabled={actionInProgress}>RESUME</button>
                     )}
-                    <button className="btn btn-success" onClick={() => handleComplete()}>COMPLETE</button>
+                    <button className="btn btn-success" onClick={() => handleComplete()} disabled={actionInProgress}>COMPLETE</button>
                   </div>
                 </div>
               </div>
@@ -313,7 +345,7 @@ function AppContent() {
                     <option value="4">[ E:0-4 ]</option>
                     <option value="5">[ E:0-5 ]</option>
                   </select>
-                  <button className="btn btn-secondary" onClick={handleRoll}>
+                  <button className="btn btn-secondary" onClick={handleRoll} disabled={actionInProgress}>
                     [ ROLL_DAILY_PLAN ]
                   </button>
                 </div>
@@ -321,7 +353,7 @@ function AppContent() {
                 rollMessage && <span className="roll-message">{rollMessage}</span>
               )}
               {!currentTask && (
-                <button className="btn btn-success" onClick={() => handleStart()}>
+                <button className="btn btn-success" onClick={() => handleStart()} disabled={actionInProgress}>
                   [ >> START_NEXT ]
                 </button>
               )}

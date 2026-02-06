@@ -39,7 +39,6 @@ class TaskUpdate(BaseModel):
     is_habit: Optional[bool] = None
     is_today: Optional[bool] = None
     due_date: Optional[datetime] = None
-    status: Optional[str] = None
     estimated_time: Optional[int] = Field(None, ge=0)
     depends_on: Optional[int] = None
 
