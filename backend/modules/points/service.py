@@ -304,10 +304,15 @@ class PointsService:
         self.repo.update(history)
 
     def get_current_points(self, today: Optional[date] = None) -> int:
-        """Get current total points."""
+        """Get current total points (read-only, no DB record creation)."""
         if today is not None:
-            history = self.get_or_create_today_history(today)
-            return history.cumulative_total
+            # First try exact date match
+            history = self.repo.get_by_date(today)
+            if history:
+                return history.cumulative_total
+            # No history for today yet — return most recent cumulative
+            history = self.repo.get_most_recent(today)
+            return history.cumulative_total if history else 0
         # Fallback: find the most recent history entry
         history = self.repo.get_most_recent(date.today())
         return history.cumulative_total if history else 0

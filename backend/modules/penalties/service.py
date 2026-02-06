@@ -240,9 +240,10 @@ class PenaltyService:
         day_history.details = json.dumps(details)
         self.history_repo.update(day_history)
 
-        # Propagate to subsequent days
-        if total_penalty > 0:
-            self._propagate_cumulative_change(target_date, -total_penalty)
+        # Propagate to subsequent days (use clamped delta, not raw penalty)
+        cumulative_delta = day_history.cumulative_total - previous_cumulative
+        if cumulative_delta != 0:
+            self._propagate_cumulative_change(target_date, cumulative_delta)
 
         return {
             "penalty": total_penalty,
@@ -289,11 +290,11 @@ class PenaltyService:
         day_end,
         get_completed_count: Callable
     ) -> None:
-        """Update completion counts in history."""
-        if day_history.tasks_completed == 0:
-            day_history.tasks_completed = get_completed_count(day_start, day_end, False)
-        if day_history.habits_completed == 0:
-            day_history.habits_completed = get_completed_count(day_start, day_end, True)
+        """Update completion counts in history. Uses max to never lose counts."""
+        actual_tasks = get_completed_count(day_start, day_end, False)
+        actual_habits = get_completed_count(day_start, day_end, True)
+        day_history.tasks_completed = max(day_history.tasks_completed, actual_tasks)
+        day_history.habits_completed = max(day_history.habits_completed, actual_habits)
 
     def _calculate_idle_penalty(self, day_history: PointHistory, settings_data: dict) -> int:
         """Calculate idle penalty (0 tasks AND 0 habits)."""
@@ -581,6 +582,7 @@ class PenaltyService:
         get_history_fn: Callable,
         get_missed_habits_fn: Callable,
         count_habits_due_fn: Callable,
+        roll_forward_habit_fn: Optional[Callable] = None,
     ) -> None:
         """
         Finalize any missing days between last finalized and yesterday.
@@ -688,6 +690,10 @@ class PenaltyService:
                     "penalty": habit_penalty
                 })
 
+                # Roll forward habit so it appears as due on next day
+                if roll_forward_habit_fn:
+                    roll_forward_habit_fn(habit, current_date)
+
             base_penalty = idle_penalty + habits_penalty
 
             # Progressive multiplier
@@ -740,6 +746,7 @@ class PenaltyService:
         get_yesterday_completed_habits: Callable,
         get_missed_habits_fn: Callable = None,
         count_habits_due_fn: Callable = None,
+        roll_forward_habit_fn: Callable = None,
     ) -> dict:
         """
         Calculate penalties for yesterday (and any skipped days).
@@ -768,6 +775,7 @@ class PenaltyService:
                 get_yesterday_history,
                 get_missed_habits_fn,
                 count_habits_due_fn,
+                roll_forward_habit_fn,
             )
 
         yesterday = effective_today - timedelta(days=1)
@@ -802,14 +810,16 @@ class PenaltyService:
             settings.day_start_time
         )
 
-        # Update task counts if needed
-        if yesterday_history.tasks_completed == 0:
-            completed_tasks = get_yesterday_completed_tasks(day_start, day_end)
-            yesterday_history.tasks_completed = len(completed_tasks)
+        # Update task counts (use max to never lose counts)
+        completed_tasks = get_yesterday_completed_tasks(day_start, day_end)
+        yesterday_history.tasks_completed = max(
+            yesterday_history.tasks_completed, len(completed_tasks)
+        )
 
-        if yesterday_history.habits_completed == 0:
-            completed_habits = get_yesterday_completed_habits(day_start, day_end)
-            yesterday_history.habits_completed = len(completed_habits)
+        completed_habits = get_yesterday_completed_habits(day_start, day_end)
+        yesterday_history.habits_completed = max(
+            yesterday_history.habits_completed, len(completed_habits)
+        )
 
         # Build settings dict
         settings_data = {

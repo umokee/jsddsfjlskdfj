@@ -482,6 +482,31 @@ class TaskService:
         """Count habits due in a date range."""
         return self.repo.count_habits_due_in_range(start, end)
 
+    def roll_forward_missed_habit(self, habit_data: dict, from_date: date) -> None:
+        """Roll forward a missed habit to its next due date.
+
+        Used by penalty finalization to reschedule habits on intermediate
+        missed days so that subsequent days can detect them as due.
+        """
+        habit = self.repo.get_by_id(habit_data.get("id"))
+        if not habit or not habit.is_habit:
+            return
+
+        if habit.recurrence_type == RECURRENCE_NONE:
+            return
+
+        current_due = habit.due_date.date() if habit.due_date else from_date
+        next_due = calculate_next_due_date(
+            habit.recurrence_type,
+            current_due,
+            habit.recurrence_interval,
+            habit.recurrence_days
+        )
+
+        if next_due:
+            self._create_next_habit_occurrence(habit, next_due)
+        self.repo.delete(habit)
+
     # Private methods
 
     def _check_dependencies_met(self, task: Task) -> bool:

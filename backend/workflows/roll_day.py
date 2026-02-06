@@ -76,6 +76,7 @@ class RollDayWorkflow:
             get_yesterday_completed_habits=lambda start, end: self.task_service._get_completed_habits_in_range(start, end),
             get_missed_habits_fn=lambda start, end: self.task_service.get_missed_habits(start, end),
             count_habits_due_fn=lambda start, end: self.task_service.count_habits_due(start, end),
+            roll_forward_habit_fn=lambda h, d: self.task_service.roll_forward_missed_habit(h, d),
         )
 
         # 2. Roll tasks (handles overdue habits, selects tasks)
