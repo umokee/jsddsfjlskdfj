@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
-
-import { API_URL } from '../config';
-import { getApiKey } from '../api';
+import { pointsApi } from '../../../shared/api';
 
 function PointsCalculator() {
   const [targetDate, setTargetDate] = useState('');
@@ -17,10 +14,7 @@ function PointsCalculator() {
 
     setCalculating(true);
     try {
-      const response = await axios.get(
-        `${API_URL}/api/points/projection?target_date=${targetDate}`,
-        { headers: { 'X-API-Key': getApiKey() } }
-      );
+      const response = await pointsApi.getProjection(targetDate);
       setProjection(response.data);
     } catch (error) {
       console.error('Failed to calculate projection:', error);

@@ -1,7 +1,7 @@
 """
 Goal module exceptions.
 """
-from core.exceptions import NotFoundError, ValidationError
+from backend.core.exceptions import NotFoundError, ValidationError
 
 
 class GoalNotFoundError(NotFoundError):

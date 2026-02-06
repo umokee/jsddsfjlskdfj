@@ -29,7 +29,7 @@ export const taskApi = {
  * Stats API
  */
 export const statsApi = {
-  get: () => client.get('/stats'),
+  get: () => client.get('/tasks/stats'),
 };
 
 /**

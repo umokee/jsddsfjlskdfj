@@ -95,7 +95,7 @@ def can_roll(
 
     can, error_msg = task_service.can_roll(
         effective_today=settings.effective_date,
-        last_roll_date=settings.last_roll_date if hasattr(settings, 'last_roll_date') else None,
+        last_roll_date=settings.last_roll_date,
         day_start_enabled=settings.day_start_enabled,
         roll_available_time=settings.roll_available_time
     )
@@ -131,7 +131,7 @@ def create_task(
     return task_service.create(
         task_data,
         effective_today=settings.effective_date,
-        last_roll_date=settings.last_roll_date if hasattr(settings, 'last_roll_date') else None
+        last_roll_date=settings.last_roll_date
     )
 
 

@@ -189,6 +189,7 @@ class PointsService:
         min_work_time_seconds: int,
         streak_log_factor: float,
         routine_points_fixed: int,
+        today: Optional[date] = None,
         description: str = "",
     ) -> int:
         """
@@ -239,7 +240,8 @@ class PointsService:
             points = result.points
 
         # Get today's history
-        today = date.today()
+        if today is None:
+            today = date.today()
         history = self.get_or_create_today_history(today)
 
         # Update counters
@@ -301,10 +303,14 @@ class PointsService:
 
         self.repo.update(history)
 
-    def get_current_points(self, today: date) -> int:
+    def get_current_points(self, today: Optional[date] = None) -> int:
         """Get current total points."""
-        history = self.get_or_create_today_history(today)
-        return history.cumulative_total
+        if today is not None:
+            history = self.get_or_create_today_history(today)
+            return history.cumulative_total
+        # Fallback: find the most recent history entry
+        history = self.repo.get_most_recent(date.today())
+        return history.cumulative_total if history else 0
 
     def get_history(self, days: int, from_date: date) -> List[PointHistoryResponse]:
         """Get point history for last N days."""
@@ -411,9 +417,3 @@ class PointsService:
             "details": history.details,
         }
 
-    def get_current_points(self) -> int:
-        """Get current total points (uses effective date internally)."""
-        # This needs to be called with no arguments for workflow compatibility
-        # Find the most recent history entry
-        history = self.repo.get_most_recent(date.today())
-        return history.cumulative_total if history else 0

@@ -1,7 +1,7 @@
 """
 Task module exceptions.
 """
-from core.exceptions import NotFoundError, AppError
+from backend.core.exceptions import NotFoundError, AppError
 
 
 class TaskNotFoundError(NotFoundError):

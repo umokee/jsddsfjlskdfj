@@ -103,7 +103,7 @@ async def run_auto_roll():
             logger.info(f"Penalties applied: {penalty_info.get('penalty', 0)} points")
 
             # Set pending_roll flag
-            settings_service.set_pending_roll()
+            settings_service.set_pending_roll(True, datetime.now())
             logger.info(f"Waiting for user mood selection (timeout: {settings.auto_mood_timeout_hours}h)")
 
     except Exception as e:

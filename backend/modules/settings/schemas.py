@@ -78,6 +78,7 @@ class SettingsResponse(SettingsBase):
     """Schema for settings response."""
     id: int
     updated_at: datetime
+    last_roll_date: Optional[date] = None  # Track last roll to enforce 1/day
     last_backup_date: Optional[datetime] = None
     effective_date: Optional[date] = None  # Current effective date based on day_start_time
     pending_roll_started_at: Optional[datetime] = None  # When pending_roll was set (read-only)

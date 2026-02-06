@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
-import { API_URL } from '../config';
-import { getApiKey } from '../api';
+import { taskApi } from '../../../shared/api';
 
 const MorningCheckIn = ({ onComplete }) => {
   const [selectedMood, setSelectedMood] = useState(null);
@@ -27,15 +25,7 @@ const MorningCheckIn = ({ onComplete }) => {
     setError(null);
 
     try {
-      const apiKey = getApiKey();
-      const response = await axios.post(
-        `${API_URL}/api/tasks/complete-roll`,
-        null,
-        {
-          params: { mood: selectedMood },
-          headers: { 'X-API-Key': apiKey },
-        }
-      );
+      const response = await taskApi.completeRoll(selectedMood);
 
       if (onComplete) {
         onComplete(response.data);

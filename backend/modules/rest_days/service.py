@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from datetime import date
 from typing import List
 
-from core.exceptions import NotFoundError
+from backend.core.exceptions import NotFoundError
 from .repository import RestDayRepository
 from .models import RestDay
 from .schemas import RestDayCreate, RestDayResponse

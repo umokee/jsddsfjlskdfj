@@ -65,6 +65,7 @@ class CompleteTaskWorkflow:
                 points_per_habit_base=settings.points_per_habit_base,
                 energy_mult_base=settings.energy_mult_base,
                 energy_mult_step=settings.energy_mult_step,
+                today=today,
                 minutes_per_energy_unit=settings.minutes_per_energy_unit,
                 min_work_time_seconds=settings.min_work_time_seconds,
                 streak_log_factor=settings.streak_log_factor,
@@ -73,7 +74,7 @@ class CompleteTaskWorkflow:
             )
 
             # Check if any goals were achieved
-            current_points = self.points_service.get_current_points()
+            current_points = self.points_service.get_current_points(today)
             self.goal_service.check_achievements(
                 current_points=current_points,
                 today=today,
